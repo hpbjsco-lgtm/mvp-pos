@@ -1,0 +1,111 @@
+{
+  "simCustomers": [
+    { "id": "khach-vang-lai", "name": "Khách vãng lai mặc định", "phone": "", "email": "", "points": 0, "createdAt": "2026-07-02T20:00:00-07:00" },
+    { "id": "C1", "name": "Nguyễn Hoàng Nam", "phone": "0901234567", "email": "nam.nguyen@gmail.com", "points": 142, "createdAt": "2026-07-02T20:45:00-07:00" },
+    { "id": "C2", "name": "Lê Thị Thu Thảo", "phone": "0987654321", "email": "thao.le@yahoo.com", "points": 85, "createdAt": "2026-07-02T20:45:00-07:00" }
+  ],
+  "simSuppliers": [
+    { "id": "S1", "name": "Công ty Cổ phần Sữa Việt Nam (Vinamilk)", "phone": "0281234567", "email": "sales@vinamilk.com.vn", "address": "10 Tân Trào, Tân Phú, Quận 7, TP. HCM", "createdAt": "2026-07-02T20:45:00-07:00" },
+    { "id": "S2", "name": "Nông trại Rau sạch Đà Lạt GAP", "phone": "02633888999", "email": "info@dalatgap.com", "address": "152 Tự Phước, Phường 11, Đà Lạt", "createdAt": "2026-07-02T20:45:00-07:00" }
+  ],
+  "simEmployees": [
+    { "uid": "STAFF-ADMIN", "email": "quanly@smartpos.com", "storeId": "Sandbox", "role": "owner", "name": "Quản lý Đạt", "hourlyRate": 35000, "createdAt": "2026-07-01T08:00:00-07:00" },
+    { "uid": "STAFF-01", "email": "cashier1@smartpos.com", "storeId": "Sandbox", "role": "staff", "name": "Thu ngân Trâm", "hourlyRate": 25000, "createdAt": "2026-07-02T09:00:00-07:00" }
+  ],
+  "simAttendance": [
+    { "id": "att-STAFF-01-2026-07-02", "storeId": "Sandbox", "userId": "STAFF-01", "userName": "Thu ngân Trâm", "date": "2026-07-02", "checkIn": "2026-07-02T08:00:00-07:00", "checkOut": "2026-07-02T17:00:00-07:00", "hoursWorked": 9, "hourlyRate": 25000, "dailyWage": 225000, "status": "completed" }
+  ],
+  "simZones": [
+    { "id": "z1", "name": "Khu chung (Tầng 1)" },
+    { "id": "z2", "name": "Tầng 2" },
+    { "id": "z3", "name": "Tầng 3" }
+  ],
+  "simTables": [
+    { "id": "T1", "name": "Bàn 01", "status": "serving", "capacity": 4, "zoneId": "z1", "x": 10, "y": 15, "width": 95, "height": 95, "createdAt": "2026-07-02T20:45:00-07:00" },
+    { "id": "T2", "name": "Bàn 02", "status": "empty", "capacity": 2, "zoneId": "z1", "x": 40, "y": 15, "width": 95, "height": 95, "createdAt": "2026-07-02T20:45:00-07:00" },
+    { "id": "T3", "name": "Bàn 03", "status": "serving", "capacity": 6, "zoneId": "z1", "x": 70, "y": 15, "width": 110, "height": 95, "createdAt": "2026-07-02T20:45:00-07:00" },
+    { "id": "T4", "name": "Bàn 04", "status": "empty", "capacity": 4, "zoneId": "z2", "x": 25, "y": 30, "width": 95, "height": 95, "createdAt": "2026-07-02T20:45:00-07:00" },
+    { "id": "T5", "name": "Bàn 05 (VIP)", "status": "empty", "capacity": 8, "zoneId": "z3", "x": 45, "y": 35, "width": 130, "height": 110, "createdAt": "2026-07-02T20:45:00-07:00" }
+  ],
+  "simProducts": [
+    { "id": "P1", "sku": "8930001001", "name": "Cà Phê Sữa Đá Sài Gòn", "price": 29000, "cost": 10000, "category": "Đồ uống", "isAvailable": true, "createdAt": "2026-07-02T20:45:00-07:00" },
+    { "id": "P2", "sku": "8930001002", "name": "Trà Đào Cam Sả Hồng Đài", "price": 35000, "cost": 12000, "category": "Đồ uống", "isAvailable": true, "createdAt": "2026-07-02T20:45:00-07:00" },
+    { "id": "P3", "sku": "8930001003", "name": "Phở Bò Thượng Hạng Kobe", "price": 89000, "cost": 35000, "category": "Món ăn", "isAvailable": true, "createdAt": "2026-07-02T20:45:00-07:00" },
+    { "id": "P4", "sku": "8930001004", "name": "Bún Chả Hà Nội Gia Truyền", "price": 45000, "cost": 18000, "category": "Món ăn", "isAvailable": false, "createdAt": "2026-07-02T20:45:00-07:00" },
+    { "id": "P5", "sku": "8930001005", "name": "Bánh Mì Garlic Bơ Tỏi", "price": 25000, "cost": 8000, "category": "Ăn nhẹ", "isAvailable": true, "createdAt": "2026-07-02T20:45:00-07:00" },
+    { "id": "P6", "sku": "8930001006", "name": "Nước Ngọt Coca Cola Lon", "price": 15000, "cost": 6000, "category": "Đồ uống", "isAvailable": true, "createdAt": "2026-07-02T20:45:00-07:00" }
+  ],
+  "simKitchenItems": [
+    { "id": "K1", "orderId": "ORD-980", "productId": "P3", "productName": "Phở Bò Thượng Hạng Kobe", "quantity": 1, "tableNumber": "Bàn 01", "status": "preparing", "note": "Không hành tây, chín kỹ", "createdAt": "2026-07-02T20:30:00-07:00" },
+    { "id": "K2", "orderId": "ORD-980", "productId": "P1", "productName": "Cà Phê Sữa Đá Sài Gòn", "quantity": 2, "tableNumber": "Bàn 01", "status": "pending", "note": "Nhiều đá sữa", "createdAt": "2026-07-02T20:31:00-07:00" },
+    { "id": "K3", "orderId": "ORD-981", "productId": "P5", "productName": "Bánh Mì Garlic Bơ Tỏi", "quantity": 1, "tableNumber": "Bàn 03", "status": "completed", "note": "Nướng giòn nóng", "createdAt": "2026-07-02T20:38:00-07:00" }
+  ],
+  "simCarts": {
+    "T1": [
+      { "productId": "P1", "quantity": 2, "note": "Nhiều sữa" },
+      { "productId": "P3", "quantity": 1, "note": "Ít hành" }
+    ],
+    "T3": [
+      { "productId": "P5", "quantity": 1, "note": "Nướng nóng" }
+    ],
+    "retail": []
+  },
+  "simOrders": [
+    {
+      "id": "ORD-101",
+      "orderNumber": "HD-00101",
+      "storeType": "fnb",
+      "tableNumber": "Bàn 03",
+      "items": [{ "name": "Bánh Mì Garlic Bơ Tỏi", "quantity": 1, "price": 25000 }],
+      "totalAmount": 25000,
+      "paymentMethod": "qr",
+      "createdAt": "2026-07-02T20:10:00-07:00"
+    }
+  ],
+  "simBatches": [
+    { "id": "B1", "productId": "P1", "batchCode": "LOT-C01", "expiryDate": "2027-12-31", "quantity": 85, "originalQuantity": 100, "createdAt": "2026-07-02T20:45:00-07:00" },
+    { "id": "B2", "productId": "P2", "batchCode": "LOT-T02", "expiryDate": "2026-08-15", "quantity": 45, "originalQuantity": 50, "createdAt": "2026-07-02T20:45:00-07:00" },
+    { "id": "B3", "productId": "P3", "batchCode": "LOT-F03", "expiryDate": "2027-06-30", "quantity": 30, "originalQuantity": 30, "createdAt": "2026-07-02T20:45:00-07:00" },
+    { "id": "B4", "productId": "P5", "batchCode": "LOT-B05", "expiryDate": "2026-07-20", "quantity": 12, "originalQuantity": 20, "createdAt": "2026-07-02T20:45:00-07:00" }
+  ],
+  "simTransactions": [
+    {
+      "id": "TX-101",
+      "transactionNumber": "PNK-00101",
+      "type": "import",
+      "items": [{ "productId": "P1", "batchCode": "LOT-C01", "quantity": 100, "price": 10000 }],
+      "totalAmount": 1000000,
+      "staffId": "STAFF-ADMIN",
+      "note": "Nhập kho nguyên liệu đầu tháng 7",
+      "createdAt": "2026-07-01T10:00:00-07:00"
+    }
+  ],
+  "simIngredients": [
+    { "id": "I1", "sku": "RAW-001", "name": "Hạt Cà Phê Robusta Măng Đen", "price": 0, "cost": 120000, "category": "Đồ uống", "isAvailable": true, "createdAt": "2026-07-02T20:45:00-07:00" },
+    { "id": "I2", "sku": "RAW-002", "name": "Sữa Đặc Có Đường Ông Thọ", "price": 0, "cost": 22000, "category": "Đồ uống", "isAvailable": true, "createdAt": "2026-07-02T20:45:00-07:00" },
+    { "id": "I3", "sku": "RAW-003", "name": "Trà Đen Phúc Long Cao Cấp", "price": 0, "cost": 140000, "category": "Đồ uống", "isAvailable": true, "createdAt": "2026-07-02T20:45:00-07:00" },
+    { "id": "I4", "sku": "RAW-004", "name": "Thịt Bò Thượng Hạng Mỹ", "price": 0, "cost": 320000, "category": "Món ăn", "isAvailable": true, "createdAt": "2026-07-02T20:45:00-07:00" },
+    { "id": "I5", "sku": "RAW-005", "name": "Bánh Phở Tươi Trong Ngày", "price": 0, "cost": 15000, "category": "Món ăn", "isAvailable": true, "createdAt": "2026-07-02T20:45:00-07:00" },
+    { "id": "I6", "sku": "RAW-006", "name": "Bơ Lạt Anchor Nhập Khẩu", "price": 0, "cost": 240000, "category": "Món ăn", "isAvailable": true, "createdAt": "2026-07-02T20:45:00-07:00" },
+    { "id": "I7", "sku": "RAW-007", "name": "Cam Sành Hàm Yên Hữu Cơ", "price": 0, "cost": 30000, "category": "Khác", "isAvailable": true, "createdAt": "2026-07-02T20:45:00-07:00" },
+    { "id": "I8", "sku": "RAW-008", "name": "Đá Viên Tinh Khiết (Bao 10kg)", "price": 0, "cost": 12000, "category": "Khác", "isAvailable": true, "createdAt": "2026-07-02T20:45:00-07:00" }
+  ],
+  "simIngredientBatches": [
+    { "id": "IB1", "productId": "I1", "batchCode": "LOT-ROB-01", "expiryDate": "2027-06-30", "quantity": 25, "originalQuantity": 30, "createdAt": "2026-07-02T20:45:00-07:00" },
+    { "id": "IB2", "productId": "I2", "batchCode": "LOT-MILK-02", "expiryDate": "2026-12-15", "quantity": 48, "originalQuantity": 60, "createdAt": "2026-07-02T20:45:00-07:00" },
+    { "id": "IB3", "productId": "I4", "batchCode": "LOT-BEEF-03", "expiryDate": "2026-07-10", "quantity": 15, "originalQuantity": 15, "createdAt": "2026-07-02T20:45:00-07:00" },
+    { "id": "IB4", "productId": "I5", "batchCode": "LOT-PHO-04", "expiryDate": "2026-07-04", "quantity": 10, "originalQuantity": 10, "createdAt": "2026-07-02T20:45:00-07:00" }
+  ],
+  "simIngredientTransactions": [
+    {
+      "id": "ITX-101",
+      "transactionNumber": "PNK-NVL01",
+      "type": "import",
+      "items": [{ "productId": "I1", "batchCode": "LOT-ROB-01", "quantity": 30, "price": 120000 }],
+      "totalAmount": 3600000,
+      "staffId": "STAFF-ADMIN",
+      "note": "Nhập hạt cà phê & sữa đặc pha chế",
+      "createdAt": "2026-07-01T10:00:00-07:00"
+    }
+  ]
+}

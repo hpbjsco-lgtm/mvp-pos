@@ -1,0 +1,10 @@
+{
+  "projectId": "mvppos-bcbec",
+  "appId": "1:536474536970:web:9730f428e77dc8c77063f3",
+  "apiKey": "AIzaSyB-jhf19I7mSUnLlHgHis6jfHm_oBnUNLE",
+  "authDomain": "mvppos-bcbec.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-multitenantposin-ccba55ac-ee1c-490c-b7fa-9603788ba6ef",
+  "storageBucket": "mvppos-bcbec.firebasestorage.app",
+  "messagingSenderId": "536474536970",
+  "measurementId": ""
+}

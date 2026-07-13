@@ -1,0 +1,251 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User profile containing tenant information (storeId) and role.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Authentication User ID" },
+        "email": { "type": "string", "description": "Email address of the user" },
+        "storeId": { "type": "string", "description": "Tenant store ID" },
+        "role": { "type": "string", "enum": ["owner", "staff"], "description": "User role within the store" },
+        "name": { "type": "string", "description": "Display name" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["uid", "email", "storeId", "role", "name", "createdAt"]
+    },
+    "Store": {
+      "title": "Store (Tenant)",
+      "description": "Store profile representing a tenant in the system, distinguishing between F&B and Retail types.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique Store ID" },
+        "name": { "type": "string", "description": "Name of the store" },
+        "address": { "type": "string", "description": "Store physical address" },
+        "phone": { "type": "string", "description": "Store phone number" },
+        "storeType": { "type": "string", "enum": ["fnb", "retail"], "description": "Type of the store layout & flow" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["id", "name", "address", "phone", "storeType", "createdAt"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Product details inside a specific store, including availability for food orders.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique product ID" },
+        "sku": { "type": "string", "description": "Stock Keeping Unit / Barcode" },
+        "name": { "type": "string", "description": "Product display name" },
+        "price": { "type": "number", "description": "Retail price" },
+        "cost": { "type": "number", "description": "Purchase cost" },
+        "category": { "type": "string", "description": "Product category" },
+        "isAvailable": { "type": "boolean", "description": "Status of food/product availability" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["id", "sku", "name", "price", "cost", "category", "isAvailable", "createdAt"]
+    },
+    "InventoryBatch": {
+      "title": "Inventory Batch (Lô hàng)",
+      "description": "Track stock and expiration dates of batches for high-precision inventory.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique batch ID" },
+        "productId": { "type": "string", "description": "Reference to Product ID" },
+        "batchCode": { "type": "string", "description": "Batch/Lot number (Mã Lô)" },
+        "expiryDate": { "type": "string", "description": "Expiration date (Hạn Sử Dụng)" },
+        "manufactureDate": { "type": "string", "description": "Production date (Ngày Sản Xuất)" },
+        "importPrice": { "type": "number", "description": "Purchase cost of product inside this batch" },
+        "transactionId": { "type": "string", "description": "Linked Inventory Transaction ID for traceability" },
+        "quantity": { "type": "number", "description": "Current quantity in stock" },
+        "originalQuantity": { "type": "number", "description": "Initially imported quantity" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["id", "productId", "batchCode", "expiryDate", "quantity", "originalQuantity", "createdAt"]
+    },
+    "Order": {
+      "title": "Order / Receipt",
+      "description": "Sales order completed at POS, with F&B table attributes.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique order ID" },
+        "orderNumber": { "type": "string", "description": "Formatted receipt number (e.g., HD0001)" },
+        "items": {
+          "type": "array",
+          "description": "List of items in the order"
+        },
+        "totalAmount": { "type": "number", "description": "Total payment amount" },
+        "paymentMethod": { "type": "string", "enum": ["cash", "card", "qr"], "description": "Payment method" },
+        "paidAmount": { "type": "number", "description": "Amount paid by customer" },
+        "changeAmount": { "type": "number", "description": "Change returned to customer" },
+        "staffId": { "type": "string", "description": "ID of staff who processed the order" },
+        "customerId": { "type": "string", "description": "ID of customer (e.g., khach-vang-lai for walk-in)" },
+        "customerPointsEarned": { "type": "number", "description": "Points earned from this transaction" },
+        "tableId": { "type": "string", "description": "F&B Table ID if dined in" },
+        "tableNumber": { "type": "string", "description": "F&B table label if dined in" },
+        "orderType": { "type": "string", "enum": ["dine-in", "takeaway"], "description": "Dine-in vs takeaway flag" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["id", "orderNumber", "items", "totalAmount", "paymentMethod", "paidAmount", "changeAmount", "staffId", "createdAt"]
+    },
+    "Supplier": {
+      "title": "Supplier (Nhà cung cấp)",
+      "description": "Supplier profile details.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique supplier ID" },
+        "name": { "type": "string", "description": "Supplier name" },
+        "phone": { "type": "string", "description": "Contact phone" },
+        "email": { "type": "string", "description": "Contact email" },
+        "address": { "type": "string", "description": "Contact address" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["id", "name", "phone", "email", "address", "createdAt"]
+    },
+    "InventoryTransaction": {
+      "title": "Inventory Transaction (Phiếu xuất nhập kho)",
+      "description": "Import, export, or adjustment vouchers of goods in stock.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique transaction voucher ID" },
+        "transactionNumber": { "type": "string", "description": "Voucher number (e.g., PNK0001)" },
+        "type": { "type": "string", "enum": ["import", "export", "adjustment"], "description": "Type of stock transaction" },
+        "supplierId": { "type": "string", "description": "Supplier reference (optional, for imports)" },
+        "items": { "type": "array", "description": "Items transferred with product ID, batchCode, and quantity" },
+        "totalAmount": { "type": "number", "description": "Optional total financial value of transaction" },
+        "staffId": { "type": "string", "description": "ID of staff registering this voucher" },
+        "note": { "type": "string", "description": "Transaction optional reason or description" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["id", "transactionNumber", "type", "items", "staffId", "createdAt"]
+    },
+    "Customer": {
+      "title": "Customer (Khách hàng)",
+      "description": "Customer profiles including loyalty points tracker.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique customer ID (with a predefined 'khach-vang-lai' for walk-in customer)" },
+        "name": { "type": "string", "description": "Customer full name" },
+        "phone": { "type": "string", "description": "Phone number for lookup" },
+        "email": { "type": "string", "description": "Email address" },
+        "points": { "type": "number", "description": "Loyalty reward points balance" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["id", "name", "phone", "email", "points", "createdAt"]
+    },
+    "DiningTable": {
+      "title": "Dining Table (Bàn ăn)",
+      "description": "Table configurations for F&B type stores.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique Table ID" },
+        "name": { "type": "string", "description": "Table display label" },
+        "status": { "type": "string", "enum": ["empty", "serving"], "description": "Occupancy status of table" },
+        "capacity": { "type": "number", "description": "Maximum seating capacity" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["id", "name", "status", "capacity", "createdAt"]
+    },
+    "KitchenItem": {
+      "title": "Kitchen Queue Item (Chế biến món ăn)",
+      "description": "Kitchen item status tracking for F&B preparation screens.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique kitchen queue item ID" },
+        "orderId": { "type": "string", "description": "Linked sales order ID" },
+        "productId": { "type": "string", "description": "Product ID" },
+        "productName": { "type": "string", "description": "Product label" },
+        "quantity": { "type": "number", "description": "Portions/Units ordered" },
+        "tableNumber": { "type": "string", "description": "Table label if applicable" },
+        "status": { "type": "string", "enum": ["pending", "preparing", "completed", "served"], "description": "Status of dish preparation" },
+        "note": { "type": "string", "description": "Special orders (e.g., no spicy)" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Order timestamp" }
+      },
+      "required": ["id", "orderId", "productId", "productName", "quantity", "status", "createdAt"]
+    },
+    "Attendance": {
+      "title": "Employee Attendance Log (Chấm công nhân viên)",
+      "description": "Log of user check-in, check-out, and daily earnings calculation.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique attendance ID" },
+        "storeId": { "type": "string", "description": "Reference to Store ID" },
+        "userId": { "type": "string", "description": "Reference to User ID" },
+        "userName": { "type": "string", "description": "Name of the employee" },
+        "date": { "type": "string", "description": "Date of attendance (YYYY-MM-DD)" },
+        "checkIn": { "type": "string", "format": "date-time", "description": "Check-in time" },
+        "checkOut": { "type": "string", "format": "date-time", "description": "Check-out time" },
+        "hoursWorked": { "type": "number", "description": "Hours calculated" },
+        "hourlyRate": { "type": "number", "description": "Salary per hour" },
+        "dailyWage": { "type": "number", "description": "Calculated daily wage" },
+        "status": { "type": "string", "enum": ["working", "completed"], "description": "Current status of the shift" }
+      },
+      "required": ["id", "storeId", "userId", "userName", "date", "checkIn", "status"]
+    },
+    "ActivityLog": {
+      "title": "Activity Log (Nhật ký hoạt động)",
+      "description": "Log records of user actions like add, edit, or delete operations.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique log record ID" },
+        "storeId": { "type": "string", "description": "Tenant store ID" },
+        "screenName": { "type": "string", "description": "Name of the operated screen" },
+        "action": { "type": "string", "description": "Type of action performed" },
+        "data": { "type": "object", "description": "Data payload associated with the action" },
+        "userId": { "type": "string", "description": "UID of the user performing the action" },
+        "userName": { "type": "string", "description": "Display name of the user" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Operation timestamp" }
+      },
+      "required": ["id", "storeId", "screenName", "action", "data", "userId", "userName", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Root collection for system user profiles linked to tenant stores."
+    },
+    "/stores/{storeId}": {
+      "schema": { "$ref": "#/entities/Store" },
+      "description": "Root collection for multi-tenant Store profiles."
+    },
+    "/stores/{storeId}/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Subcollection containing products specific to a store."
+    },
+    "/stores/{storeId}/batches/{batchId}": {
+      "schema": { "$ref": "#/entities/InventoryBatch" },
+      "description": "Subcollection tracking inventory batches with expirations for products in a store."
+    },
+    "/stores/{storeId}/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Subcollection containing sales receipts for transactions in a store."
+    },
+    "/stores/{storeId}/suppliers/{supplierId}": {
+      "schema": { "$ref": "#/entities/Supplier" },
+      "description": "Subcollection of suppliers specific to a store chi nhánh."
+    },
+    "/stores/{storeId}/inventoryTransactions/{transactionId}": {
+      "schema": { "$ref": "#/entities/InventoryTransaction" },
+      "description": "Subcollection of stock import/export/adjustment receipts."
+    },
+    "/stores/{storeId}/customers/{customerId}": {
+      "schema": { "$ref": "#/entities/Customer" },
+      "description": "Subcollection containing customer databases for loyalty, payment, and service history."
+    },
+    "/stores/{storeId}/tables/{tableId}": {
+      "schema": { "$ref": "#/entities/DiningTable" },
+      "description": "Subcollection of physical table placements for F&B stores."
+    },
+    "/stores/{storeId}/kitchenItems/{kitchenItemId}": {
+      "schema": { "$ref": "#/entities/KitchenItem" },
+      "description": "Subcollection of kitchen preparation queues for tracking dish processing status."
+    },
+    "/stores/{storeId}/attendance/{attendanceId}": {
+      "schema": { "$ref": "#/entities/Attendance" },
+      "description": "Subcollection of attendance records for the store employees."
+    },
+    "/stores/{storeId}/logs/{logId}": {
+      "schema": { "$ref": "#/entities/ActivityLog" },
+      "description": "Subcollection of audit logs tracking user operations for each tenant store."
+    }
+  }
+}

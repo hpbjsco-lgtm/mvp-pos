@@ -1,0 +1,6 @@
+{
+  "name": "Multi-Tenant POS & Inventory",
+  "description": "Hệ thống POS bán hàng và quản lý kho đa chi nhánh (multi-tenant) thời gian thực tích hợp máy quét mã QR/vạch và in hóa đơn nhiệt.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
