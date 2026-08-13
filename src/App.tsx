@@ -4,16 +4,16 @@
  */
 
 import { AUTH_CONFIG } from './authConfig';
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  ShoppingBag, 
-  Layers, 
-  TrendingUp, 
-  Cloud, 
-  User, 
-  LogOut, 
-  Store, 
-  ChevronRight, 
+import React, { useState, useEffect } from 'react';
+import {
+  ShoppingBag,
+  Layers,
+  TrendingUp,
+  Cloud,
+  User,
+  LogOut,
+  Store,
+  ChevronRight,
   ChevronDown,
   Info,
   Coffee,
@@ -32,7 +32,6 @@ import {
   Settings,
   HelpCircle,
   Clock,
-  Wifi,
   WifiOff,
   UserCircle,
   ChefHat,
@@ -42,24 +41,7 @@ import {
   Truck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { db, auth } from './firebase';
 import KitchenDisplay from './components/KitchenDisplay';
-import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signOut, 
-  onAuthStateChanged,
-  User as FirebaseUser
-} from 'firebase/auth';
-import { 
-  collection, 
-  doc, 
-  setDoc, 
-  getDoc, 
-  onSnapshot, 
-  writeBatch,
-  updateDoc
-} from 'firebase/firestore';
 
 // Clean screen imports
 import LoginScreen from './components/LoginScreen';
@@ -71,77 +53,76 @@ import TableMap from './components/TableMap';
 import CustomersSection from './components/CustomersSection';
 import EmployeesSection from './components/EmployeesSection';
 import SuppliersSection from './components/SuppliersSection';
-import DemoApp from './demo';
 import SysAdminDashboard from './components/SysAdminDashboard';
 import { setLogContext, logOperation } from './utils/logger';
-
-import { getFromCache, saveToCache, syncOfflineOperations, queueOfflineOperation } from './utils/offlineManager';
+import { useAppData } from './db/useAppData';
 
 export default function App() {
   const [activeScreen, setActiveScreen] = useState<'pos' | 'inventory' | 'reports' | 'account' | 'kitchen' | 'menu' | 'tables' | 'customers' | 'employees' | 'suppliers' | 'sysadmin'>('reports');
-  const [showProjectDemo, setShowProjectDemo] = useState<boolean>(false);
-  
-  // --- CORE DATA & REALTIME SYNC STATES ---
-  const [fbUser, setFbUser] = useState<FirebaseUser | null>(null);
-  const [demoSession, setDemoSession] = useState<{
-    userName: string;
-    storeId: string;
-    storeType: 'fnb' | 'retail';
-    storeName: string;
-  } | null>(null);
 
-  // Load initial state from cache or fallback JSON
-  const [simCustomers, setSimCustomers] = useState<any[]>(() => getFromCache('Sandbox', 'simCustomers'));
-  const [simSuppliers, setSimSuppliers] = useState<any[]>(() => getFromCache('Sandbox', 'simSuppliers'));
-  const [simEmployees, setSimEmployees] = useState<any[]>(() => getFromCache('Sandbox', 'simEmployees'));
-  const [simAttendance, setSimAttendance] = useState<any[]>(() => getFromCache('Sandbox', 'simAttendance'));
+  // --- CORE DATA (SQLite local-first, xem src/db/useAppData.ts) ---
+  const app = useAppData();
+  const {
+    ready,
+    initError,
+    user: fbUserProfile,
+    store: fbStoreProfile,
+    storeId,
+    storeType: simStoreType,
+    isSysAdmin,
+    isDemoSession,
+    data,
+    carts: simCarts,
+    setters,
+    setCarts: setSimCarts,
+  } = app;
 
-  const [fbUserProfile, setFbUserProfile] = useState<{
-    uid: string;
-    email: string;
-    name: string;
-    storeId: string;
-    role: 'owner' | 'staff';
-    createdAt: string;
-  } | null>(null);
-  const [fbStoreProfile, setFbStoreProfile] = useState<{
-    id: string;
-    name: string;
-    address: string;
-    phone: string;
-    storeType: 'fnb' | 'retail';
-    createdAt: string;
-  } | null>(null);
+  const simCustomers = data.customers;
+  const setSimCustomers = setters.customers;
+  const simSuppliers = data.suppliers;
+  const setSimSuppliers = setters.suppliers;
+  const simEmployees = data.employees;
+  const setSimEmployees = setters.employees;
+  const simAttendance = data.attendance;
+  const setSimAttendance = setters.attendance;
+  const simZones = data.zones;
+  const setSimZones = setters.zones;
+  const simTables = data.tables;
+  const setSimTables = setters.tables;
+  const simProducts = data.products;
+  const setSimProducts = setters.products;
+  const simKitchenItems = data.kitchenItems;
+  const setSimKitchenItems = setters.kitchenItems;
+  const simOrders = data.orders;
+  const setSimOrders = setters.orders;
+  const simBatches = data.batches;
+  const setSimBatches = setters.batches;
+  const simTransactions = data.transactions;
+  const setSimTransactions = setters.transactions;
+  const simIngredients = data.ingredients;
+  const setSimIngredients = setters.ingredients;
+  const simIngredientBatches = data.ingredientBatches;
+  const setSimIngredientBatches = setters.ingredientBatches;
+  const simIngredientTransactions = data.ingredientTransactions;
+  const setSimIngredientTransactions = setters.ingredientTransactions;
+  const setSimStoreType = app.setStoreType;
 
-  const [authLoading, setAuthLoading] = useState<boolean>(true);
+  const fbUser = fbUserProfile; // giữ tên biến cũ cho phần JSX phía dưới chưa đổi
+  const demoSession = isDemoSession && fbStoreProfile
+    ? { userName: fbUserProfile?.name || '', storeId: fbStoreProfile.id, storeType: fbStoreProfile.storeType, storeName: fbStoreProfile.name }
+    : null;
+  const isDemoOfflineMode = isDemoSession;
+
   const [authError, setAuthError] = useState<string>('');
-  const [isDemoOfflineMode, setIsDemoOfflineMode] = useState<boolean>(true);
-
-  const [simStoreType, setSimStoreType] = useState<'fnb' | 'retail'>('fnb');
   const [simSelectedTableId, setSimSelectedTableId] = useState<string>('T1');
-  const [simUserRole, setSimUserRole] = useState<'admin' | 'staff'>('admin');
-  
+  const simUserRole: 'admin' | 'staff' = isSysAdmin || fbUserProfile?.role === 'owner' || fbUserProfile?.role === 'manager' ? 'admin' : 'staff';
+
   // Audio-visual alert state (beep simulator triggers)
   const [simSuccessBeep, setSimSuccessBeep] = useState<boolean>(false);
   const [simErrorBeep, setSimErrorBeep] = useState<boolean>(false);
 
   // Hardcoded Auth from config
   const HARDCODED_EMAIL = AUTH_CONFIG.EMAIL;
-
-  // Default Offline / Demo States
-  const [simZones, setSimZones] = useState(() => getFromCache('Sandbox', 'simZones'));
-  const [simTables, setSimTables] = useState(() => getFromCache('Sandbox', 'simTables'));
-  const [simProducts, setSimProducts] = useState(() => getFromCache('Sandbox', 'simProducts'));
-  const [simKitchenItems, setSimKitchenItems] = useState(() => getFromCache('Sandbox', 'simKitchenItems'));
-  const [simCarts, setSimCarts] = useState<Record<string, Array<{ productId: string; quantity: number; note: string }>>>(() => getFromCache('Sandbox', 'simCarts'));
-  const [simOrders, setSimOrders] = useState<any[]>(() => getFromCache('Sandbox', 'simOrders'));
-  const [simBatches, setSimBatches] = useState<any[]>(() => getFromCache('Sandbox', 'simBatches'));
-  const [simTransactions, setSimTransactions] = useState<any[]>(() => getFromCache('Sandbox', 'simTransactions'));
-
-  // --- F&B RAW MATERIALS INVENTORY DATA ---
-  const [simIngredients, setSimIngredients] = useState<any[]>(() => getFromCache('Sandbox', 'simIngredients'));
-  const [simIngredientBatches, setSimIngredientBatches] = useState<any[]>(() => getFromCache('Sandbox', 'simIngredientBatches'));
-  const [simIngredientTransactions, setSimIngredientTransactions] = useState<any[]>(() => getFromCache('Sandbox', 'simIngredientTransactions'));
 
   // Sidebar collapsibility state
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
@@ -157,393 +138,30 @@ export default function App() {
     }
   };
 
-  // --- FIREBASE AUTHENTICATION EFFECT ---
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setAuthLoading(true);
-      
-      if (user) {
-        setFbUser(user);
-        setIsDemoOfflineMode(false);
-        try {
-          const userDocSnap = await getDoc(doc(db, 'users', user.uid));
-          if (userDocSnap.exists()) {
-            let uprof = userDocSnap.data() as any;
-            setFbUserProfile(uprof);
-            
-            // Logic to determine role/screen
-            if (uprof.role !== 'sysadmin' && user.email?.toLowerCase() === AUTH_CONFIG.EMAIL.toLowerCase()) {
-              await updateDoc(doc(db, 'users', user.uid), { role: 'sysadmin' });
-              uprof = { ...uprof, role: 'sysadmin' };
-              setFbUserProfile(uprof);
-            }
-
-            const isCurrentUserSysAdmin = uprof.role === 'sysadmin' && user.email?.toLowerCase() === AUTH_CONFIG.EMAIL.toLowerCase();
-
-            if (isCurrentUserSysAdmin) {
-              setSimUserRole('admin');
-              setFbStoreProfile(null);
-              setActiveScreen('reports');
-            } else {
-              setSimUserRole((uprof.role === 'owner' || uprof.role === 'manager') ? 'admin' : 'staff');
-              if (uprof.storeId) {
-                const storeDocSnap = await getDoc(doc(db, 'stores', uprof.storeId));
-                if (storeDocSnap.exists()) {
-                  const storeData = storeDocSnap.data() as any;
-                  setFbStoreProfile(storeData);
-                  setSimStoreType(storeData.storeType || 'fnb');
-                }
-              }
-              if (uprof.role === 'staff') {
-                setActiveScreen('pos');
-              } else {
-                setActiveScreen('reports');
-              }
-            }
-          } else {
-            // Profile doesn't exist yet!
-            if (user.email?.toLowerCase() === AUTH_CONFIG.EMAIL.toLowerCase()) {
-              const adminProfile = {
-                uid: user.uid,
-                email: user.email,
-                role: 'sysadmin',
-                name: 'Quản Trị Hệ Thống',
-                createdAt: new Date().toISOString()
-              };
-              await setDoc(doc(db, 'users', user.uid), adminProfile);
-              setFbUserProfile(adminProfile);
-              setSimUserRole('admin');
-              setFbStoreProfile(null);
-              setActiveScreen('reports');
-            } else {
-              const defaultProfile = {
-                uid: user.uid,
-                email: user.email,
-                role: 'owner',
-                name: user.displayName || 'Chủ Cửa Hàng',
-                createdAt: new Date().toISOString()
-              };
-              await setDoc(doc(db, 'users', user.uid), defaultProfile);
-              setFbUserProfile(defaultProfile);
-              setSimUserRole('admin');
-              setActiveScreen('reports');
-            }
-          }
-        } catch (error) {
-          console.error("Lỗi lấy thông tin định danh: ", error);
-        }
-      } else {
-        setFbUser(null);
-        setFbUserProfile(null);
-        setFbStoreProfile(null);
-        setIsDemoOfflineMode(true);
-      }
-      setAuthLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
-
   // --- LOG CONTEXT SYNC EFFECT ---
   useEffect(() => {
-    if (fbUser && fbUserProfile) {
+    if (fbUserProfile) {
       setLogContext({
-        userId: fbUser.uid,
+        userId: fbUserProfile.uid,
         userName: fbUserProfile.name || 'User',
-        storeId: fbUserProfile.storeId || 'Sandbox',
-        isOffline: isDemoOfflineMode
-      });
-    } else if (demoSession) {
-      setLogContext({
-        userId: 'demo-uid',
-        userName: demoSession.userName || 'Demo Worker',
-        storeId: demoSession.storeId || 'Sandbox',
-        isOffline: isDemoOfflineMode
+        storeId: storeId || 'Sandbox',
       });
     } else {
       setLogContext({
         userId: 'unknown_user',
         userName: 'Khách vãng lai / Hệ thống',
         storeId: 'Sandbox',
-        isOffline: true
       });
     }
-  }, [fbUser, fbUserProfile, demoSession, isDemoOfflineMode]);
+  }, [fbUserProfile, storeId]);
 
-  // --- REAL-TIME DATA SYNCHRONIZATION EFFECT ---
-  useEffect(() => {
-    if (isDemoOfflineMode || !fbUserProfile?.storeId) return;
-
-    const storeId = fbUserProfile.storeId;
-    console.log("Khởi chạy đồng bộ hóa Firestore Real-time cho Cửa hàng: ", storeId);
-
-    // Listen to Zones
-    const unsubscribeZones = onSnapshot(collection(db, 'stores', storeId, 'zones'), (snapshot) => {
-      const zonesData: any[] = [];
-      snapshot.forEach((doc) => {
-        zonesData.push({ id: doc.id, ...doc.data() });
-      });
-      setSimZones(zonesData);
-      saveToCache(storeId, 'simZones', zonesData);
-    });
-
-    // Listen to Tables
-    const unsubscribeTables = onSnapshot(collection(db, 'stores', storeId, 'tables'), (snapshot) => {
-      const tablesData: any[] = [];
-      snapshot.forEach((doc) => {
-        tablesData.push({ id: doc.id, ...doc.data() });
-      });
-      tablesData.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
-      setSimTables(tablesData);
-      saveToCache(storeId, 'simTables', tablesData);
-    });
-
-    // Listen to Products
-    const unsubscribeProducts = onSnapshot(collection(db, 'stores', storeId, 'products'), (snapshot) => {
-      const productsData: any[] = [];
-      snapshot.forEach((doc) => {
-        productsData.push({ id: doc.id, ...doc.data() });
-      });
-      setSimProducts(productsData);
-      saveToCache(storeId, 'simProducts', productsData);
-    });
-
-    // Listen to Kitchen Items
-    const unsubscribeKitchen = onSnapshot(collection(db, 'stores', storeId, 'kitchenItems'), (snapshot) => {
-      const kitchenData: any[] = [];
-      snapshot.forEach((doc) => {
-        kitchenData.push({ id: doc.id, ...doc.data() });
-      });
-      kitchenData.sort((a, b) => {
-        const da = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const dbVal = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return da - dbVal;
-      });
-      setSimKitchenItems(kitchenData);
-      saveToCache(storeId, 'simKitchenItems', kitchenData);
-    });
-
-    // Listen to Orders
-    const unsubscribeOrders = onSnapshot(collection(db, 'stores', storeId, 'orders'), (snapshot) => {
-      const ordersData: any[] = [];
-      snapshot.forEach((doc) => {
-        ordersData.push({ id: doc.id, ...doc.data() });
-      });
-      ordersData.sort((a, b) => {
-        const da = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const dbVal = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return dbVal - da;
-      });
-      setSimOrders(ordersData);
-      saveToCache(storeId, 'simOrders', ordersData);
-    });
-
-    // Listen to Batches (Inventory Batches)
-    const unsubscribeBatches = onSnapshot(collection(db, 'stores', storeId, 'batches'), (snapshot) => {
-      const batchesData: any[] = [];
-      snapshot.forEach((doc) => {
-        batchesData.push({ id: doc.id, ...doc.data() });
-      });
-      if (simStoreType === 'fnb') {
-        setSimIngredientBatches(batchesData);
-        saveToCache(storeId, 'simIngredientBatches', batchesData);
-      } else {
-        setSimBatches(batchesData);
-        saveToCache(storeId, 'simBatches', batchesData);
-      }
-    });
-
-    // Listen to Transactions
-    const unsubscribeTransactions = onSnapshot(collection(db, 'stores', storeId, 'transactions'), (snapshot) => {
-      const transactionsData: any[] = [];
-      snapshot.forEach((doc) => {
-        transactionsData.push({ id: doc.id, ...doc.data() });
-      });
-      transactionsData.sort((a, b) => {
-        const da = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const dbVal = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return dbVal - da;
-      });
-      if (simStoreType === 'fnb') {
-        setSimIngredientTransactions(transactionsData);
-        saveToCache(storeId, 'simIngredientTransactions', transactionsData);
-      } else {
-        setSimTransactions(transactionsData);
-        saveToCache(storeId, 'simTransactions', transactionsData);
-      }
-    });
-
-    // Listen to Ingredients (only for F&B)
-    let unsubscribeIngredients = () => {};
-    if (simStoreType === 'fnb') {
-      unsubscribeIngredients = onSnapshot(collection(db, 'stores', storeId, 'ingredients'), (snapshot) => {
-        const ingredientsData: any[] = [];
-        snapshot.forEach((doc) => {
-          ingredientsData.push({ id: doc.id, ...doc.data() });
-        });
-        setSimIngredients(ingredientsData);
-        saveToCache(storeId, 'simIngredients', ingredientsData);
-      });
-    }
-
-    return () => {
-      unsubscribeZones();
-      unsubscribeTables();
-      unsubscribeProducts();
-      unsubscribeKitchen();
-      unsubscribeOrders();
-      unsubscribeBatches();
-      unsubscribeTransactions();
-      unsubscribeIngredients();
-    };
-  }, [isDemoOfflineMode, fbUserProfile?.storeId, simStoreType]);
-
-  // --- OFFLINE AUTO-PERSIST EFFECT (WHEN OFFLINE) ---
-  useEffect(() => {
-    if (!isDemoOfflineMode) return;
-    const sId = fbUserProfile?.storeId || demoSession?.storeId || 'Sandbox';
-    
-    saveToCache(sId, 'simCustomers', simCustomers);
-    saveToCache(sId, 'simSuppliers', simSuppliers);
-    saveToCache(sId, 'simEmployees', simEmployees);
-    saveToCache(sId, 'simAttendance', simAttendance);
-    saveToCache(sId, 'simZones', simZones);
-    saveToCache(sId, 'simTables', simTables);
-    saveToCache(sId, 'simProducts', simProducts);
-    saveToCache(sId, 'simKitchenItems', simKitchenItems);
-    saveToCache(sId, 'simCarts', simCarts);
-    saveToCache(sId, 'simOrders', simOrders);
-    saveToCache(sId, 'simBatches', simBatches);
-    saveToCache(sId, 'simTransactions', simTransactions);
-    saveToCache(sId, 'simIngredients', simIngredients);
-    saveToCache(sId, 'simIngredientBatches', simIngredientBatches);
-    saveToCache(sId, 'simIngredientTransactions', simIngredientTransactions);
-  }, [
-    isDemoOfflineMode,
-    fbUserProfile?.storeId,
-    demoSession?.storeId,
-    simCustomers,
-    simSuppliers,
-    simEmployees,
-    simAttendance,
-    simZones,
-    simTables,
-    simProducts,
-    simKitchenItems,
-    simCarts,
-    simOrders,
-    simBatches,
-    simTransactions,
-    simIngredients,
-    simIngredientBatches,
-    simIngredientTransactions
-  ]);
-
-  // --- STORE-CHANGE CACHE LOADING & SYNC EFFECT ---
-  useEffect(() => {
-    const sId = fbUserProfile?.storeId || demoSession?.storeId || 'Sandbox';
-    
-    setSimCustomers(getFromCache(sId, 'simCustomers'));
-    setSimSuppliers(getFromCache(sId, 'simSuppliers'));
-    setSimEmployees(getFromCache(sId, 'simEmployees'));
-    setSimAttendance(getFromCache(sId, 'simAttendance'));
-    setSimZones(getFromCache(sId, 'simZones'));
-    setSimTables(getFromCache(sId, 'simTables'));
-    setSimProducts(getFromCache(sId, 'simProducts'));
-    setSimKitchenItems(getFromCache(sId, 'simKitchenItems'));
-    setSimCarts(getFromCache(sId, 'simCarts'));
-    setSimOrders(getFromCache(sId, 'simOrders'));
-    setSimBatches(getFromCache(sId, 'simBatches'));
-    setSimTransactions(getFromCache(sId, 'simTransactions'));
-    setSimIngredients(getFromCache(sId, 'simIngredients'));
-    setSimIngredientBatches(getFromCache(sId, 'simIngredientBatches'));
-    setSimIngredientTransactions(getFromCache(sId, 'simIngredientTransactions'));
-
-    // Trigger sync when going online
-    if (!isDemoOfflineMode && sId !== 'Sandbox') {
-      console.log(`[SYNC MANAGER] Switching to online mode. Syncing queued offline writes for: ${sId}`);
-      syncOfflineOperations(sId).then((synced) => {
-        if (synced) {
-          triggerBeep(true);
-        }
-      });
-    }
-  }, [fbUserProfile?.storeId, demoSession?.storeId, isDemoOfflineMode]);
-
-  // Seed Data function for freshly registered stores
-  const seedStoreData = async (storeId: string, storeType: 'fnb' | 'retail'): Promise<boolean> => {
-    try {
-      const batch = writeBatch(db);
-
-      if (storeType === 'fnb') {
-        const defaultZones = [
-          { id: 'z1', name: 'Khu chung (Tầng 1)' },
-          { id: 'z2', name: 'Tầng 2' },
-          { id: 'z3', name: 'Tầng 3' }
-        ];
-        defaultZones.forEach(z => {
-          batch.set(doc(db, 'stores', storeId, 'zones', z.id), { name: z.name, createdAt: new Date().toISOString() });
-        });
-
-        const defaultTables = [
-          { id: 'T1', name: 'Bàn 01', status: 'serving', capacity: 4, zoneId: 'z1', x: 10, y: 15, width: 95, height: 95, createdAt: new Date().toISOString() },
-          { id: 'T2', name: 'Bàn 02', status: 'empty', capacity: 2, zoneId: 'z1', x: 40, y: 15, width: 95, height: 95, createdAt: new Date().toISOString() },
-          { id: 'T3', name: 'Bàn 03', status: 'serving', capacity: 6, zoneId: 'z1', x: 70, y: 15, width: 110, height: 95, createdAt: new Date().toISOString() },
-          { id: 'T4', name: 'Bàn 04', status: 'empty', capacity: 4, zoneId: 'z2', x: 25, y: 30, width: 95, height: 95, createdAt: new Date().toISOString() },
-          { id: 'T5', name: 'Bàn 05 (VIP)', status: 'empty', capacity: 8, zoneId: 'z3', x: 45, y: 35, width: 130, height: 110, createdAt: new Date().toISOString() }
-        ];
-        defaultTables.forEach(t => {
-          batch.set(doc(db, 'stores', storeId, 'tables', t.id), { ...t });
-        });
-
-        const defaultProducts = [
-          { id: 'P1', sku: '8930001001', name: 'Cà Phê Sữa Đá Sài Gòn', price: 29000, cost: 10000, category: 'Đồ uống', isAvailable: true, createdAt: new Date().toISOString() },
-          { id: 'P2', sku: '8930001002', name: 'Trà Đào Cam Sả Hồng Đài', price: 35000, cost: 12000, category: 'Đồ uống', isAvailable: true, createdAt: new Date().toISOString() },
-          { id: 'P3', sku: '8930001003', name: 'Phở Bò Thượng Hạng Kobe', price: 89000, cost: 35000, category: 'Món ăn', isAvailable: true, createdAt: new Date().toISOString() },
-          { id: 'P4', sku: '8930001004', name: 'Bún Chả Hà Nội Gia Truyền', price: 45000, cost: 18000, category: 'Món ăn', isAvailable: false, createdAt: new Date().toISOString() },
-          { id: 'P5', sku: '8930001005', name: 'Bánh Mì Garlic Bơ Tỏi', price: 25000, cost: 8000, category: 'Ăn nhẹ', isAvailable: true, createdAt: new Date().toISOString() },
-          { id: 'P6', sku: '8930001006', name: 'Nước Ngọt Coca Cola Lon', price: 15000, cost: 6000, category: 'Đồ uống', isAvailable: true, createdAt: new Date().toISOString() }
-        ];
-        defaultProducts.forEach(p => {
-          batch.set(doc(db, 'stores', storeId, 'products', p.id), { ...p });
-        });
-
-        const defaultIngredients = [
-          { id: 'I1', sku: 'RAW-001', name: 'Hạt Cà Phê Robusta Măng Đen', price: 0, cost: 120000, category: 'Đồ uống', isAvailable: true, createdAt: new Date().toISOString() },
-          { id: 'I2', sku: 'RAW-002', name: 'Sữa Đặc Có Đường Ông Thọ', price: 0, cost: 22000, category: 'Đồ uống', isAvailable: true, createdAt: new Date().toISOString() },
-          { id: 'I3', sku: 'RAW-003', name: 'Trà Đen Phúc Long Cao Cấp', price: 0, cost: 140000, category: 'Đồ uống', isAvailable: true, createdAt: new Date().toISOString() },
-          { id: 'I4', sku: 'RAW-004', name: 'Thịt Bò Thượng Hạng Mỹ', price: 0, cost: 320000, category: 'Món ăn', isAvailable: true, createdAt: new Date().toISOString() },
-          { id: 'I5', sku: 'RAW-005', name: 'Bánh Phở Tươi Trong Ngày', price: 0, cost: 15000, category: 'Món ăn', isAvailable: true, createdAt: new Date().toISOString() },
-          { id: 'I6', sku: 'RAW-006', name: 'Bơ Lạt Anchor Nhập Khẩu', price: 0, cost: 240000, category: 'Món ăn', isAvailable: true, createdAt: new Date().toISOString() },
-          { id: 'I7', sku: 'RAW-007', name: 'Cam Sành Hàm Yên Hữu Cơ', price: 0, cost: 30000, category: 'Khác', isAvailable: true, createdAt: new Date().toISOString() },
-          { id: 'I8', sku: 'RAW-008', name: 'Đá Viên Tinh Khiết (Bao 10kg)', price: 0, cost: 12000, category: 'Khác', isAvailable: true, createdAt: new Date().toISOString() }
-        ];
-        defaultIngredients.forEach(i => {
-          batch.set(doc(db, 'stores', storeId, 'ingredients', i.id), { ...i });
-        });
-      } else {
-        const defaultProducts = [
-          { id: 'P1', sku: '8930001001', name: 'Gạo ST25 Thượng Hạng (5kg)', price: 185000, cost: 140000, category: 'Nhu yếu phẩm', isAvailable: true, createdAt: new Date().toISOString() },
-          { id: 'P2', sku: '8930001002', name: 'Nước Mắm Nam Ngư (750ml)', price: 42000, cost: 30000, category: 'Gia vị', isAvailable: true, createdAt: new Date().toISOString() },
-          { id: 'P3', sku: '8930001003', name: 'Mì Hảo Hảo Tôm Chua Cay', price: 4500, cost: 3200, category: 'Mì ăn liền', isAvailable: true, createdAt: new Date().toISOString() },
-          { id: 'P4', sku: '8930001004', name: 'Dầu Ăn Simply (1L)', price: 58000, cost: 45000, category: 'Gia vị', isAvailable: true, createdAt: new Date().toISOString() },
-          { id: 'P5', sku: '8930001005', name: 'Sữa Tươi Vinamilk Ít Đường', price: 8500, cost: 6500, category: 'Đồ uống', isAvailable: true, createdAt: new Date().toISOString() },
-          { id: 'P6', sku: '8930001006', name: 'Khăn Giấy Bless You', price: 22000, cost: 15000, category: 'Gia dụng', isAvailable: true, createdAt: new Date().toISOString() }
-        ];
-        defaultProducts.forEach(p => {
-          batch.set(doc(db, 'stores', storeId, 'products', p.id), { ...p });
-        });
-      }
-
-      await batch.commit();
-      console.log("Seeding dữ liệu thành công!");
-      return true;
-    } catch (err) {
-      console.error("Lỗi seeding dữ liệu: ", err);
-      return false;
-    }
+  // Seed Data function cho cửa hàng mới (dùng lại từ src/db/seed.ts, gọi được từ SysAdmin để seed thủ công)
+  const seedStoreData = async (targetStoreId: string, storeType: 'fnb' | 'retail'): Promise<boolean> => {
+    const { seedStore } = await import('./db/seed');
+    return seedStore(targetStoreId, storeType);
   };
 
-  // Auth helper callbacks passed to login screen
+  // Auth helper callbacks passed to login screen (giữ nguyên chữ ký cũ để LoginScreen.tsx không cần đổi)
   const handleFirebaseLogin = async (e?: React.FormEvent, overrideEmail?: string, overridePass?: string) => {
     if (e) e.preventDefault();
     const email = overrideEmail?.trim().toLowerCase();
@@ -554,29 +172,7 @@ export default function App() {
     }
     setAuthError("");
     try {
-      if (email === AUTH_CONFIG.EMAIL.toLowerCase() && pass === AUTH_CONFIG.PASS) {
-        try {
-          await signInWithEmailAndPassword(auth, email, pass);
-        } catch (signInErr: any) {
-          if (signInErr.code === 'auth/user-not-found') {
-            console.log("Tài khoản chưa tồn tại, đang tự động tạo...");
-            const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
-            const uid = userCredential.user.uid;
-            await setDoc(doc(db, 'users', uid), {
-              uid: uid,
-              email: email,
-              role: 'sysadmin',
-              name: 'Quản Trị Hệ Thống',
-              createdAt: new Date().toISOString()
-            });
-            await signInWithEmailAndPassword(auth, email, pass);
-          } else {
-            throw signInErr; // Re-throw other errors (wrong password etc)
-          }
-        }
-      } else {
-        await signInWithEmailAndPassword(auth, email, pass);
-      }
+      await app.signIn(email, pass);
       triggerBeep(true);
     } catch (err: any) {
       console.error(err);
@@ -610,60 +206,9 @@ export default function App() {
     }
     setAuthError("");
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
-      const uid = userCredential.user.uid;
-      const storeId = `store-${Date.now()}`;
-
-      await setDoc(doc(db, 'users', uid), {
-        uid: uid,
-        email: email,
-        storeId: storeId,
-        role: 'owner',
-        name: name,
-        createdAt: new Date().toISOString()
-      });
-
-      await setDoc(doc(db, 'stores', storeId), {
-        id: storeId,
-        name: storeName,
-        address: address,
-        phone: phone,
-        storeType: storeType,
-        status: 'pending',
-        createdAt: new Date().toISOString()
-      });
-
-      // Seed default data for the registered store so they have products, zones, tables immediately!
-      await seedStoreData(storeId, storeType);
-
-      // Update state directly to prevent lag from onAuthStateChanged
-      const uprof = {
-        uid: uid,
-        email: email,
-        storeId: storeId,
-        role: 'owner',
-        name: name,
-        createdAt: new Date().toISOString()
-      };
-      const sprof = {
-        id: storeId,
-        name: storeName,
-        address: address,
-        phone: phone,
-        storeType: storeType,
-        status: 'pending',
-        createdAt: new Date().toISOString()
-      };
-
-      setFbUser(userCredential.user);
-      setFbUserProfile(uprof);
-      setFbStoreProfile(sprof);
-      setSimStoreType(storeType);
-      setSimUserRole('admin');
-      setIsDemoOfflineMode(false);
-
+      await app.register({ email, password: pass, name, storeName, storeType, phone, address });
       triggerBeep(true);
-      alert("Đăng ký thành công! Cửa hàng " + storeName + " đang chờ ban quản trị phê duyệt để kích hoạt.");
+      alert("Đăng ký thành công! Cửa hàng " + storeName + " đã sẵn sàng sử dụng ngay trên thiết bị này.");
     } catch (err: any) {
       console.error(err);
       setAuthError("Đăng ký thất bại: " + (err.message || "Đã xảy ra lỗi hệ thống."));
@@ -673,11 +218,7 @@ export default function App() {
 
   const handleFirebaseLogout = async () => {
     try {
-      await signOut(auth);
-      setFbUser(null);
-      setFbUserProfile(null);
-      setFbStoreProfile(null);
-      setIsDemoOfflineMode(true);
+      await app.signOut();
       setActiveScreen('pos');
       triggerBeep(true);
     } catch (err) {
@@ -689,8 +230,8 @@ export default function App() {
     const todayStr = new Date().toLocaleDateString('sv-SE');
     const attId = `att-${userId}-${todayStr}`;
     const checkInTime = new Date().toISOString();
-    const storeId = fbUserProfile?.storeId || demoSession?.storeId || 'Sandbox';
-    
+    const empRecord = simEmployees.find((e: any) => e.uid === userId);
+
     const newAttendance = {
       id: attId,
       storeId,
@@ -700,27 +241,14 @@ export default function App() {
       checkIn: checkInTime,
       checkOut: null,
       hoursWorked: 0,
-      hourlyRate: 25000,
+      hourlyRate: empRecord?.hourlyRate || 25000,
       dailyWage: 0,
       status: 'working' as const
     };
 
     try {
       logOperation('Chấm công', 'Nhân viên Check-in', { userId, userName, checkInTime });
-      if (isDemoOfflineMode) {
-        queueOfflineOperation(storeId, 'attendance', 'set', attId, newAttendance);
-        setSimAttendance(prev => [newAttendance, ...prev.filter(a => a.id !== attId)]);
-      } else {
-        // Query employee profile to find current rate
-        const userDoc = await getDoc(doc(db, 'users', userId));
-        const rate = userDoc.exists() ? (userDoc.data().hourlyRate || 25000) : 25000;
-        newAttendance.hourlyRate = rate;
-
-        await setDoc(doc(db, 'stores', storeId, 'attendance', attId), {
-          ...newAttendance,
-          storeId
-        });
-      }
+      setSimAttendance((prev: any[]) => [newAttendance, ...prev.filter((a) => a.id !== attId)]);
       triggerBeep(true);
       alert(`Check-in thành công lúc ${new Date(checkInTime).toLocaleTimeString('vi-VN')}!`);
     } catch (err) {
@@ -734,71 +262,26 @@ export default function App() {
     const todayStr = new Date().toLocaleDateString('sv-SE');
     const attId = `att-${userId}-${todayStr}`;
     const checkOutTime = new Date().toISOString();
-    const storeId = fbUserProfile?.storeId || demoSession?.storeId || 'Sandbox';
 
     try {
       logOperation('Chấm công', 'Nhân viên Check-out', { userId, checkOutTime });
-      if (isDemoOfflineMode) {
-        const existingAtt = simAttendance.find(a => a.id === attId);
-        if (existingAtt) {
-          const checkInDate = new Date(existingAtt.checkIn);
-          const checkOutDate = new Date(checkOutTime);
-          const diffMs = checkOutDate.getTime() - checkInDate.getTime();
-          const hours = Number(Math.max(0.01, diffMs / (1000 * 60 * 60)));
-          const empRecord = simEmployees.find(e => e.uid === userId);
-          const hourlyRate = empRecord?.hourlyRate || 25000;
-          const updatedAtt = {
-            ...existingAtt,
-            checkOut: checkOutTime,
-            hoursWorked: hours,
-            hourlyRate,
-            dailyWage: Number((hours * hourlyRate).toFixed(0)),
-            status: 'completed' as const
-          };
-          queueOfflineOperation(storeId, 'attendance', 'set', attId, updatedAtt);
-        }
-
-        setSimAttendance(prev => prev.map(a => {
-          if (a.id === attId) {
-            const checkInDate = new Date(a.checkIn);
-            const checkOutDate = new Date(checkOutTime);
-            const diffMs = checkOutDate.getTime() - checkInDate.getTime();
-            const hours = Number(Math.max(0.01, diffMs / (1000 * 60 * 60)));
-            const empRecord = simEmployees.find(e => e.uid === userId);
-            const hourlyRate = empRecord?.hourlyRate || 25000;
-            return {
-              ...a,
-              checkOut: checkOutTime,
-              hoursWorked: hours,
-              hourlyRate,
-              dailyWage: Number((hours * hourlyRate).toFixed(0)),
-              status: 'completed' as const
-            };
-          }
-          return a;
-        }));
-      } else {
-        const docRef = doc(db, 'stores', storeId, 'attendance', attId);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          const checkInDate = new Date(data.checkIn);
-          const checkOutDate = new Date(checkOutTime);
-          const diffMs = checkOutDate.getTime() - checkInDate.getTime();
-          const hours = Number(Math.max(0.01, diffMs / (1000 * 60 * 60)));
-          
-          const userDoc = await getDoc(doc(db, 'users', userId));
-          const rate = userDoc.exists() ? (userDoc.data().hourlyRate || 25000) : 25000;
-
-          await updateDoc(docRef, {
-            checkOut: checkOutTime,
-            hoursWorked: hours,
-            hourlyRate: rate,
-            dailyWage: Number((hours * rate).toFixed(0)),
-            status: 'completed'
-          });
-        }
-      }
+      setSimAttendance((prev: any[]) => prev.map((a) => {
+        if (a.id !== attId) return a;
+        const checkInDate = new Date(a.checkIn);
+        const checkOutDate = new Date(checkOutTime);
+        const diffMs = checkOutDate.getTime() - checkInDate.getTime();
+        const hours = Number(Math.max(0.01, diffMs / (1000 * 60 * 60)));
+        const empRecord = simEmployees.find((e: any) => e.uid === userId);
+        const hourlyRate = empRecord?.hourlyRate || a.hourlyRate || 25000;
+        return {
+          ...a,
+          checkOut: checkOutTime,
+          hoursWorked: hours,
+          hourlyRate,
+          dailyWage: Number((hours * hourlyRate).toFixed(0)),
+          status: 'completed' as const
+        };
+      }));
       triggerBeep(true);
       alert("Check-out thành công! Ca trực đã hoàn tất và kết toán lương ngày.");
     } catch (err) {
@@ -830,17 +313,16 @@ export default function App() {
     }
   }, [simUserRole, activeScreen]);
 
-  // Show Loading Spinner while setting up initial Auth state
-  if (authLoading) {
+  // Show Loading Spinner while setting up initial SQLite state
+  if (!ready) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-slate-100">
         <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4" />
         <p className="text-sm font-medium tracking-wide text-slate-400">Đang khởi động hệ thống SmartPOS...</p>
+        {initError && <p className="text-xs text-rose-400 mt-3 max-w-sm text-center">{initError}</p>}
       </div>
     );
   }
-
-  const isSysAdmin = fbUserProfile?.role === 'sysadmin' && fbUserProfile?.email?.toLowerCase() === AUTH_CONFIG.EMAIL.toLowerCase();
 
   // Define Navigation Items dynamically based on active Store Type
   const navItems = isSysAdmin ? [
@@ -862,29 +344,7 @@ export default function App() {
     ] : []),
   ];
 
-  const hasActiveSession = !!(fbUser || demoSession);
-
-  if (showProjectDemo) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex flex-col">
-        <div className="bg-slate-900 border-b border-slate-800 px-6 py-3.5 flex justify-between items-center z-50">
-          <div className="flex items-center gap-3">
-            <span className="px-2.5 py-1 bg-amber-500/10 text-amber-500 rounded-lg text-[10px] font-black tracking-widest uppercase">SANDBOX REVIEW</span>
-            <h1 className="text-xs font-black text-white tracking-tight uppercase">Bảng Giải Thích Tổng Thể & Trực Quan Dự Án</h1>
-          </div>
-          <button
-            onClick={() => { setShowProjectDemo(false); triggerBeep(true); }}
-            className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shadow-md active:scale-95 cursor-pointer flex items-center gap-1.5"
-          >
-            Quay lại Đăng nhập
-          </button>
-        </div>
-        <div className="flex-grow overflow-auto">
-          <DemoApp />
-        </div>
-      </div>
-    );
-  }
+  const hasActiveSession = !!fbUserProfile;
 
   // Full-screen Login view if no active session
   if (!hasActiveSession) {
@@ -895,25 +355,24 @@ export default function App() {
             fbUser={fbUser}
             fbUserProfile={fbUserProfile}
             fbStoreProfile={fbStoreProfile}
-            authLoading={authLoading}
+            authLoading={!ready}
             authError={authError}
             isDemoOfflineMode={isDemoOfflineMode}
-            setIsDemoOfflineMode={setIsDemoOfflineMode}
+            setIsDemoOfflineMode={() => {}}
             onLogin={handleFirebaseLogin}
             onRegister={handleFirebaseRegister}
             onLogout={handleFirebaseLogout}
-            onOpenDemoExplanation={() => { setShowProjectDemo(true); triggerBeep(true); }}
-            onDemoLogin={(userName, storeId, storeType, storeName) => {
-              setDemoSession({
-                userName,
-                storeId,
-                storeType,
-                storeName
-              });
-              setSimStoreType(storeType);
-              setIsDemoOfflineMode(true);
-              triggerBeep(true);
-              setActiveScreen('reports'); // Start with reports!
+            onDemoLogin={(userName, demoStoreId, demoStoreType, demoStoreName) => {
+              app.demoLogin(userName, demoStoreId, demoStoreType, demoStoreName)
+                .then(() => {
+                  triggerBeep(true);
+                  setActiveScreen('reports'); // Start with reports!
+                })
+                .catch((err) => {
+                  console.error(err);
+                  setAuthError('Không mở được cửa hàng demo: ' + (err?.message || 'Lỗi không xác định.'));
+                  triggerBeep(false);
+                });
             }}
             triggerBeep={triggerBeep}
           />
@@ -942,7 +401,7 @@ export default function App() {
               </span>
               <h2 className="text-xl font-black text-white uppercase tracking-tight">Cửa hàng đang chờ duyệt</h2>
               <p className="text-xs text-slate-400 font-medium">
-                Cửa hàng <strong className="text-slate-200">"{fbStoreProfile?.name}"</strong> của bạn đã được đăng ký thành công trên Cloud. Hiện tại đang chờ Ban quản trị phê duyệt để kích hoạt hệ thống bán hàng.
+                Cửa hàng <strong className="text-slate-200">"{fbStoreProfile?.name}"</strong> của bạn đã đăng ký thành công. Hiện tại đang chờ Ban quản trị phê duyệt để kích hoạt hệ thống bán hàng.
               </p>
             </div>
 
@@ -1069,8 +528,8 @@ export default function App() {
                     </>
                   ) : (
                     <>
-                      <Wifi className="w-3 h-3 text-emerald-400 mr-1 animate-pulse flex-shrink-0" />
-                      Đã kết nối Cloud
+                      <Check className="w-3 h-3 text-emerald-400 mr-1 flex-shrink-0" />
+                      Tài khoản đã đăng ký
                     </>
                   )}
                 </p>
@@ -1134,14 +593,7 @@ export default function App() {
           </div>
           {!sidebarCollapsed && (
             <button 
-              onClick={() => {
-                if (isDemoOfflineMode) {
-                  setDemoSession(null);
-                  triggerBeep(true);
-                } else {
-                  handleFirebaseLogout();
-                }
-              }}
+              onClick={() => handleFirebaseLogout()}
               className="p-2 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-slate-800/80 transition-colors cursor-pointer"
               title="Đăng xuất"
             >
@@ -1211,8 +663,8 @@ export default function App() {
               </span>
             ) : (
               <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-xl text-[10px] font-bold flex items-center">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse mr-1.5" />
-                CLOUD ACTIVE
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5" />
+                TÀI KHOẢN CHÍNH THỨC
               </span>
             )}
           </div>
@@ -1245,6 +697,8 @@ export default function App() {
                   setSimKitchenItems={setSimKitchenItems}
                   simOrders={simOrders}
                   setSimOrders={setSimOrders}
+                  simCustomers={simCustomers}
+                  setSimCustomers={setSimCustomers}
                   simSelectedTableId={simSelectedTableId}
                   setSimSelectedTableId={setSimSelectedTableId}
                   simUserRole={simUserRole}
@@ -1471,11 +925,8 @@ export default function App() {
                         </div>
                       </div>
                       <div>
-                        <button 
-                          onClick={() => {
-                            setDemoSession(null);
-                            triggerBeep(true);
-                          }}
+                        <button
+                          onClick={() => handleFirebaseLogout()}
                           className="px-4 py-2 bg-rose-50 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold hover:bg-rose-100 transition-colors flex items-center space-x-2 cursor-pointer shadow-sm active:scale-98"
                         >
                           <LogOut className="w-4 h-4" />
@@ -1514,8 +965,8 @@ export default function App() {
                     </div>
 
                     <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
-                      <span>Cơ sở dữ liệu: Local React State</span>
-                      <span>Máy chủ Cloud: Offline Sandbox</span>
+                      <span>Cơ sở dữ liệu: SQLite (local-first)</span>
+                      <span>Máy chủ Cloud: chưa kết nối (chế độ Demo)</span>
                     </div>
                   </div>
                 ) : !isDemoOfflineMode && fbStoreProfile ? (
@@ -1578,15 +1029,15 @@ export default function App() {
                           <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Trạng thái đồng bộ</span>
                           <div className="px-3 py-2.5 border border-emerald-100 bg-emerald-50/30 rounded-xl flex items-center text-xs text-emerald-800 font-bold">
                             <Check className="w-4 h-4 mr-2 text-emerald-600" />
-                            Thời gian thực Firestore hoạt động tốt
+                            Dữ liệu lưu cục bộ trên thiết bị (SQLite)
                           </div>
                         </div>
                       </div>
                     </div>
 
                     <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
-                      <span>Cơ sở dữ liệu đám mây: Firestore</span>
-                      <span>Máy chủ Cloud: Cloud Run container</span>
+                      <span>Cơ sở dữ liệu: SQLite (local-first)</span>
+                      <span>Đồng bộ Cloud: xem mục "Đồng bộ Cloud"</span>
                     </div>
                   </div>
                 ) : null}

@@ -10,8 +10,6 @@ import {
 } from 'lucide-react';
 import { Product, InventoryBatch, InventoryTransaction, InventoryTransactionType } from '../types';
 import { logOperation } from '../utils/logger';
-import { db } from '../firebase';
-import { doc, setDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 
 interface InventoryScreenProps {
   simProducts: Product[];
@@ -116,19 +114,8 @@ export default function InventoryScreen({
       createdAt: new Date().toISOString()
     };
 
-    if (!isOffline && storeId) {
-      try {
-        const firestoreBatch = writeBatch(db);
-        firestoreBatch.set(doc(db, 'stores', storeId, 'batches', newId), batch);
-        firestoreBatch.set(doc(db, 'stores', storeId, 'transactions', tx.id), tx);
-        await firestoreBatch.commit();
-      } catch (err) {
-        console.error("Lỗi nhập lô kho mới lên Firestore: ", err);
-      }
-    } else {
-      setSimBatches(prev => [batch, ...prev]);
-      setSimTransactions(prev => [tx, ...prev]);
-    }
+    setSimBatches(prev => [batch, ...prev]);
+    setSimTransactions(prev => [tx, ...prev]);
 
     // Reset Form
     setNewBatchCode('');
@@ -145,15 +132,7 @@ export default function InventoryScreen({
     if (confirm('Bạn có chắc chắn muốn hủy bỏ lô hàng tồn kho này khỏi danh sách?')) {
       if (batch) {
         logOperation('Quản lý kho', 'Hủy bỏ lô hàng tồn kho', batch);
-        if (!isOffline && storeId) {
-          try {
-            await deleteDoc(doc(db, 'stores', storeId, 'batches', id));
-          } catch (err) {
-            console.error("Lỗi hủy bỏ lô kho trên Firestore: ", err);
-          }
-        } else {
-          setSimBatches(prev => prev.filter(b => b.id !== id));
-        }
+        setSimBatches(prev => prev.filter(b => b.id !== id));
       }
       triggerBeep(true);
     }

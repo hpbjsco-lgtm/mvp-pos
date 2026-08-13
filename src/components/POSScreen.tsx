@@ -9,14 +9,11 @@ import {
   X, Landmark, Smartphone, CheckCircle, RefreshCw, AlertCircle, ShoppingCart, Tag, Edit3, ClipboardList,
   UserPlus, Coins, User, Wallet, ChefHat
 } from 'lucide-react';
-import { Product, DiningTable, Zone, KitchenItem, Order, PaymentMethod, TableStatus, KitchenStatus, InventoryBatch } from '../types';
+import { Product, DiningTable, Zone, KitchenItem, Order, PaymentMethod, TableStatus, KitchenStatus, InventoryBatch, Customer } from '../types';
 import TableMap from './TableMap';
 import KitchenDisplay from './KitchenDisplay';
 import ReceiptThermal from './ReceiptThermal';
 import { logOperation } from '../utils/logger';
-import { db } from '../firebase';
-import { doc, setDoc, writeBatch, collection, onSnapshot } from 'firebase/firestore';
-import { queueOfflineOperation } from '../utils/offlineManager';
 
 interface POSScreenProps {
   simStoreType: 'fnb' | 'retail';
@@ -32,6 +29,8 @@ interface POSScreenProps {
   setSimKitchenItems: React.Dispatch<React.SetStateAction<KitchenItem[]>>;
   simOrders: Order[];
   setSimOrders: React.Dispatch<React.SetStateAction<Order[]>>;
+  simCustomers: Customer[];
+  setSimCustomers: React.Dispatch<React.SetStateAction<Customer[]>>;
   simSelectedTableId: string;
   setSimSelectedTableId: (id: string) => void;
   simUserRole: 'admin' | 'staff';
@@ -57,6 +56,8 @@ export default function POSScreen({
   setSimKitchenItems,
   simOrders,
   setSimOrders,
+  simCustomers,
+  setSimCustomers,
   simSelectedTableId,
   setSimSelectedTableId,
   simUserRole,
@@ -88,30 +89,8 @@ export default function POSScreen({
   // Table Map Popup Modal
   const [tableMapPopupOpen, setTableMapPopupOpen] = useState(false);
 
-  // Loyalty Customers
-  const [simCustomers, setSimCustomers] = useState<Array<{ id: string; name: string; phone: string; points: number }>>([
-    { id: 'C1', name: 'Nguyễn Văn Anh', phone: '0901234567', points: 150 },
-    { id: 'C2', name: 'Trần Thị Bình', phone: '0987654321', points: 45 },
-    { id: 'C3', name: 'Lê Hoàng Minh', phone: '0912345678', points: 310 },
-    { id: 'C4', name: 'Phạm Hồng Nhung', phone: '0933445566', points: 12 }
-  ]);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
 
-  const storeId = fbUserProfile?.storeId || 'Sandbox';
-  useEffect(() => {
-    if (isDemoOfflineMode || !storeId) return;
-    const unsubscribe = onSnapshot(collection(db, 'stores', storeId, 'customers'), (snapshot) => {
-      const customersData: any[] = [];
-      snapshot.forEach((doc) => {
-        customersData.push({ id: doc.id, ...doc.data() });
-      });
-      if (customersData.length > 0) {
-        setSimCustomers(customersData);
-      }
-    });
-    return unsubscribe;
-  }, [isDemoOfflineMode, storeId]);
-  
   // Quick customer creation states
   const [newCustName, setNewCustName] = useState('');
   const [newCustPhone, setNewCustPhone] = useState('');
@@ -164,6 +143,20 @@ export default function POSScreen({
       playBeep(false);
       alert('Sản phẩm này hiện đang báo hết hàng!');
       return;
+    }
+
+    // Bàn đã có khách đặt trước & đây là món đầu tiên của đơn -> yêu cầu nhân viên xác nhận
+    if (simStoreType === 'fnb' && currentCart.length === 0 && selectedTable?.reservationName) {
+      const info = [
+        selectedTable.reservationName,
+        selectedTable.reservationPhone,
+        selectedTable.reservationTime ? `hẹn ${selectedTable.reservationTime}` : ''
+      ].filter(Boolean).join(' - ');
+      const confirmed = confirm(`Bàn này đã được đặt trước, hãy xác nhận thông tin khách.\n\nKhách đặt: ${info}${selectedTable.reservationNote ? `\nGhi chú: ${selectedTable.reservationNote}` : ''}`);
+      if (!confirmed) {
+        playBeep(false);
+        return;
+      }
     }
 
     // Retail POS verifies batch stock in FIFO order
@@ -275,25 +268,19 @@ export default function POSScreen({
   const handleAddNewCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCustName.trim() || !newCustPhone.trim()) return;
-    
-    const newId = `C-${Date.now()}`;
-    const newCust = {
-      id: newId,
+
+    const newCustId = `C-${Date.now()}`;
+    const newCust: Customer = {
+      id: newCustId,
       name: newCustName.trim(),
       phone: newCustPhone.trim(),
-      points: 0
+      email: '',
+      points: 0,
+      createdAt: new Date().toISOString()
     };
-    
-    if (!isDemoOfflineMode && storeId) {
-      try {
-        await setDoc(doc(db, 'stores', storeId, 'customers', newId), newCust);
-      } catch (err) {
-        console.error("Lỗi thêm khách hàng mới lên Firestore: ", err);
-      }
-    } else {
-      setSimCustomers(prev => [...prev, newCust]);
-    }
-    setSelectedCustomerId(newId);
+
+    setSimCustomers(prev => [...prev, newCust]);
+    setSelectedCustomerId(newCustId);
     setNewCustName('');
     setNewCustPhone('');
     setShowAddCustomer(false);
@@ -337,34 +324,16 @@ export default function POSScreen({
       };
     });
 
-    if (!isDemoOfflineMode && storeId) {
-      try {
-        const batch = writeBatch(db);
-        itemsToSend.forEach(item => {
-          batch.set(doc(db, 'stores', storeId, 'kitchenItems', item.id), item);
-        });
-        if (simStoreType === 'fnb' && selectedTable) {
-          batch.set(doc(db, 'stores', storeId, 'tables', simSelectedTableId), {
-            ...selectedTable,
-            status: TableStatus.SERVING
-          });
-        }
-        await batch.commit();
-      } catch (err) {
-        console.error("Lỗi gửi bếp hoặc cập nhật bàn lên Firestore: ", err);
-      }
-    } else {
-      setSimKitchenItems(prev => [...itemsToSend, ...prev]);
+    setSimKitchenItems(prev => [...itemsToSend, ...prev]);
 
-      // Mark dining table as serving status
-      if (simStoreType === 'fnb' && selectedTable) {
-        setSimTables(prev => prev.map(t => {
-          if (t.id === simSelectedTableId) {
-            return { ...t, status: TableStatus.SERVING };
-          }
-          return t;
-        }));
-      }
+    // Mark dining table as serving status
+    if (simStoreType === 'fnb' && selectedTable) {
+      setSimTables(prev => prev.map(t => {
+        if (t.id === simSelectedTableId) {
+          return { ...t, status: TableStatus.SERVING };
+        }
+        return t;
+      }));
     }
 
     playBeep(true);
@@ -450,93 +419,35 @@ export default function POSScreen({
 
       logOperation('Màn hình bán hàng (POS)', 'Thanh toán đơn hàng', newOrder);
 
-      if (!isDemoOfflineMode && storeId) {
-        try {
-          const batch = writeBatch(db);
-          // 1. Write order
-          batch.set(doc(db, 'stores', storeId, 'orders', orderId), newOrder);
+      setSimOrders(prev => [newOrder, ...prev]);
+      setLastPlacedOrder(newOrder);
 
-          // 2. Clear table status in F&B
-          if (simStoreType === 'fnb' && selectedTable) {
-            batch.set(doc(db, 'stores', storeId, 'tables', simSelectedTableId), {
-              ...selectedTable,
-              status: TableStatus.EMPTY
-            });
+      if (simStoreType === 'retail') {
+        setSimBatches(prev => prev.map(b => {
+          const itemDeducted = orderItems.find(oi => oi.batchId === b.id);
+          if (itemDeducted) {
+            return { ...b, quantity: Math.max(0, b.quantity - itemDeducted.quantity) };
           }
+          return b;
+        }));
+      }
 
-          // 3. Deduct inventory batch quantities in retail
-          if (simStoreType === 'retail') {
-            orderItems.forEach(oi => {
-              if (oi.batchId) {
-                const activeBatch = simBatches.find(b => b.id === oi.batchId);
-                if (activeBatch) {
-                  batch.set(doc(db, 'stores', storeId, 'batches', oi.batchId), {
-                    ...activeBatch,
-                    quantity: Math.max(0, activeBatch.quantity - oi.quantity)
-                  });
-                }
-              }
-            });
+      if (selectedCustomerId) {
+        setSimCustomers(prev => prev.map(c => {
+          if (c.id === selectedCustomerId) {
+            return { ...c, points: c.points + pointsEarned };
           }
+          return c;
+        }));
+      }
 
-          // 4. Update customer loyalty points
-          if (selectedCustomerId) {
-            const cust = simCustomers.find(c => c.id === selectedCustomerId);
-            if (cust) {
-              batch.set(doc(db, 'stores', storeId, 'customers', selectedCustomerId), {
-                ...cust,
-                points: cust.points + pointsEarned
-              });
-            }
+      if (simStoreType === 'fnb' && selectedTable) {
+        setSimTables(prev => prev.map(t => {
+          if (t.id === simSelectedTableId) {
+            return { ...t, status: TableStatus.EMPTY };
           }
-
-          await batch.commit();
-          setLastPlacedOrder(newOrder);
-        } catch (err) {
-          console.error("Lỗi đồng bộ thanh toán lên Firestore: ", err);
-        }
-      } else {
-        // Offline mode backup
-        queueOfflineOperation(storeId, 'orders', 'set', newOrder.id, newOrder);
-        setSimOrders(prev => [newOrder, ...prev]);
-        setLastPlacedOrder(newOrder);
-
-        if (simStoreType === 'retail') {
-          setSimBatches(prev => prev.map(b => {
-            const itemDeducted = orderItems.find(oi => oi.batchId === b.id);
-            if (itemDeducted) {
-              const updatedBatch = {
-                ...b,
-                quantity: Math.max(0, b.quantity - itemDeducted.quantity)
-              };
-              queueOfflineOperation(storeId, 'batches', 'set', b.id, updatedBatch);
-              return updatedBatch;
-            }
-            return b;
-          }));
-        }
-
-        if (selectedCustomerId) {
-          setSimCustomers(prev => prev.map(c => {
-            if (c.id === selectedCustomerId) {
-              const updatedCust = { ...c, points: c.points + pointsEarned };
-              queueOfflineOperation(storeId, 'customers', 'set', selectedCustomerId, updatedCust);
-              return updatedCust;
-            }
-            return c;
-          }));
-        }
-
-        if (simStoreType === 'fnb' && selectedTable) {
-          setSimTables(prev => prev.map(t => {
-            if (t.id === simSelectedTableId) {
-              const updatedTable = { ...t, status: TableStatus.EMPTY };
-              queueOfflineOperation(storeId, 'tables', 'set', simSelectedTableId, updatedTable);
-              return updatedTable;
-            }
-            return t;
-          }));
-        }
+          return t;
+        }));
       }
 
       setSimCarts(prev => ({

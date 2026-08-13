@@ -10,8 +10,6 @@ import {
 } from 'lucide-react';
 import { Product } from '../types';
 import { logOperation } from '../utils/logger';
-import { db } from '../firebase';
-import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 
 interface MenuManagementProps {
   simProducts: Product[];
@@ -60,13 +58,7 @@ export default function MenuManagement({
     };
 
     logOperation('Quản lý thực đơn', 'Thêm món vào thực đơn', newProduct);
-
-    if (!isOffline && storeId) {
-      setDoc(doc(db, 'stores', storeId, 'products', newProduct.id), newProduct)
-        .catch(err => console.error("Lỗi thêm món vào Firestore: ", err));
-    } else {
-      setSimProducts(prev => [newProduct, ...prev]);
-    }
+    setSimProducts(prev => [newProduct, ...prev]);
 
     // Reset fields
     setNewItemName('');
@@ -82,25 +74,7 @@ export default function MenuManagement({
     if (!product) return;
 
     logOperation('Quản lý thực đơn', 'Thay đổi trạng thái phục vụ', { ...product, isAvailable: !product.isAvailable });
-
-    if (!isOffline && storeId) {
-      try {
-        await setDoc(doc(db, 'stores', storeId, 'products', productId), {
-          ...product,
-          isAvailable: !product.isAvailable
-        });
-      } catch (err) {
-        console.error("Lỗi cập nhật trạng thái phục vụ trên Firestore: ", err);
-      }
-    } else {
-      setSimProducts(prev => prev.map(p => {
-        if (p.id === productId) {
-          const nextState = !p.isAvailable;
-          return { ...p, isAvailable: nextState };
-        }
-        return p;
-      }));
-    }
+    setSimProducts(prev => prev.map(p => (p.id === productId ? { ...p, isAvailable: !p.isAvailable } : p)));
     triggerBeep(true);
   };
 
@@ -111,15 +85,7 @@ export default function MenuManagement({
       if (product) {
         logOperation('Quản lý thực đơn', 'Xóa món khỏi thực đơn', product);
       }
-      if (!isOffline && storeId) {
-        try {
-          await deleteDoc(doc(db, 'stores', storeId, 'products', productId));
-        } catch (err) {
-          console.error("Lỗi xóa món trên Firestore: ", err);
-        }
-      } else {
-        setSimProducts(prev => prev.filter(p => p.id !== productId));
-      }
+      setSimProducts(prev => prev.filter(p => p.id !== productId));
       triggerBeep(true);
     }
   };

@@ -225,6 +225,12 @@ export default function App() {
 
   const [activeReceipt, setActiveReceipt] = useState<any>(null);
 
+  // Khách hàng thành viên mẫu (SQLite: bảng customers, xem src/db/schema.ts)
+  const [simCustomers, setSimCustomers] = useState([
+    { id: 'C1', name: 'Nguyễn Văn Anh', phone: '0901234567', email: '', points: 150, createdAt: '2026-06-01T09:00:00-07:00' },
+    { id: 'C2', name: 'Trần Thị Bình', phone: '0987654321', email: '', points: 45, createdAt: '2026-06-05T09:00:00-07:00' },
+  ]);
+
   // Multi-tenant FIFO/FEFO Inventory Batches
   const [simBatches, setSimBatches] = useState<any[]>([
     { id: 'B1', productId: 'P1', batchCode: 'LOT-C01', expiryDate: '2027-12-31', quantity: 85, originalQuantity: 100, createdAt: '2026-07-02T20:45:00-07:00' },
@@ -1612,6 +1618,8 @@ export default function App() {
                     setSimKitchenItems={setSimKitchenItems}
                     simOrders={simOrders}
                     setSimOrders={setSimOrders}
+                    simCustomers={simCustomers}
+                    setSimCustomers={setSimCustomers}
                     simSelectedTableId={simSelectedTableId}
                     setSimSelectedTableId={setSimSelectedTableId}
                     simUserRole={simUserRole}
@@ -3320,7 +3328,6 @@ export default function App() {
                 authError={authError}
                 isDemoOfflineMode={isDemoOfflineMode}
                 setIsDemoOfflineMode={setIsDemoOfflineMode}
-                onOpenDemoExplanation={() => {}}
                 onLogin={async (e, email, pass) => {
                   return handleFirebaseLogin(e, email, pass);
                 }}

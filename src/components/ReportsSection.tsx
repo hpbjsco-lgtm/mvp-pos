@@ -11,8 +11,8 @@ import {
   Store, Users, MapPin, Phone, Shield
 } from 'lucide-react';
 import { Order, Product, Attendance } from '../types';
-import { db } from '../firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { listStores, listAllUsers } from '../db/auth';
+import { loadCollection } from '../db/collections';
 
 interface ReportsSectionProps {
   simOrders: Order[];
@@ -56,121 +56,32 @@ export default function ReportsSection({
     const fetchSystemWideData = async () => {
       setLoadingAllData(true);
       try {
-        if (isOffline) {
-          // Mock data for offline/demo mode system admin view
-          const mockStores = [
-            { id: 'coffee-house', name: 'The Coffee House - Quận 1', storeType: 'fnb', status: 'approved', phone: '0901234567', address: '120 Lê Lợi, Quận 1, TP. HCM' },
-            { id: 'mini-mart', name: 'Hồng Phát Minimart', storeType: 'retail', status: 'approved', phone: '0987654321', address: '45 Nguyễn Trãi, Quận 5, TP. HCM' },
-            { id: 'bread-co', name: 'Bánh Mì & Cà Phê Sài Gòn', storeType: 'fnb', status: 'approved', phone: '0933333333', address: '88 Hai Bà Trưng, Quận 3, TP. HCM' },
-            { id: 'tech-zone', name: 'Thế Giới Công Nghệ', storeType: 'retail', status: 'approved', phone: '0912345678', address: '150 Trần Hưng Đạo, Quận 1, TP. HCM' }
-          ];
+        // Dữ liệu toàn hệ thống được đọc trực tiếp từ SQLite cục bộ trên thiết bị này
+        // (mọi cửa hàng đã đồng bộ Cloud về máy đều nằm chung 1 file SQLite - xem src/db/schema.ts).
+        const storesList = await listStores();
+        setAllStores(storesList);
 
-          const mockUsers = [
-            { uid: 'u1', name: 'Phan Cẩm Quyền', email: 'phancamquyen1996@gmail.com', role: 'sysadmin', storeId: 'coffee-house' },
-            { uid: 'u2', name: 'Nguyễn Văn A', email: 'vana@gmail.com', role: 'admin', storeId: 'coffee-house' },
-            { uid: 'u3', name: 'Trần Thị B', email: 'thib@gmail.com', role: 'staff', storeId: 'coffee-house' },
-            { uid: 'u4', name: 'Phạm Văn C', email: 'vanc@gmail.com', role: 'admin', storeId: 'mini-mart' },
-            { uid: 'u5', name: 'Lê Văn D', email: 'vand@gmail.com', role: 'staff', storeId: 'mini-mart' },
-            { uid: 'u6', name: 'Hoàng Thị E', email: 'thie@gmail.com', role: 'staff', storeId: 'bread-co' },
-            { uid: 'u7', name: 'Đỗ Văn F', email: 'vaf@gmail.com', role: 'staff', storeId: 'tech-zone' }
-          ];
+        const usersList = await listAllUsers();
+        setAllUsers(usersList);
 
-          setAllStores(mockStores);
-          setAllUsers(mockUsers);
+        const ordersResults = await Promise.all(
+          storesList.map((store) => loadCollection('orders', store.id) as Promise<Order[]>),
+        );
+        const productsResults = await Promise.all(
+          storesList.map((store) => loadCollection('products', store.id) as Promise<Product[]>),
+        );
 
-          // Use the current store's orders and generate some extra mock orders for the other stores
-          const extraOrders: Order[] = [
-            {
-              id: 'ord-mock-1',
-              orderNumber: 'HDM001',
-              tableId: 't1',
-              tableNumber: 'Bàn 1',
-              items: [{ productId: 'p1', name: 'Cà phê đá', price: 29000, quantity: 2 }],
-              totalAmount: 58000,
-              paymentMethod: 'cash' as any,
-              paidAmount: 60000,
-              changeAmount: 2000,
-              staffId: 'u2',
-              createdAt: new Date().toISOString()
-            },
-            {
-              id: 'ord-mock-2',
-              orderNumber: 'HDM002',
-              tableId: 't2',
-              tableNumber: 'Bàn 2',
-              items: [{ productId: 'p2', name: 'Trà đào cam sả', price: 39000, quantity: 3 }],
-              totalAmount: 117000,
-              paymentMethod: 'qr' as any,
-              paidAmount: 117000,
-              changeAmount: 0,
-              staffId: 'u3',
-              createdAt: new Date().toISOString()
-            }
-          ];
-          setAllSystemOrders([...simOrders, ...extraOrders]);
-          setAllSystemProducts(simProducts);
-        } else {
-          // Online Mode - Fetch all stores and users
-          const storesRef = collection(db, 'stores');
-          const storesSnapshot = await getDocs(storesRef);
-          const storesList: any[] = [];
-          storesSnapshot.forEach(doc => {
-            storesList.push({ id: doc.id, ...doc.data() });
-          });
-          setAllStores(storesList);
-
-          const usersRef = collection(db, 'users');
-          const usersSnapshot = await getDocs(usersRef);
-          const usersList: any[] = [];
-          usersSnapshot.forEach(doc => {
-            usersList.push({ id: doc.id, ...doc.data() });
-          });
-          setAllUsers(usersList);
-
-          // For each store, fetch its orders and products
-          const ordersPromises = storesList.map(async (store) => {
-            try {
-              const snap = await getDocs(collection(db, 'stores', store.id, 'orders'));
-              const list: Order[] = [];
-              snap.forEach(d => {
-                list.push({ id: d.id, ...d.data() } as Order);
-              });
-              return list;
-            } catch (e) {
-              console.error(`Error fetching orders for store ${store.id}:`, e);
-              return [];
-            }
-          });
-
-          const productsPromises = storesList.map(async (store) => {
-            try {
-              const snap = await getDocs(collection(db, 'stores', store.id, 'products'));
-              const list: Product[] = [];
-              snap.forEach(d => {
-                list.push({ id: d.id, ...d.data() } as Product);
-              });
-              return list;
-            } catch (e) {
-              console.error(`Error fetching products for store ${store.id}:`, e);
-              return [];
-            }
-          });
-
-          const ordersResults = await Promise.all(ordersPromises);
-          const productsResults = await Promise.all(productsPromises);
-
-          setAllSystemOrders(ordersResults.flat());
-          setAllSystemProducts(productsResults.flat());
-        }
+        setAllSystemOrders(ordersResults.flat());
+        setAllSystemProducts(productsResults.flat());
       } catch (error) {
-        console.error("Error fetching system-wide data in ReportsSection:", error);
+        console.error("Lỗi tải dữ liệu toàn hệ thống trong ReportsSection:", error);
       } finally {
         setLoadingAllData(false);
       }
     };
 
     fetchSystemWideData();
-  }, [isSysAdmin, isOffline, simOrders, simProducts]);
+  }, [isSysAdmin]);
 
   // Use either global system wide data or specific store data based on role
   const ordersToUse = isSysAdmin ? (allSystemOrders.length > 0 ? allSystemOrders : simOrders) : simOrders;

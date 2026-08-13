@@ -6,8 +6,6 @@
 import React, { useState, useEffect } from 'react';
 import { ChefHat, Clock, CheckCircle, RefreshCw, AlertTriangle, Coffee, Filter } from 'lucide-react';
 import { KitchenItem, KitchenStatus } from '../types';
-import { db } from '../firebase';
-import { doc, setDoc, writeBatch } from 'firebase/firestore';
 
 interface KitchenDisplayProps {
   simKitchenItems: KitchenItem[];
@@ -55,41 +53,13 @@ export default function KitchenDisplay({
       return;
     }
 
-    if (!isOffline && storeId) {
-      const item = simKitchenItems.find(i => i.id === itemId);
-      if (item) {
-        setDoc(doc(db, 'stores', storeId, 'kitchenItems', itemId), {
-          ...item,
-          status: nextStatus
-        }).catch(err => console.error("Lỗi cập nhật trạng thái món bếp: ", err));
-      }
-    } else {
-      setSimKitchenItems(prev => prev.map(item => {
-        if (item.id === itemId) {
-          return { ...item, status: nextStatus };
-        }
-        return item;
-      }));
-    }
+    setSimKitchenItems(prev => prev.map(item => (item.id === itemId ? { ...item, status: nextStatus } : item)));
     triggerBeep(true);
   };
 
   const handleClearServed = () => {
     if (confirm('Bạn có muốn xóa toàn bộ các sản phẩm đã hoàn tất phục vụ ra khỏi hàng đợi bếp?')) {
-      if (!isOffline && storeId) {
-        try {
-          const batch = writeBatch(db);
-          const servedItems = simKitchenItems.filter(item => item.status === KitchenStatus.SERVED);
-          servedItems.forEach(item => {
-            batch.delete(doc(db, 'stores', storeId, 'kitchenItems', item.id));
-          });
-          batch.commit().catch(err => console.error("Lỗi xóa món đã phục vụ: ", err));
-        } catch (err) {
-          console.error("Lỗi xóa các món đã phục vụ trên Firestore: ", err);
-        }
-      } else {
-        setSimKitchenItems(prev => prev.filter(item => item.status !== KitchenStatus.SERVED));
-      }
+      setSimKitchenItems(prev => prev.filter(item => item.status !== KitchenStatus.SERVED));
       triggerBeep(true);
     }
   };

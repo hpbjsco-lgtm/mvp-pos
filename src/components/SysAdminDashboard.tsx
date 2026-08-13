@@ -9,17 +9,8 @@ import {
   RefreshCw, AlertCircle, Phone, MapPin, Mail, Calendar, HelpCircle, 
   Trash2, ShieldCheck, CheckCircle2, XCircle
 } from 'lucide-react';
-import { db, auth } from '../firebase';
-import { 
-  collection, 
-  getDocs, 
-  doc, 
-  updateDoc, 
-  deleteDoc,
-  writeBatch,
-  query,
-  where
-} from 'firebase/firestore';
+import { listStores, listAllUsers } from '../db/auth';
+import { run, upsert, nowIso } from '../db/index';
 
 interface SysAdminDashboardProps {
   onLogout: () => Promise<void>;
@@ -52,18 +43,18 @@ export default function SysAdminDashboard({
         setConfirmAction(null);
         setLoading(true);
         try {
-          const batch = writeBatch(db);
           const storeId = `store-${Date.now()}`;
-          batch.set(doc(db, 'stores', storeId), {
+          const ts = nowIso();
+          await upsert('stores', {
             id: storeId,
             name: "Cửa Hàng Mẫu 01",
             address: "123 Đường Mẫu, Quận 1, TP.HCM",
             phone: "0900000001",
-            storeType: 'fnb',
+            store_type: 'fnb',
             status: 'active',
-            createdAt: new Date().toISOString()
+            created_at: ts,
+            updated_at: ts,
           });
-          await batch.commit();
           alert("Đã khởi tạo cửa hàng mẫu!");
           await fetchData();
         } catch (err) {
@@ -76,37 +67,12 @@ export default function SysAdminDashboard({
     });
   };
 
-  // Fetch all stores and users
+  // Đọc toàn bộ cửa hàng + tài khoản từ SQLite cục bộ
   const fetchData = async () => {
     setLoading(true);
-    console.log("Fetching stores and users...");
-    console.log("Current user object:", auth.currentUser);
-    console.log("Current user email from auth:", auth.currentUser?.email);
-    console.log("Current user UID:", auth.currentUser?.uid);
     try {
-      const storesRef = collection(db, 'stores');
-      console.log("Stores ref:", storesRef.path);
-      const storesSnapshot = await getDocs(storesRef);
-      console.log("Stores fetched:", storesSnapshot.size);
-      const storesList: any[] = [];
-      storesSnapshot.forEach(doc => {
-        storesList.push({ id: doc.id, ...doc.data() });
-      });
-
-      const usersRef = collection(db, 'users');
-      console.log("Users ref:", usersRef.path);
-      const usersSnapshot = await getDocs(usersRef);
-      console.log("Users fetched:", usersSnapshot.size);
-      const usersList: any[] = [];
-      usersSnapshot.forEach(doc => {
-        usersList.push({ id: doc.id, ...doc.data() });
-      });
-
-      // Sort stores by createdAt desc
-      storesList.sort((a, b) => {
-        return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
-      });
-
+      const storesList = await listStores();
+      const usersList = await listAllUsers();
       setStores(storesList);
       setUsers(usersList);
     } catch (err) {
@@ -134,14 +100,8 @@ export default function SysAdminDashboard({
         setConfirmAction(null);
         setActionLoading(store.id);
         try {
-          console.log("Approving store:", store.id);
-          console.log("Current user:", auth.currentUser?.email);
-          console.log("Updating document in stores collection with ID:", store.id);
           // 1. Update store status to active
-          await updateDoc(doc(db, 'stores', store.id), {
-            status: 'active'
-          });
-          console.log("Store status updated to active");
+          await run('UPDATE stores SET status = ?, updated_at = ? WHERE id = ?', ['active', nowIso(), store.id]);
 
           // 2. Seed default data for the store (only if not already seeded)
           const seeded = await seedStoreData(store.id, store.storeType || 'fnb');
@@ -177,12 +137,7 @@ export default function SysAdminDashboard({
         setConfirmAction(null);
         setActionLoading(store.id);
         try {
-          console.log("Rejecting store:", store.id);
-          console.log("Current user:", auth.currentUser?.email);
-          await updateDoc(doc(db, 'stores', store.id), {
-            status: 'rejected'
-          });
-          console.log("Store status updated to rejected");
+          await run('UPDATE stores SET status = ?, updated_at = ? WHERE id = ?', ['rejected', nowIso(), store.id]);
           triggerBeep(true);
           alert(`Đã từ chối hoạt động cho cửa hàng "${store.name}".`);
           await fetchData();
@@ -348,7 +303,7 @@ export default function SysAdminDashboard({
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                <span className="text-xs text-slate-400 font-medium block">Đang kết xuất dữ liệu Firestore...</span>
+                <span className="text-xs text-slate-400 font-medium block">Đang đọc dữ liệu từ SQLite cục bộ...</span>
               </div>
             ) : filteredStores.length === 0 ? (
               <div className="p-12 text-center text-xs text-slate-400 font-medium">
@@ -534,7 +489,7 @@ export default function SysAdminDashboard({
               <ShieldCheck className="w-4.5 h-4.5" /> Quy tắc phân mảnh dữ liệu
             </div>
             <p className="text-[11px] text-slate-300 leading-relaxed font-medium">
-              Tất cả các tài liệu kinh doanh bao gồm hóa đơn, sản phẩm, tồn kho, và các sơ đồ bàn đều được lưu tại đường dẫn phân mảnh dưới dạng: <code className="font-mono text-rose-300 text-[10px]">/stores/&#123;storeId&#125;/subcollections/...</code>. Điều này giúp loại bỏ rủi ro lộ hoặc chồng lấn dữ liệu chéo của các cửa hàng khác.
+              Tất cả dữ liệu kinh doanh (hóa đơn, sản phẩm, tồn kho, sơ đồ bàn...) được lưu trong 1 file SQLite duy nhất trên thiết bị, mọi bảng đều gắn cột <code className="font-mono text-rose-300 text-[10px]">store_id</code> để phân tách dữ liệu giữa các cửa hàng. Khi bật đồng bộ Cloud, dữ liệu của các cửa hàng khác cũng được hợp nhất vào cùng file này để phục vụ báo cáo toàn hệ thống.
             </p>
             <div className="text-[11px] text-slate-400 font-medium">
               Chỉ có System Admin mới được cấp quyền truy cập đa chủ thể (multi-tenant) để phục vụ công tác phê duyệt và hậu kiểm.

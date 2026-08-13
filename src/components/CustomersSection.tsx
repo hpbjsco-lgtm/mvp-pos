@@ -3,16 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
-import { 
-  Users, Search, Plus, Edit2, Trash2, Award, 
-  Phone, Mail, Check, AlertCircle, X, ShieldAlert 
+import React, { useState } from 'react';
+import {
+  Users, Search, Plus, Edit2, Trash2, Award,
+  Phone, Mail, Check, AlertCircle, X, ShieldAlert
 } from 'lucide-react';
 import { Customer } from '../types';
-import { db } from '../firebase';
-import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { logOperation } from '../utils/logger';
-import { queueOfflineOperation } from '../utils/offlineManager';
 
 interface CustomersSectionProps {
   isOffline: boolean;
@@ -29,46 +26,18 @@ export default function CustomersSection({
   simCustomers,
   setSimCustomers
 }: CustomersSectionProps) {
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
+  const customers = simCustomers;
   const [searchQuery, setSearchQuery] = useState('');
 
   // Form Modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
-  
+
   // Form values
   const [formName, setFormName] = useState('');
   const [formPhone, setFormPhone] = useState('');
   const [formEmail, setFormEmail] = useState('');
   const [formPoints, setFormPoints] = useState<number>(0);
-
-  // Firestore Sync Effect
-  useEffect(() => {
-    if (isOffline || !storeId) {
-      setCustomers(simCustomers);
-      return;
-    }
-
-    setLoading(true);
-    const customersRef = collection(db, 'stores', storeId, 'customers');
-    const unsubscribe = onSnapshot(customersRef, (snapshot) => {
-      const list: Customer[] = [];
-      snapshot.forEach((docSnap) => {
-        list.push({ id: docSnap.id, ...docSnap.data() } as Customer);
-      });
-      // Sort by creation date or name
-      list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-      setCustomers(list);
-      setLoading(false);
-    }, (error) => {
-      console.error("Lỗi đồng bộ khách hàng: ", error);
-      setCustomers(simCustomers);
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [isOffline, storeId, simCustomers]);
 
   // Open Add Modal
   const handleOpenAdd = () => {
@@ -123,21 +92,10 @@ export default function CustomersSection({
         logOperation('Quản lý khách hàng', 'Thêm khách hàng', newCustomer);
       }
 
-      if (isOffline) {
-        // Offline Demo update
-        queueOfflineOperation(storeId, 'customers', 'set', customerId, newCustomer);
-        if (editingCustomer) {
-          setSimCustomers(prev => prev.map(c => c.id === customerId ? newCustomer : c));
-        } else {
-          setSimCustomers(prev => [newCustomer, ...prev]);
-        }
+      if (editingCustomer) {
+        setSimCustomers(prev => prev.map(c => c.id === customerId ? newCustomer : c));
       } else {
-        // Firebase Cloud update
-        const custDocRef = doc(db, 'stores', storeId, 'customers', customerId);
-        await setDoc(custDocRef, {
-          ...newCustomer,
-          storeId // store_id for multi-tenancy verification
-        });
+        setSimCustomers(prev => [newCustomer, ...prev]);
       }
 
       setModalOpen(false);
@@ -163,12 +121,7 @@ export default function CustomersSection({
 
     try {
       logOperation('Quản lý khách hàng', 'Xóa khách hàng', c);
-      if (isOffline) {
-        queueOfflineOperation(storeId, 'customers', 'delete', c.id);
-        setSimCustomers(prev => prev.filter(item => item.id !== c.id));
-      } else {
-        await deleteDoc(doc(db, 'stores', storeId, 'customers', c.id));
-      }
+      setSimCustomers(prev => prev.filter(item => item.id !== c.id));
       triggerBeep(true);
     } catch (err) {
       console.error(err);
@@ -220,12 +173,7 @@ export default function CustomersSection({
         </div>
 
         {/* List Content */}
-        {loading ? (
-          <div className="py-12 text-center text-slate-400 text-xs">
-            <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-            Đang tải dữ liệu khách hàng từ đám mây...
-          </div>
-        ) : filteredCustomers.length === 0 ? (
+        {filteredCustomers.length === 0 ? (
           <div className="py-16 text-center text-slate-400 text-xs border border-dashed border-slate-200 rounded-2xl">
             🔍 Không tìm thấy hồ sơ khách hàng nào phù hợp bộ lọc tìm kiếm.
           </div>

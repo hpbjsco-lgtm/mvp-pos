@@ -3,22 +3,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
-import { 
+import React, { useState } from 'react';
+import {
   Users, Search, Plus, Edit2, Briefcase, DollarSign, Calendar, Clock,
   CheckCircle2, X, Play, LogOut, ChevronLeft, ChevronRight, Award, Grid, List
 } from 'lucide-react';
 import { UserProfile, Attendance, UserRole } from '../types';
-import { db } from '../firebase';
-import { collection, onSnapshot, doc, setDoc, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { logOperation } from '../utils/logger';
-import { queueOfflineOperation } from '../utils/offlineManager';
 
 interface EmployeesSectionProps {
   isOffline: boolean;
   storeId: string;
   triggerBeep: (success: boolean) => void;
-  // State for offline demo
   simEmployees: UserProfile[];
   setSimEmployees: React.Dispatch<React.SetStateAction<UserProfile[]>>;
   simAttendance: Attendance[];
@@ -34,10 +30,9 @@ export default function EmployeesSection({
   simAttendance,
   setSimAttendance
 }: EmployeesSectionProps) {
-  const [employees, setEmployees] = useState<UserProfile[]>([]);
-  const [attendanceLogs, setAttendanceLogs] = useState<Attendance[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
-  
+  const employees = simEmployees;
+  const attendanceLogs = simAttendance;
+
   const [activeTab, setActiveTab] = useState<'list' | 'schedule'>('list');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -58,47 +53,6 @@ export default function EmployeesSection({
     monday.setHours(0, 0, 0, 0);
     return monday;
   });
-
-  // Load Sync Employees & Attendance
-  useEffect(() => {
-    if (isOffline || !storeId) {
-      setEmployees(simEmployees);
-      setAttendanceLogs(simAttendance);
-      return;
-    }
-
-    setLoading(true);
-
-    // Sync Employees (Users with match storeId)
-    const employeesQuery = query(collection(db, 'users'), where('storeId', '==', storeId));
-    const unsubscribeEmployees = onSnapshot(employeesQuery, (snapshot) => {
-      const list: UserProfile[] = [];
-      snapshot.forEach((docSnap) => {
-        list.push({ uid: docSnap.id, ...docSnap.data() } as UserProfile);
-      });
-      setEmployees(list);
-    });
-
-    // Sync Attendance
-    const attendanceRef = collection(db, 'stores', storeId, 'attendance');
-    const unsubscribeAttendance = onSnapshot(attendanceRef, (snapshot) => {
-      const logs: Attendance[] = [];
-      snapshot.forEach((docSnap) => {
-        logs.push({ id: docSnap.id, ...docSnap.data() } as Attendance);
-      });
-      logs.sort((a, b) => b.checkIn.localeCompare(a.checkIn));
-      setAttendanceLogs(logs);
-      setLoading(false);
-    }, (error) => {
-      console.error(error);
-      setLoading(false);
-    });
-
-    return () => {
-      unsubscribeEmployees();
-      unsubscribeAttendance();
-    };
-  }, [isOffline, storeId, simEmployees, simAttendance]);
 
   // Handle Edit Employee Hourly Rate or role
   const handleOpenEdit = (emp: UserProfile) => {
@@ -126,17 +80,7 @@ export default function EmployeesSection({
       };
 
       logOperation('Quản lý nhân viên', 'Sửa thông tin nhân viên', updatedProfile);
-
-      if (isOffline) {
-        queueOfflineOperation(storeId, 'users', 'set', editingEmployee.uid, updatedProfile);
-        setSimEmployees(prev => prev.map(emp => emp.uid === editingEmployee.uid ? updatedProfile : emp));
-      } else {
-        // Firebase users collection update
-        await setDoc(doc(db, 'users', editingEmployee.uid), {
-          ...updatedProfile
-        });
-      }
-
+      setSimEmployees(prev => prev.map(emp => emp.uid === editingEmployee.uid ? updatedProfile : emp));
       setModalOpen(false);
       triggerBeep(true);
     } catch (err) {

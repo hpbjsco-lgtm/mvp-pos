@@ -31,7 +31,6 @@ interface LoginScreenProps {
   ) => Promise<void>;
   onLogout: () => Promise<void>;
   onDemoLogin: (userName: string, storeId: string, storeType: 'fnb' | 'retail', storeName: string) => void;
-  onOpenDemoExplanation: () => void;
   triggerBeep: (success: boolean) => void;
 }
 
@@ -47,7 +46,6 @@ export default function LoginScreen({
   onRegister,
   onLogout,
   onDemoLogin,
-  onOpenDemoExplanation,
   triggerBeep
 }: LoginScreenProps) {
   const [authMode, setAuthMode] = useState<'demo' | 'login' | 'register'>('demo');
@@ -130,40 +128,32 @@ export default function LoginScreen({
               <Activity className="w-4 h-4" />
             </div>
             <div>
-              <h4 className="text-xs font-bold text-slate-200">Phục vụ Đám mây thời gian thực</h4>
-              <p className="text-[11px] text-slate-400 leading-normal">Đồng bộ tức thì mọi giao dịch lên cloud, hoạt động ổn định kể cả khi mất mạng đột ngột.</p>
+              <h4 className="text-xs font-bold text-slate-200">Hoạt động Local-first ổn định</h4>
+              <p className="text-[11px] text-slate-400 leading-normal">Dữ liệu lưu trực tiếp trên thiết bị (SQLite), bán hàng và thao tác vẫn mượt mà kể cả khi mất mạng hoàn toàn.</p>
             </div>
           </div>
         </div>
 
         {/* Bottom Credits */}
         <div className="text-[11px] text-slate-500 font-mono flex items-center gap-1.5 pt-4 border-t border-white/5 relative z-10">
-          <ShieldCheck className="w-3.5 h-3.5 text-blue-500" /> Secure Multi-Tenant Cloud Architecture
+          <ShieldCheck className="w-3.5 h-3.5 text-blue-500" /> Secure Multi-Tenant Local-First Architecture
         </div>
       </div>
 
       {/* Main Authentication Card (Right) */}
       <div className="lg:col-span-7 bg-white p-8 lg:p-12 flex flex-col justify-between">
         
-        {/* Top bar info */}
-        <div className="flex justify-between items-center pb-6 border-b border-slate-100">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="text-xs font-extrabold text-slate-500 font-mono">XÁC THỰC CỬA HÀNG</span>
-          </div>
-        </div>
-
         {/* Auth Forms */}
         <div className="py-6 space-y-6 max-w-md mx-auto w-full">
           <div className="space-y-1.5">
             <h2 className="text-xl font-black text-slate-900 tracking-tight uppercase">
               {authMode === 'demo' && 'Đăng nhập Demo'}
-              {authMode === 'login' && 'Đăng nhập Đám mây'}
+              {authMode === 'login' && 'Đăng nhập'}
               {authMode === 'register' && 'Khởi tạo hệ thống mới'}
             </h2>
             <p className="text-xs text-slate-500">
               {authMode === 'demo' && 'Định nghĩa Store ID & Type để chạy thử nghiệm độc lập ngay tức thì.'}
-              {authMode === 'login' && 'Nhập tài khoản để quản trị cửa hàng đám mây của bạn.'}
+              {authMode === 'login' && 'Nhập tài khoản để quản trị cửa hàng của bạn trên thiết bị này.'}
               {authMode === 'register' && 'Khởi tạo cơ sở dữ liệu riêng, cấu hình mặc định tự động trong 5 giây.'}
             </p>
           </div>
@@ -186,7 +176,7 @@ export default function LoginScreen({
                 authMode === 'login' ? 'bg-slate-900 text-white shadow-sm font-extrabold' : 'text-slate-500 hover:text-slate-800'
               }`}
             >
-              Cloud Login
+              Đăng nhập
             </button>
             <button
               type="button"
@@ -338,7 +328,7 @@ export default function LoginScreen({
 
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1">
-                    <Store className="w-3.5 h-3.5" /> Tên cửa hàng đám mây
+                    <Store className="w-3.5 h-3.5" /> Tên cửa hàng
                   </label>
                   <input
                     type="text"
@@ -443,23 +433,13 @@ export default function LoginScreen({
                 </span>
               ) : authMode === 'login' ? (
                 <span className="flex items-center gap-2">
-                  ĐĂNG NHẬP CLOUD <LogIn className="w-4 h-4" />
+                  ĐĂNG NHẬP <LogIn className="w-4 h-4" />
                 </span>
               ) : (
                 <span className="flex items-center gap-2">
                   KHỞI TẠO CỬA HÀNG <Sparkles className="w-4 h-4 text-amber-300" />
                 </span>
               )}
-            </button>
-
-            {/* Temporary Review Project button linked to demo.tsx */}
-            <button
-              type="button"
-              onClick={onOpenDemoExplanation}
-              className="w-full flex items-center justify-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-extrabold text-xs py-3 px-6 rounded-2xl border border-blue-200 transition-all shadow-sm active:scale-[0.98] cursor-pointer min-h-[44px] mt-2.5"
-            >
-              <Sparkles className="w-4 h-4 text-amber-500 animate-bounce" />
-              XEM GIẢI THÍCH DỰ ÁN (REVIEW PROJECT - DEMO)
             </button>
           </form>
         </div>

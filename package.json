@@ -11,6 +11,16 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@capacitor-community/sqlite": "^7.0.3",
+    "@capacitor/android": "^7.6.8",
+    "@capacitor/app": "^7.1.2",
+    "@capacitor/cli": "^7.6.8",
+    "@capacitor/core": "^7.6.8",
+    "@capacitor/filesystem": "^7.1.8",
+    "@capacitor/ios": "^7.6.8",
+    "@capacitor/preferences": "^7.0.4",
+    "@capacitor/splash-screen": "^7.0.5",
+    "@capacitor/status-bar": "^7.0.6",
     "@google/genai": "^2.4.0",
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
@@ -21,11 +31,13 @@
     "motion": "^12.23.24",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
+    "sql.js": "^1.14.1",
     "vite": "^6.2.3"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
+    "@types/sql.js": "^1.4.11",
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.25.0",
     "tailwindcss": "^4.1.14",

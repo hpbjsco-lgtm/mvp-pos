@@ -4,13 +4,11 @@
  */
 
 import React, { useState } from 'react';
-import { 
-  Layers, Plus, Trash2, Edit3, Grid, Users, Square, Check, RefreshCw, Hand, Lock, Eye
+import {
+  Layers, Plus, Trash2, Edit3, Grid, Users, Square, Check, RefreshCw, Hand, Lock, Eye, Calendar, X
 } from 'lucide-react';
 import { DiningTable, Zone, TableStatus } from '../types';
 import { logOperation } from '../utils/logger';
-import { db } from '../firebase';
-import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 
 interface TableMapProps {
   simTables: DiningTable[];
@@ -51,6 +49,13 @@ export default function TableMap({
   const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0 });
   const [tableStartCoords, setTableStartCoords] = useState({ x: 0, y: 0 });
 
+  // Đặt bàn trước - modal state
+  const [reservationTableId, setReservationTableId] = useState<string | null>(null);
+  const [resName, setResName] = useState('');
+  const [resPhone, setResPhone] = useState('');
+  const [resTime, setResTime] = useState('');
+  const [resNote, setResNote] = useState('');
+
   const currentZoneId = selectedZoneId === 'all' && simZones.length > 0 ? simZones[0].id : selectedZoneId;
 
   // Add a zone
@@ -64,15 +69,7 @@ export default function TableMap({
       createdAt: new Date().toISOString()
     };
     logOperation('Sơ đồ phòng bàn', 'Thêm khu vực', zone);
-    if (!isOffline && storeId) {
-      try {
-        await setDoc(doc(db, 'stores', storeId, 'zones', newId), zone);
-      } catch (err) {
-        console.error("Lỗi thêm khu vực trên Firestore: ", err);
-      }
-    } else {
-      setSimZones(prev => [...prev, zone]);
-    }
+    setSimZones(prev => [...prev, zone]);
     setSelectedZoneId(newId);
     setNewZoneName('');
     triggerBeep(true);
@@ -102,16 +99,7 @@ export default function TableMap({
     };
 
     logOperation('Sơ đồ phòng bàn', 'Thêm bàn ăn', table);
-
-    if (!isOffline && storeId) {
-      try {
-        await setDoc(doc(db, 'stores', storeId, 'tables', newId), table);
-      } catch (err) {
-        console.error("Lỗi thêm bàn ăn trên Firestore: ", err);
-      }
-    } else {
-      setSimTables(prev => [...prev, table]);
-    }
+    setSimTables(prev => [...prev, table]);
     setSimSelectedTableId(newId);
     setNewTableName('');
     triggerBeep(true);
@@ -125,15 +113,7 @@ export default function TableMap({
       if (table) {
         logOperation('Sơ đồ phòng bàn', 'Xóa bàn ăn', table);
       }
-      if (!isOffline && storeId) {
-        try {
-          await deleteDoc(doc(db, 'stores', storeId, 'tables', id));
-        } catch (err) {
-          console.error("Lỗi xóa bàn ăn trên Firestore: ", err);
-        }
-      } else {
-        setSimTables(prev => prev.filter(t => t.id !== id));
-      }
+      setSimTables(prev => prev.filter(t => t.id !== id));
       if (simSelectedTableId === id) {
         setSimSelectedTableId('retail'); // Fallback or clear
       }
@@ -148,23 +128,12 @@ export default function TableMap({
     if (table) {
       const nextStatus = table.status === TableStatus.EMPTY ? TableStatus.SERVING : TableStatus.EMPTY;
       logOperation('Sơ đồ phòng bàn', 'Cập nhật trạng thái bàn', { ...table, status: nextStatus });
-      if (!isOffline && storeId) {
-        try {
-          await setDoc(doc(db, 'stores', storeId, 'tables', id), {
-            ...table,
-            status: nextStatus
-          });
-        } catch (err) {
-          console.error("Lỗi cập nhật trạng thái bàn trên Firestore: ", err);
+      setSimTables(prev => prev.map(t => {
+        if (t.id === id) {
+          return { ...t, status: nextStatus };
         }
-      } else {
-        setSimTables(prev => prev.map(t => {
-          if (t.id === id) {
-            return { ...t, status: nextStatus };
-          }
-          return t;
-        }));
-      }
+        return t;
+      }));
     }
     triggerBeep(true);
   };
@@ -200,19 +169,48 @@ export default function TableMap({
     }));
   };
 
-  const handleMouseUp = async () => {
+  const handleMouseUp = () => {
     if (draggingId) {
-      const table = simTables.find(t => t.id === draggingId);
-      if (table && !isOffline && storeId) {
-        try {
-          await setDoc(doc(db, 'stores', storeId, 'tables', draggingId), table);
-        } catch (err) {
-          console.error("Lỗi cập nhật vị trí bàn trên Firestore: ", err);
-        }
-      }
       setDraggingId(null);
       triggerBeep(true);
     }
+  };
+
+  // Mở form đặt bàn trước (nạp lại thông tin nếu bàn đã có đặt trước để sửa)
+  const openReservationModal = (t: DiningTable, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setReservationTableId(t.id);
+    setResName(t.reservationName || '');
+    setResPhone(t.reservationPhone || '');
+    setResTime(t.reservationTime || '');
+    setResNote(t.reservationNote || '');
+  };
+
+  const handleSaveReservation = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reservationTableId || !resName.trim()) return;
+    const updated = {
+      reservationName: resName.trim(),
+      reservationPhone: resPhone.trim(),
+      reservationTime: resTime,
+      reservationNote: resNote.trim()
+    };
+    const table = simTables.find(t => t.id === reservationTableId);
+    if (table) logOperation('Sơ đồ phòng bàn', 'Đặt bàn trước', { ...table, ...updated });
+    setSimTables(prev => prev.map(t => (t.id === reservationTableId ? { ...t, ...updated } : t)));
+    setReservationTableId(null);
+    triggerBeep(true);
+  };
+
+  const handleClearReservation = () => {
+    if (!reservationTableId) return;
+    const table = simTables.find(t => t.id === reservationTableId);
+    if (table) logOperation('Sơ đồ phòng bàn', 'Hủy đặt bàn trước', table);
+    setSimTables(prev => prev.map(t => (t.id === reservationTableId
+      ? { ...t, reservationName: '', reservationPhone: '', reservationTime: '', reservationNote: '' }
+      : t)));
+    setReservationTableId(null);
+    triggerBeep(true);
   };
 
   // Filtered tables list
@@ -342,24 +340,46 @@ export default function TableMap({
                   )}
                 </div>
 
+                {/* Reservation badge */}
+                {t.reservationName && (
+                  <button
+                    onClick={(e) => openReservationModal(t, e)}
+                    className="text-[9px] px-1.5 py-0.5 rounded font-bold bg-amber-100 text-amber-700 border border-amber-200 flex items-center gap-1 self-start"
+                    title="Xem / sửa thông tin đặt bàn trước"
+                  >
+                    <Calendar className="w-2.5 h-2.5" /> Đã đặt: {t.reservationName}
+                  </button>
+                )}
+
                 {/* Table Status trigger */}
-                <div className="flex justify-between items-end">
+                <div className="flex justify-between items-end gap-1">
                   <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase ${
-                    isTableServing 
-                      ? 'bg-emerald-500/15 text-emerald-700 border border-emerald-500/25' 
+                    isTableServing
+                      ? 'bg-emerald-500/15 text-emerald-700 border border-emerald-500/25'
                       : 'bg-slate-200 text-slate-500 border border-slate-300'
                   }`}>
                     {isTableServing ? 'Phục vụ' : 'Trống'}
                   </span>
 
                   {!isDesignMode && (
-                    <button
-                      onClick={(e) => handleToggleTableStatus(t.id, e)}
-                      className="p-1 bg-white hover:bg-slate-100 rounded-lg text-[9px] font-bold border border-slate-200 hover:border-slate-300 shadow-sm"
-                      title="Chuyển trạng thái bàn"
-                    >
-                      {isTableServing ? 'Trả bàn' : 'Gọi khách'}
-                    </button>
+                    <div className="flex items-center gap-1">
+                      {!t.reservationName && (
+                        <button
+                          onClick={(e) => openReservationModal(t, e)}
+                          className="p-1 bg-white hover:bg-amber-50 hover:text-amber-600 rounded-lg text-[9px] font-bold border border-slate-200 hover:border-amber-200 shadow-sm"
+                          title="Đặt bàn trước"
+                        >
+                          <Calendar className="w-3 h-3" />
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => handleToggleTableStatus(t.id, e)}
+                        className="p-1 bg-white hover:bg-slate-100 rounded-lg text-[9px] font-bold border border-slate-200 hover:border-slate-300 shadow-sm"
+                        title="Chuyển trạng thái bàn"
+                      >
+                        {isTableServing ? 'Trả bàn' : 'Gọi khách'}
+                      </button>
+                    </div>
                   )}
                 </div>
 
@@ -429,6 +449,86 @@ export default function TableMap({
             </button>
           </form>
 
+        </div>
+      )}
+
+      {/* Reservation modal */}
+      {reservationTableId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl border border-slate-200 max-w-sm w-full p-6 shadow-xl space-y-4">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+              <h3 className="text-sm font-black text-slate-900 uppercase flex items-center gap-1.5">
+                <Calendar className="w-4 h-4 text-amber-500" /> Đặt bàn trước
+              </h3>
+              <button
+                onClick={() => setReservationTableId(null)}
+                className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveReservation} className="space-y-3.5">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Tên khách đặt bàn</label>
+                <input
+                  type="text"
+                  value={resName}
+                  onChange={(e) => setResName(e.target.value)}
+                  placeholder="Ví dụ: Anh Hải"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-semibold focus:ring-1 focus:ring-amber-500"
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Số điện thoại</label>
+                <input
+                  type="text"
+                  value={resPhone}
+                  onChange={(e) => setResPhone(e.target.value)}
+                  placeholder="0912345678"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-mono font-bold focus:ring-1 focus:ring-amber-500"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Giờ hẹn</label>
+                <input
+                  type="time"
+                  value={resTime}
+                  onChange={(e) => setResTime(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-mono font-bold focus:ring-1 focus:ring-amber-500"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Ghi chú (số lượng khách, yêu cầu...)</label>
+                <textarea
+                  value={resNote}
+                  onChange={(e) => setResNote(e.target.value)}
+                  rows={2}
+                  placeholder="Ví dụ: 6 người, có trẻ em"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-amber-500"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-between gap-2 text-xs">
+                {simTables.find(t => t.id === reservationTableId)?.reservationName ? (
+                  <button
+                    type="button"
+                    onClick={handleClearReservation}
+                    className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl font-bold transition-colors cursor-pointer"
+                  >
+                    Hủy đặt bàn
+                  </button>
+                ) : <span />}
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold shadow transition-all cursor-pointer"
+                >
+                  Lưu đặt bàn
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

@@ -111,6 +111,10 @@ export interface DiningTable {
   y?: number; // Vị trí Y (%) trên mặt bằng
   width?: number; // Chiều rộng (px)
   height?: number; // Chiều cao (px)
+  reservationName?: string; // Tên khách đã đặt bàn trước (rỗng = không có đặt trước)
+  reservationPhone?: string; // SĐT khách đặt bàn
+  reservationTime?: string; // Giờ hẹn (ISO string hoặc HH:mm tự do)
+  reservationNote?: string; // Ghi chú đặt bàn (số lượng khách, yêu cầu đặc biệt...)
   createdAt: string;
 }
 

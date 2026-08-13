@@ -3,16 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
-import { 
-  Truck, Search, Plus, Edit2, Trash2, MapPin, 
-  Phone, Mail, Check, AlertCircle, X, ShieldAlert 
+import React, { useState } from 'react';
+import {
+  Truck, Search, Plus, Edit2, Trash2, MapPin,
+  Phone, Mail, Check, AlertCircle, X, ShieldAlert
 } from 'lucide-react';
 import { Supplier } from '../types';
-import { db } from '../firebase';
-import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { logOperation } from '../utils/logger';
-import { queueOfflineOperation } from '../utils/offlineManager';
 
 interface SuppliersSectionProps {
   isOffline: boolean;
@@ -29,45 +26,18 @@ export default function SuppliersSection({
   simSuppliers,
   setSimSuppliers
 }: SuppliersSectionProps) {
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
+  const suppliers = simSuppliers;
   const [searchQuery, setSearchQuery] = useState('');
 
   // Form Modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
-  
+
   // Form values
   const [formName, setFormName] = useState('');
   const [formPhone, setFormPhone] = useState('');
   const [formEmail, setFormEmail] = useState('');
   const [formAddress, setFormAddress] = useState('');
-
-  // Firestore Sync Effect
-  useEffect(() => {
-    if (isOffline || !storeId) {
-      setSuppliers(simSuppliers);
-      return;
-    }
-
-    setLoading(true);
-    const suppliersRef = collection(db, 'stores', storeId, 'suppliers');
-    const unsubscribe = onSnapshot(suppliersRef, (snapshot) => {
-      const list: Supplier[] = [];
-      snapshot.forEach((docSnap) => {
-        list.push({ id: docSnap.id, ...docSnap.data() } as Supplier);
-      });
-      list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-      setSuppliers(list);
-      setLoading(false);
-    }, (error) => {
-      console.error("Lỗi đồng bộ nhà cung cấp: ", error);
-      setSuppliers(simSuppliers);
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [isOffline, storeId, simSuppliers]);
 
   // Open Add Modal
   const handleOpenAdd = () => {
@@ -117,21 +87,10 @@ export default function SuppliersSection({
         logOperation('Quản lý nhà cung cấp', 'Thêm nhà cung cấp', newSupplier);
       }
 
-      if (isOffline) {
-        // Offline state update
-        queueOfflineOperation(storeId, 'suppliers', 'set', supplierId, newSupplier);
-        if (editingSupplier) {
-          setSimSuppliers(prev => prev.map(s => s.id === supplierId ? newSupplier : s));
-        } else {
-          setSimSuppliers(prev => [newSupplier, ...prev]);
-        }
+      if (editingSupplier) {
+        setSimSuppliers(prev => prev.map(s => s.id === supplierId ? newSupplier : s));
       } else {
-        // Cloud Firestore update
-        const supDocRef = doc(db, 'stores', storeId, 'suppliers', supplierId);
-        await setDoc(supDocRef, {
-          ...newSupplier,
-          storeId
-        });
+        setSimSuppliers(prev => [newSupplier, ...prev]);
       }
 
       setModalOpen(false);
@@ -151,12 +110,7 @@ export default function SuppliersSection({
 
     try {
       logOperation('Quản lý nhà cung cấp', 'Xóa nhà cung cấp', s);
-      if (isOffline) {
-        queueOfflineOperation(storeId, 'suppliers', 'delete', s.id);
-        setSimSuppliers(prev => prev.filter(item => item.id !== s.id));
-      } else {
-        await deleteDoc(doc(db, 'stores', storeId, 'suppliers', s.id));
-      }
+      setSimSuppliers(prev => prev.filter(item => item.id !== s.id));
       triggerBeep(true);
     } catch (err) {
       console.error(err);
@@ -208,12 +162,7 @@ export default function SuppliersSection({
         </div>
 
         {/* List Content */}
-        {loading ? (
-          <div className="py-12 text-center text-slate-400 text-xs">
-            <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-            Đang tải thông tin đối tác từ đám mây...
-          </div>
-        ) : filteredSuppliers.length === 0 ? (
+        {filteredSuppliers.length === 0 ? (
           <div className="py-16 text-center text-slate-400 text-xs border border-dashed border-slate-200 rounded-2xl">
             🚚 Không tìm thấy đối tác nhà cung cấp nào phù hợp bộ lọc tìm kiếm.
           </div>

@@ -1,1 +1,85 @@
 @import "tailwindcss";
+
+/* ------------------------------------------------------------------ */
+/* Tinh chỉnh cho app native (iOS / Android) đóng gói bằng Capacitor   */
+/* ------------------------------------------------------------------ */
+
+:root {
+  /* Vùng an toàn của tai thỏ / thanh điều hướng cử chỉ */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  /* Chặn kéo giãn đàn hồi (rubber-band) của WebView iOS */
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  background-color: #f8fafc;
+}
+
+/* Không cho người dùng bôi đen chữ khi bấm nhanh trên máy bán hàng */
+button,
+.no-select {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Ô nhập liệu tối thiểu 16px để iOS không tự phóng to trang khi focus */
+input,
+select,
+textarea {
+  font-size: max(16px, 1em);
+}
+
+@media (min-width: 768px) {
+  input,
+  select,
+  textarea {
+    font-size: inherit;
+  }
+}
+
+.safe-top {
+  padding-top: var(--safe-top);
+}
+
+.safe-bottom {
+  padding-bottom: var(--safe-bottom);
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+@media print {
+  /* Khi in hoá đơn nhiệt chỉ hiện phần hoá đơn */
+  body * {
+    visibility: hidden;
+  }
+
+  #thermal-receipt-printable,
+  #thermal-receipt-printable * {
+    visibility: visible;
+  }
+
+  #thermal-receipt-printable {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm;
+  }
+}
