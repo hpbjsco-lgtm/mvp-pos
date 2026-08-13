@@ -192,6 +192,13 @@ export default function KitchenDisplay({
                     <p className="text-xs text-slate-500 font-bold">
                       Số lượng: <span className="text-xs font-black text-slate-900 px-2 py-0.5 bg-white border border-slate-200 rounded">{item.quantity}</span>
                     </p>
+                    {(item.size || item.sugarLevel || item.iceLevel) && (
+                      <div className="flex flex-wrap gap-1">
+                        {item.size && <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-blue-50 text-blue-700 border border-blue-100">Size {item.size}</span>}
+                        {item.sugarLevel && <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-100">Đường {item.sugarLevel}</span>}
+                        {item.iceLevel && <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-sky-50 text-sky-700 border border-sky-100">Đá {item.iceLevel}</span>}
+                      </div>
+                    )}
                   </div>
 
                   {item.note && (

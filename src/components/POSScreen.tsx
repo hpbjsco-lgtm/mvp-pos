@@ -15,6 +15,26 @@ import KitchenDisplay from './KitchenDisplay';
 import ReceiptThermal from './ReceiptThermal';
 import { logOperation } from '../utils/logger';
 
+export interface CartLine {
+  productId: string;
+  quantity: number;
+  note: string;
+  size?: string;
+  sugarLevel?: string;
+  iceLevel?: string;
+}
+
+const SIZE_OPTIONS = ['S', 'M', 'L'];
+const SUGAR_OPTIONS = ['0%', '30%', '50%', '70%', '100%'];
+const ICE_OPTIONS = ['0%', '30%', '50%', '70%', '100%'];
+const DEFAULT_SIZE = 'M';
+const DEFAULT_SUGAR = '100%';
+const DEFAULT_ICE = '100%';
+
+/** Khoá định danh 1 dòng giỏ hàng: cùng sản phẩm nhưng khác tuỳ chọn/ghi chú -> là dòng khác nhau. */
+const lineKey = (i: Pick<CartLine, 'productId' | 'note' | 'size' | 'sugarLevel' | 'iceLevel'>) =>
+  `${i.productId}|${i.note}|${i.size || ''}|${i.sugarLevel || ''}|${i.iceLevel || ''}`;
+
 interface POSScreenProps {
   simStoreType: 'fnb' | 'retail';
   setSimStoreType: (type: 'fnb' | 'retail') => void;
@@ -23,8 +43,8 @@ interface POSScreenProps {
   setSimTables: React.Dispatch<React.SetStateAction<DiningTable[]>>;
   simZones: Zone[];
   setSimZones: React.Dispatch<React.SetStateAction<Zone[]>>;
-  simCarts: Record<string, Array<{ productId: string; quantity: number; note: string }>>;
-  setSimCarts: React.Dispatch<React.SetStateAction<Record<string, Array<{ productId: string; quantity: number; note: string }>>>>;
+  simCarts: Record<string, CartLine[]>;
+  setSimCarts: React.Dispatch<React.SetStateAction<Record<string, CartLine[]>>>;
   simKitchenItems: KitchenItem[];
   setSimKitchenItems: React.Dispatch<React.SetStateAction<KitchenItem[]>>;
   simOrders: Order[];
@@ -104,10 +124,16 @@ export default function POSScreen({
   const [fnbPaymentMethod, setFnbPaymentMethod] = useState<'cash' | 'qr' | 'card'>('cash');
   const [showPaymentOptions, setShowPaymentOptions] = useState(false);
 
+  // Giảm giá & Thuế VAT áp dụng cho đơn hiện tại
+  const [discountInput, setDiscountInput] = useState<number>(0);
+  const [vatPercent, setVatPercent] = useState<number>(0);
+
   useEffect(() => {
     setCashPadInput('');
     setCashChangeDue(0);
     setShowPaymentOptions(false);
+    setDiscountInput(0);
+    setVatPercent(0);
   }, [currentCartId]);
 
   // Table information
@@ -122,6 +148,10 @@ export default function POSScreen({
     const prod = simProducts.find(p => p.id === item.productId);
     return sum + (prod?.price || 0) * item.quantity;
   }, 0);
+  const discountAmount = Math.max(0, Math.min(discountInput || 0, cartSubtotal));
+  const taxableAmount = cartSubtotal - discountAmount;
+  const taxAmount = Math.round(taxableAmount * ((vatPercent || 0) / 100));
+  const grandTotal = taxableAmount + taxAmount;
 
   // Expiry Check helpers
   const getProductHealthyBatch = (prodId: string) => {
@@ -144,6 +174,10 @@ export default function POSScreen({
       alert('Sản phẩm này hiện đang báo hết hàng!');
       return;
     }
+
+    // Đồ uống mặc định có size/đường/đá -> nhân viên chỉnh lại trực tiếp trên dòng giỏ hàng
+    const isDrink = simStoreType === 'fnb' && product.category === 'Đồ uống';
+    const mods = isDrink ? { size: DEFAULT_SIZE, sugarLevel: DEFAULT_SUGAR, iceLevel: DEFAULT_ICE } : {};
 
     // Bàn đã có khách đặt trước & đây là món đầu tiên của đơn -> yêu cầu nhân viên xác nhận
     if (simStoreType === 'fnb' && currentCart.length === 0 && selectedTable?.reservationName) {
@@ -171,8 +205,9 @@ export default function POSScreen({
 
     setSimCarts(prev => {
       const prevCart = prev[currentCartId] || [];
-      const existingIdx = prevCart.findIndex(item => item.productId === product.id && item.note === customNote);
-      
+      const targetKey = lineKey({ productId: product.id, note: customNote, ...mods });
+      const existingIdx = prevCart.findIndex(item => lineKey(item) === targetKey);
+
       let nextCart;
       if (existingIdx > -1) {
         nextCart = prevCart.map((item, idx) => {
@@ -182,7 +217,7 @@ export default function POSScreen({
           return item;
         });
       } else {
-        nextCart = [...prevCart, { productId: product.id, quantity: 1, note: customNote }];
+        nextCart = [...prevCart, { productId: product.id, quantity: 1, note: customNote, ...mods }];
       }
 
       return {
@@ -195,18 +230,19 @@ export default function POSScreen({
   };
 
   // Modify cart quantity
-  const handleUpdateQty = (prodId: string, delta: number, note: string) => {
+  const handleUpdateQty = (item: CartLine, delta: number) => {
     setSimCarts(prev => {
       const prevCart = prev[currentCartId] || [];
-      const targetIdx = prevCart.findIndex(item => item.productId === prodId && item.note === note);
+      const targetKey = lineKey(item);
+      const targetIdx = prevCart.findIndex(i => lineKey(i) === targetKey);
       if (targetIdx === -1) return prev;
 
-      let nextCart = prevCart.map((item, idx) => {
+      let nextCart = prevCart.map((i, idx) => {
         if (idx === targetIdx) {
-          const nextQty = item.quantity + delta;
-          return { ...item, quantity: Math.max(1, nextQty) };
+          const nextQty = i.quantity + delta;
+          return { ...i, quantity: Math.max(1, nextQty) };
         }
-        return item;
+        return i;
       });
 
       if (delta < 0 && prevCart[targetIdx].quantity === 1) {
@@ -222,21 +258,27 @@ export default function POSScreen({
   };
 
   // Add individual order notes
-  const handleUpdateItemNote = (prodId: string, currentNote: string) => {
-    const newNote = prompt('Nhập ghi chú cho sản phẩm (Ví dụ: ít đường, nhiều đá, chín kỹ...):', currentNote);
+  const handleUpdateItemNote = (item: CartLine) => {
+    const newNote = prompt('Nhập ghi chú cho sản phẩm (Ví dụ: ít cay, chín kỹ...):', item.note);
     if (newNote === null) return;
 
     setSimCarts(prev => {
       const prevCart = prev[currentCartId] || [];
-      const nextCart = prevCart.map(item => {
-        if (item.productId === prodId && item.note === currentNote) {
-          return { ...item, note: newNote.trim() };
-        }
-        return item;
-      });
+      const targetKey = lineKey(item);
+      const nextCart = prevCart.map(i => (lineKey(i) === targetKey ? { ...i, note: newNote.trim() } : i));
       return { ...prev, [currentCartId]: nextCart };
     });
     playBeep(true);
+  };
+
+  // Cập nhật size / mức đường / mức đá của 1 dòng đồ uống trong giỏ
+  const handleUpdateModifier = (item: CartLine, field: 'size' | 'sugarLevel' | 'iceLevel', value: string) => {
+    setSimCarts(prev => {
+      const prevCart = prev[currentCartId] || [];
+      const targetKey = lineKey(item);
+      const nextCart = prevCart.map(i => (lineKey(i) === targetKey ? { ...i, [field]: value } : i));
+      return { ...prev, [currentCartId]: nextCart };
+    });
   };
 
   // Clear current active cart
@@ -297,7 +339,7 @@ export default function POSScreen({
       const nextInput = cashPadInput + num;
       setCashPadInput(nextInput);
       const paid = parseInt(nextInput) || 0;
-      setCashChangeDue(Math.max(0, paid - cartSubtotal));
+      setCashChangeDue(Math.max(0, paid - grandTotal));
     }
   };
 
@@ -320,6 +362,9 @@ export default function POSScreen({
         tableNumber: selectedTableName,
         status: KitchenStatus.PENDING,
         note: item.note || "",
+        size: item.size,
+        sugarLevel: item.sugarLevel,
+        iceLevel: item.iceLevel,
         createdAt: new Date().toISOString()
       };
     });
@@ -359,14 +404,18 @@ export default function POSScreen({
       const orderItems = currentCart.map(cartItem => {
         const prod = simProducts.find(p => p.id === cartItem.productId)!;
         const activeBatch = getProductHealthyBatch(prod.id);
-        
+
         return {
           productId: cartItem.productId,
           name: prod.name,
           quantity: cartItem.quantity,
           price: prod.price,
           batchId: activeBatch?.id,
-          batchCode: activeBatch?.batchCode
+          batchCode: activeBatch?.batchCode,
+          note: cartItem.note || undefined,
+          size: cartItem.size,
+          sugarLevel: cartItem.sugarLevel,
+          iceLevel: cartItem.iceLevel
         };
       });
 
@@ -384,7 +433,7 @@ export default function POSScreen({
         }));
       }
 
-      const pointsEarned = Math.floor(cartSubtotal / 10000); // 1 point per 10k VND
+      const pointsEarned = Math.floor(grandTotal / 10000); // 1 point per 10k VND
 
       // Add points to selected customer if applicable
       if (selectedCustomerId) {
@@ -400,11 +449,15 @@ export default function POSScreen({
         id: orderId,
         orderNumber: orderNum,
         items: orderItems,
-        totalAmount: cartSubtotal,
+        subtotal: cartSubtotal,
+        discountAmount,
+        taxAmount,
+        totalAmount: grandTotal,
         paymentMethod: paymentMethod === 'cash' ? PaymentMethod.CASH : paymentMethod === 'qr' ? PaymentMethod.QR : PaymentMethod.CARD,
-        paidAmount: paymentMethod === 'cash' ? (parseInt(cashPadInput) || cartSubtotal) : cartSubtotal,
+        paidAmount: paymentMethod === 'cash' ? (parseInt(cashPadInput) || grandTotal) : grandTotal,
         changeAmount: paymentMethod === 'cash' ? cashChangeDue : 0,
         staffId: fbUserProfile?.uid || 'staff-01',
+        staffName: fbUserProfile?.name || '',
         customerPointsEarned: pointsEarned,
         createdAt: new Date().toISOString()
       };
@@ -462,6 +515,8 @@ export default function POSScreen({
       setCashPadInput('');
       setCashChangeDue(0);
       setSelectedCustomerId('');
+      setDiscountInput(0);
+      setVatPercent(0);
       playBeep(true);
 
     }, 800);
@@ -578,6 +633,8 @@ export default function POSScreen({
                   const prod = simProducts.find(p => p.id === item.productId);
                   if (!prod) return null;
 
+                  const isDrink = simStoreType === 'fnb' && prod.category === 'Đồ uống';
+
                   return (
                     <div key={`${item.productId}-${idx}`} className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-1.5">
                       <div className="flex justify-between items-start gap-2">
@@ -586,17 +643,47 @@ export default function POSScreen({
                           <span className="text-[10px] text-blue-600 font-bold">{prod.price.toLocaleString('vi-VN')} đ</span>
                         </div>
                         <button
-                          onClick={() => handleUpdateQty(item.productId, -item.quantity, item.note)}
+                          onClick={() => handleUpdateQty(item, -item.quantity)}
                           className="text-slate-400 hover:text-red-500 p-0.5"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
 
+                      {/* Tuỳ chọn size / đường / đá cho đồ uống */}
+                      {isDrink && (
+                        <div className="flex flex-wrap items-center gap-1 pt-1">
+                          {SIZE_OPTIONS.map(opt => (
+                            <button
+                              key={opt}
+                              onClick={() => handleUpdateModifier(item, 'size', opt)}
+                              className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${item.size === opt ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-500 border-slate-200 hover:border-blue-300'}`}
+                            >
+                              {opt}
+                            </button>
+                          ))}
+                          <span className="text-slate-300">|</span>
+                          <select
+                            value={item.sugarLevel || DEFAULT_SUGAR}
+                            onChange={(e) => handleUpdateModifier(item, 'sugarLevel', e.target.value)}
+                            className="px-1 py-0.5 rounded text-[9px] font-bold border border-slate-200 bg-white text-slate-600"
+                          >
+                            {SUGAR_OPTIONS.map(opt => <option key={opt} value={opt}>Đường {opt}</option>)}
+                          </select>
+                          <select
+                            value={item.iceLevel || DEFAULT_ICE}
+                            onChange={(e) => handleUpdateModifier(item, 'iceLevel', e.target.value)}
+                            className="px-1 py-0.5 rounded text-[9px] font-bold border border-slate-200 bg-white text-slate-600"
+                          >
+                            {ICE_OPTIONS.map(opt => <option key={opt} value={opt}>Đá {opt}</option>)}
+                          </select>
+                        </div>
+                      )}
+
                       {/* Modifier quantities & note modifiers */}
                       <div className="flex items-center justify-between pt-1 border-t border-slate-200/50">
                         <button
-                          onClick={() => handleUpdateItemNote(item.productId, item.note)}
+                          onClick={() => handleUpdateItemNote(item)}
                           className="text-[10px] font-bold text-slate-500 hover:text-blue-600 flex items-center gap-0.5 font-sans"
                         >
                           <Edit3 className="w-3 h-3" /> {item.note ? `Chú ý: ${item.note}` : '+ Ghi chú'}
@@ -604,14 +691,14 @@ export default function POSScreen({
 
                         <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg p-0.5">
                           <button
-                            onClick={() => handleUpdateQty(item.productId, -1, item.note)}
+                            onClick={() => handleUpdateQty(item, -1)}
                             className="p-1 hover:bg-slate-100 rounded text-slate-600 cursor-pointer"
                           >
                             <Minus className="w-3 h-3" />
                           </button>
                           <span className="text-xs font-black text-slate-800 min-w-5 text-center">{item.quantity}</span>
                           <button
-                            onClick={() => handleUpdateQty(item.productId, 1, item.note)}
+                            onClick={() => handleUpdateQty(item, 1)}
                             className="p-1 hover:bg-slate-100 rounded text-slate-600 cursor-pointer"
                           >
                             <Plus className="w-3 h-3" />
@@ -628,8 +715,51 @@ export default function POSScreen({
           {/* Cart checkout CTA bottom panels */}
           <div className="border-t border-slate-200 pt-3 mt-3 space-y-3.5">
             <div className="flex justify-between items-center text-slate-900 font-black">
-              <span className="text-xs">TỔNG CẦN THANH TOÁN:</span>
+              <span className="text-xs">TẠM TÍNH:</span>
               <span className="text-base text-blue-600">{cartSubtotal.toLocaleString('vi-VN')} đ</span>
+            </div>
+
+            {/* Giảm giá & Thuế VAT */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-slate-400 uppercase">Giảm giá (đ)</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={discountInput || ''}
+                  onChange={(e) => setDiscountInput(Math.max(0, parseInt(e.target.value) || 0))}
+                  placeholder="0"
+                  className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs font-bold"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-slate-400 uppercase">Thuế VAT (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={vatPercent || ''}
+                  onChange={(e) => setVatPercent(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
+                  placeholder="0"
+                  className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs font-bold"
+                />
+              </div>
+            </div>
+
+            {(discountAmount > 0 || taxAmount > 0) && (
+              <div className="space-y-1 text-[10px] text-slate-500 font-semibold">
+                {discountAmount > 0 && (
+                  <div className="flex justify-between"><span>Giảm giá:</span><span className="text-rose-600">-{discountAmount.toLocaleString('vi-VN')} đ</span></div>
+                )}
+                {taxAmount > 0 && (
+                  <div className="flex justify-between"><span>Thuế VAT:</span><span>+{taxAmount.toLocaleString('vi-VN')} đ</span></div>
+                )}
+              </div>
+            )}
+
+            <div className="flex justify-between items-center text-slate-900 font-black pt-1 border-t border-dashed border-slate-200">
+              <span className="text-xs">TỔNG CẦN THANH TOÁN:</span>
+              <span className="text-base text-blue-600">{grandTotal.toLocaleString('vi-VN')} đ</span>
             </div>
 
             {simStoreType === 'fnb' ? (
@@ -692,7 +822,7 @@ export default function POSScreen({
                   <div className="h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 flex items-center justify-between">
                     <span className="text-xs text-slate-500 font-bold">Tổng tiền</span>
                     <span className="text-base font-black text-emerald-600 font-mono">
-                      {cartSubtotal.toLocaleString('vi-VN')} đ
+                      {grandTotal.toLocaleString('vi-VN')} đ
                     </span>
                   </div>
                 </div>
@@ -775,7 +905,7 @@ export default function POSScreen({
                           <span>Tích thêm cho đơn này:</span>
                         </div>
                         <span className="font-mono font-black text-xs text-blue-500">
-                          +{Math.floor(cartSubtotal / 10000)} điểm
+                          +{Math.floor(grandTotal / 10000)} điểm
                         </span>
                       </div>
                     </div>
@@ -851,7 +981,7 @@ export default function POSScreen({
                               onClick={() => {
                                 setFnbPaymentMethod(p.id as 'cash' | 'qr' | 'card');
                                 if (p.id !== 'cash') {
-                                  setCashPadInput(cartSubtotal.toString());
+                                  setCashPadInput(grandTotal.toString());
                                   setCashChangeDue(0);
                                 } else {
                                   setCashPadInput('');
@@ -920,7 +1050,7 @@ export default function POSScreen({
                               type="button"
                               onClick={() => {
                                 setCashPadInput(amt.toString());
-                                setCashChangeDue(Math.max(0, amt - cartSubtotal));
+                                setCashChangeDue(Math.max(0, amt - grandTotal));
                                 playBeep(true);
                               }}
                               className="py-1.5 px-1 bg-slate-50 border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50 text-slate-600 text-[9px] font-bold rounded-lg transition-colors text-center cursor-pointer"
@@ -1042,7 +1172,7 @@ export default function POSScreen({
             <div className="p-6 space-y-4">
               <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl flex justify-between items-center text-xs font-bold">
                 <span className="text-slate-500">Tổng thanh toán:</span>
-                <span className="text-base text-blue-600 font-black">{cartSubtotal.toLocaleString('vi-VN')} đ</span>
+                <span className="text-base text-blue-600 font-black">{grandTotal.toLocaleString('vi-VN')} đ</span>
               </div>
 
               {checkoutStep === 'processing' ? (

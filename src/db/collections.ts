@@ -26,7 +26,8 @@ export type CollectionKey =
   | 'customers'
   | 'suppliers'
   | 'employees'
-  | 'attendance';
+  | 'attendance'
+  | 'shifts';
 
 interface CollectionSpec {
   /** Bảng SQLite tương ứng. */
@@ -285,6 +286,9 @@ export const COLLECTIONS: Record<CollectionKey, CollectionSpec> = {
       table_number: str(k.tableNumber),
       status: str(k.status, 'pending'),
       note: str(k.note),
+      size: str(k.size),
+      sugar_level: str(k.sugarLevel),
+      ice_level: str(k.iceLevel),
       served_at: k.status === 'served' ? str(k.servedAt, nowIso()) : (k.servedAt ?? null),
       created_at: str(k.createdAt, nowIso()),
     }),
@@ -298,6 +302,9 @@ export const COLLECTIONS: Record<CollectionKey, CollectionSpec> = {
       tableNumber: r.table_number,
       status: r.status,
       note: r.note,
+      size: r.size || undefined,
+      sugarLevel: r.sugar_level || undefined,
+      iceLevel: r.ice_level || undefined,
       servedAt: r.served_at || undefined,
       createdAt: r.created_at,
     }),
@@ -351,6 +358,7 @@ export const COLLECTIONS: Record<CollectionKey, CollectionSpec> = {
       staffName: r.staff_name,
       subtotal: num(r.subtotal),
       discountAmount: num(r.discount_amount),
+      taxAmount: num(r.tax_amount),
       totalAmount: num(r.total_amount),
       totalCost: num(r.total_cost),
       paymentMethod: r.payment_method,
@@ -377,6 +385,9 @@ export const COLLECTIONS: Record<CollectionKey, CollectionSpec> = {
           batch_id: it.batchId ?? null,
           batch_code: str(it.batchCode),
           note: str(it.note),
+          size: str(it.size),
+          sugar_level: str(it.sugarLevel),
+          ice_level: str(it.iceLevel),
           line_no: idx,
           created_at: str(o.createdAt, nowIso()),
         })),
@@ -391,6 +402,9 @@ export const COLLECTIONS: Record<CollectionKey, CollectionSpec> = {
             batchId: r.batch_id || undefined,
             batchCode: r.batch_code || undefined,
             note: r.note || undefined,
+            size: r.size || undefined,
+            sugarLevel: r.sugar_level || undefined,
+            iceLevel: r.ice_level || undefined,
           }));
         }
       },
@@ -520,6 +534,39 @@ export const COLLECTIONS: Record<CollectionKey, CollectionSpec> = {
       createdAt: r.created_at,
     }),
   },
+
+  shifts: {
+    table: 'shifts',
+    idField: 'id',
+    orderBy: 'opened_at DESC',
+    toRow: (s, storeId) => ({
+      id: s.id,
+      store_id: storeId,
+      staff_id: str(s.staffId),
+      staff_name: str(s.staffName),
+      opening_cash: num(s.openingCash),
+      closing_cash_expected: s.closingCashExpected === undefined || s.closingCashExpected === null ? null : num(s.closingCashExpected),
+      closing_cash_actual: s.closingCashActual === undefined || s.closingCashActual === null ? null : num(s.closingCashActual),
+      status: str(s.status, 'open'),
+      note: str(s.note),
+      opened_at: str(s.openedAt, nowIso()),
+      closed_at: s.closedAt ?? null,
+      created_at: str(s.createdAt, nowIso()),
+    }),
+    fromRow: (r) => ({
+      id: r.id,
+      staffId: r.staff_id,
+      staffName: r.staff_name,
+      openingCash: num(r.opening_cash),
+      closingCashExpected: r.closing_cash_expected === null || r.closing_cash_expected === undefined ? undefined : num(r.closing_cash_expected),
+      closingCashActual: r.closing_cash_actual === null || r.closing_cash_actual === undefined ? undefined : num(r.closing_cash_actual),
+      status: r.status,
+      note: r.note,
+      openedAt: r.opened_at,
+      closedAt: r.closed_at || undefined,
+      createdAt: r.created_at,
+    }),
+  },
 };
 
 export const COLLECTION_KEYS = Object.keys(COLLECTIONS) as CollectionKey[];
@@ -640,11 +687,18 @@ function shallowEqual(a: Row, b: Row): boolean {
 /* Giỏ hàng đang mở (persist theo bàn)                                    */
 /* ---------------------------------------------------------------------- */
 
-export type CartMap = Record<string, Array<{ productId: string; quantity: number; note: string }>>;
+export type CartMap = Record<string, Array<{
+  productId: string;
+  quantity: number;
+  note: string;
+  size?: string;
+  sugarLevel?: string;
+  iceLevel?: string;
+}>>;
 
 export async function loadCarts(storeId: string): Promise<CartMap> {
   const rows = await query(
-    `SELECT cart_key, product_id, quantity, note FROM cart_items
+    `SELECT cart_key, product_id, quantity, note, size, sugar_level, ice_level FROM cart_items
      WHERE store_id = ? ORDER BY cart_key ASC, line_no ASC`,
     [storeId],
   );
@@ -652,7 +706,14 @@ export async function loadCarts(storeId: string): Promise<CartMap> {
   for (const r of rows) {
     const key = String(r.cart_key);
     if (!carts[key]) carts[key] = [];
-    carts[key].push({ productId: String(r.product_id), quantity: num(r.quantity, 1), note: str(r.note) });
+    carts[key].push({
+      productId: String(r.product_id),
+      quantity: num(r.quantity, 1),
+      note: str(r.note),
+      size: r.size || undefined,
+      sugarLevel: r.sugar_level || undefined,
+      iceLevel: r.ice_level || undefined,
+    });
   }
   return carts;
 }
@@ -695,6 +756,9 @@ export function diffCartStatements(prev: CartMap, next: CartMap, storeId: string
           product_id: str(item.productId),
           quantity: num(item.quantity, 1),
           note: str(item.note),
+          size: str(item.size),
+          sugar_level: str(item.sugarLevel),
+          ice_level: str(item.iceLevel),
           line_no: idx,
           updated_at: ts,
         })[0],

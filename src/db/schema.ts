@@ -18,7 +18,7 @@
  *     không mất order đang gọi (lỗi "không lưu được" của bản cũ).
  */
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 /** Các câu lệnh DDL, chạy tuần tự khi khởi tạo / nâng cấp DB. */
 export const MIGRATIONS: { version: number; statements: string[] }[] = [
@@ -417,6 +417,42 @@ export const MIGRATIONS: { version: number; statements: string[] }[] = [
       `ALTER TABLE dining_tables ADD COLUMN reservation_note TEXT NOT NULL DEFAULT '';`,
     ],
   },
+  {
+    version: 3,
+    statements: [
+      /* Tùy chọn món đồ uống (size / mức đường / mức đá) - áp dụng cho giỏ hàng,
+         chi tiết đơn hàng và màn hình bếp để pha chế đúng yêu cầu khách. */
+      `ALTER TABLE cart_items ADD COLUMN size TEXT NOT NULL DEFAULT '';`,
+      `ALTER TABLE cart_items ADD COLUMN sugar_level TEXT NOT NULL DEFAULT '';`,
+      `ALTER TABLE cart_items ADD COLUMN ice_level TEXT NOT NULL DEFAULT '';`,
+      `ALTER TABLE order_items ADD COLUMN size TEXT NOT NULL DEFAULT '';`,
+      `ALTER TABLE order_items ADD COLUMN sugar_level TEXT NOT NULL DEFAULT '';`,
+      `ALTER TABLE order_items ADD COLUMN ice_level TEXT NOT NULL DEFAULT '';`,
+      `ALTER TABLE kitchen_items ADD COLUMN size TEXT NOT NULL DEFAULT '';`,
+      `ALTER TABLE kitchen_items ADD COLUMN sugar_level TEXT NOT NULL DEFAULT '';`,
+      `ALTER TABLE kitchen_items ADD COLUMN ice_level TEXT NOT NULL DEFAULT '';`,
+
+      /* Sổ quỹ ca làm việc: mở ca (tiền đầu ca) - đóng ca (đối soát tiền mặt). */
+      `CREATE TABLE IF NOT EXISTS shifts (
+        id                     TEXT PRIMARY KEY,
+        store_id               TEXT NOT NULL,
+        staff_id               TEXT NOT NULL DEFAULT '',
+        staff_name             TEXT NOT NULL DEFAULT '',
+        opening_cash           REAL NOT NULL DEFAULT 0,
+        closing_cash_expected  REAL,
+        closing_cash_actual    REAL,
+        status                 TEXT NOT NULL DEFAULT 'open', -- open | closed
+        note                   TEXT NOT NULL DEFAULT '',
+        opened_at              TEXT NOT NULL,
+        closed_at              TEXT,
+        created_at             TEXT NOT NULL,
+        updated_at             TEXT NOT NULL,
+        deleted_at             TEXT,
+        rev                    INTEGER NOT NULL DEFAULT 1
+      );`,
+      `CREATE INDEX IF NOT EXISTS idx_shifts_store_status ON shifts(store_id, status);`,
+    ],
+  },
 ];
 
 /** Danh sách bảng nghiệp vụ dùng cho export / import snapshot Cloud. */
@@ -438,6 +474,7 @@ export const SYNCED_TABLES = [
   'cart_items',
   'attendance',
   'activity_logs',
+  'shifts',
 ] as const;
 
 export type SyncedTable = (typeof SYNCED_TABLES)[number];
@@ -461,6 +498,7 @@ export const TABLE_PRIMARY_KEY: Record<string, string> = {
   cart_items: 'id',
   attendance: 'id',
   activity_logs: 'id',
+  shifts: 'id',
 };
 
 /** Bảng có cột `rev` / `updated_at` để so sánh khi merge (last-write-wins). */
@@ -478,4 +516,5 @@ export const TABLES_WITH_REV: Record<string, boolean> = {
   kitchen_items: true,
   carts: true,
   attendance: true,
+  shifts: true,
 };

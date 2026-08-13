@@ -38,7 +38,9 @@ import {
   ClipboardList,
   Users,
   Briefcase,
-  Truck
+  Truck,
+  History,
+  Wallet
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import KitchenDisplay from './components/KitchenDisplay';
@@ -48,6 +50,8 @@ import LoginScreen from './components/LoginScreen';
 import POSScreen from './components/POSScreen';
 import InventoryScreen from './components/InventoryScreen';
 import ReportsSection from './components/ReportsSection';
+import OrderHistorySection from './components/OrderHistorySection';
+import ShiftSection from './components/ShiftSection';
 import MenuManagement from './components/MenuManagement';
 import TableMap from './components/TableMap';
 import CustomersSection from './components/CustomersSection';
@@ -58,7 +62,7 @@ import { setLogContext, logOperation } from './utils/logger';
 import { useAppData } from './db/useAppData';
 
 export default function App() {
-  const [activeScreen, setActiveScreen] = useState<'pos' | 'inventory' | 'reports' | 'account' | 'kitchen' | 'menu' | 'tables' | 'customers' | 'employees' | 'suppliers' | 'sysadmin'>('reports');
+  const [activeScreen, setActiveScreen] = useState<'pos' | 'inventory' | 'reports' | 'account' | 'kitchen' | 'menu' | 'tables' | 'customers' | 'employees' | 'suppliers' | 'sysadmin' | 'orders' | 'shifts'>('reports');
 
   // --- CORE DATA (SQLite local-first, xem src/db/useAppData.ts) ---
   const app = useAppData();
@@ -106,6 +110,8 @@ export default function App() {
   const simIngredientTransactions = data.ingredientTransactions;
   const setSimIngredientTransactions = setters.ingredientTransactions;
   const setSimStoreType = app.setStoreType;
+  const simShifts = data.shifts;
+  const setSimShifts = setters.shifts;
 
   const fbUser = fbUserProfile; // giữ tên biến cũ cho phần JSX phía dưới chưa đổi
   const demoSession = isDemoSession && fbStoreProfile
@@ -336,6 +342,8 @@ export default function App() {
       { id: 'menu', name: 'Thực đơn & Menu', icon: Coffee, color: 'text-pink-500' },
       { id: 'tables', name: 'Sơ đồ bàn', icon: ClipboardList, color: 'text-violet-500' }
     ] : []),
+    { id: 'orders', name: 'Lịch sử hóa đơn', icon: History, color: 'text-slate-500' },
+    { id: 'shifts', name: 'Sổ quỹ ca làm việc', icon: Wallet, color: 'text-teal-500' },
     { id: 'inventory', name: 'Quản lý kho (FEFO)', icon: Layers, color: 'text-blue-500' },
     { id: 'customers', name: 'Quản lý khách hàng', icon: Users, color: 'text-emerald-500' },
     ...(simUserRole !== 'staff' ? [
@@ -616,7 +624,9 @@ export default function App() {
               {activeScreen === 'tables' && 'THIẾT LẬP & CHỈNH SỬA SƠ ĐỒ BÀN'}
               {activeScreen === 'inventory' && (simStoreType === 'fnb' ? 'QUẢN LÝ KHO NGUYÊN VẬT LIỆU (FIFO/FEFO)' : 'QUẢN LÝ KHO HÀNG HÓA (FIFO)')}
               {activeScreen === 'reports' && 'BÁO CÁO DOANH THU & CHỈ SỐ'}
-              {activeScreen === 'account' && 'THIẾT LẬP TÀI KHOẢN CLOUD'}
+              {activeScreen === 'orders' && 'LỊCH SỬ HÓA ĐƠN'}
+              {activeScreen === 'shifts' && 'SỔ QUỸ CA LÀM VIỆC'}
+              {activeScreen === 'account' && 'THIẾT LẬP TÀI KHOẢN'}
             </h2>
             
             {/* Store ID Tag next to title */}
@@ -732,6 +742,51 @@ export default function App() {
                   simStoreType={simStoreType}
                   isOffline={isDemoOfflineMode}
                   storeId={fbUserProfile?.storeId || demoSession?.storeId || 'Sandbox'}
+                />
+              </motion.div>
+            )}
+
+            {activeScreen === 'orders' && (
+              <motion.div
+                key="orders"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+              >
+                <OrderHistorySection
+                  simOrders={simOrders}
+                  setSimOrders={setSimOrders}
+                  simBatches={simBatches}
+                  setSimBatches={setSimBatches}
+                  simCustomers={simCustomers}
+                  setSimCustomers={setSimCustomers}
+                  simStoreType={simStoreType}
+                  simUserRole={simUserRole}
+                  triggerBeep={triggerBeep}
+                  fbStoreProfile={fbStoreProfile}
+                  fbUserProfile={fbUserProfile}
+                />
+              </motion.div>
+            )}
+
+            {activeScreen === 'shifts' && (
+              <motion.div
+                key="shifts"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+              >
+                <ShiftSection
+                  simShifts={simShifts}
+                  setSimShifts={setSimShifts}
+                  simOrders={simOrders}
+                  triggerBeep={triggerBeep}
+                  currentUser={{
+                    uid: fbUserProfile?.uid || 'demo-user-123',
+                    name: fbUserProfile?.name || demoSession?.userName || 'Nhân viên'
+                  }}
                 />
               </motion.div>
             )}

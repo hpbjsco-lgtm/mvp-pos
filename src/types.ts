@@ -65,6 +65,10 @@ export interface OrderItem {
   price: number;
   batchId?: string;
   batchCode?: string;
+  note?: string;
+  size?: string; // Size đồ uống (Nhỏ/Vừa/Lớn...)
+  sugarLevel?: string; // Mức đường (0%/30%/50%/70%/100%)
+  iceLevel?: string; // Mức đá (0%/30%/50%/70%/100%)
 }
 
 export enum PaymentMethod {
@@ -77,16 +81,24 @@ export interface Order {
   id: string;
   orderNumber: string; // HD00001 etc.
   items: OrderItem[];
+  subtotal?: number;
+  discountAmount?: number;
+  taxAmount?: number;
   totalAmount: number;
+  totalCost?: number;
   paymentMethod: PaymentMethod;
   paidAmount: number;
   changeAmount: number;
   staffId: string;
+  staffName?: string;
   customerId?: string; // Reference to Customer (can be 'walk-in' / 'khach-vang-lai')
+  customerName?: string;
   customerPointsEarned?: number;
   tableId?: string; // ID của bàn ăn (nếu là FNB và ăn tại bàn)
   tableNumber?: string; // Số bàn hiển thị (ví dụ: Bàn 5)
   orderType?: 'dine-in' | 'takeaway'; // Loại đơn hàng: Ăn tại bàn / mang về
+  status?: 'completed' | 'void'; // Trạng thái đơn: đã hoàn tất / đã hủy
+  note?: string;
   createdAt: string;
 }
 
@@ -134,6 +146,23 @@ export interface KitchenItem {
   tableNumber?: string; // Số bàn tương ứng (nếu có)
   status: KitchenStatus; // Trạng thái chế biến món ăn cho bếp
   note?: string; // Ghi chú đặc biệt (ví dụ: Không cay, nhiều đá)
+  size?: string;
+  sugarLevel?: string;
+  iceLevel?: string;
+  createdAt: string;
+}
+
+export interface Shift {
+  id: string;
+  staffId: string;
+  staffName: string;
+  openingCash: number; // Tiền quỹ đầu ca
+  closingCashExpected?: number; // Tiền mặt kỳ vọng (tính từ hệ thống) khi đóng ca
+  closingCashActual?: number; // Tiền mặt đếm thực tế khi đóng ca
+  status: 'open' | 'closed';
+  note?: string;
+  openedAt: string;
+  closedAt?: string;
   createdAt: string;
 }
 

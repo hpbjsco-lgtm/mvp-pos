@@ -122,19 +122,26 @@ export default function ReceiptThermal({
               
               <div className="border-t border-dashed border-slate-300 my-1"></div>
 
-              {order.items.map((item, idx) => (
-                <div key={idx} className="space-y-0.5 text-slate-800">
-                  <div className="grid grid-cols-12 gap-0.5">
-                    <span className="col-span-5 truncate">{item.name}</span>
-                    <span className="col-span-2 text-center">{item.quantity}</span>
-                    <span className="col-span-5 text-right">{(item.price * item.quantity).toLocaleString('vi-VN')}đ</span>
+              {order.items.map((item, idx) => {
+                const modifiers = [item.size, item.sugarLevel && `Đường ${item.sugarLevel}`, item.iceLevel && `Đá ${item.iceLevel}`]
+                  .filter(Boolean)
+                  .join(' - ');
+                return (
+                  <div key={idx} className="space-y-0.5 text-slate-800">
+                    <div className="grid grid-cols-12 gap-0.5">
+                      <span className="col-span-5 truncate">{item.name}</span>
+                      <span className="col-span-2 text-center">{item.quantity}</span>
+                      <span className="col-span-5 text-right">{(item.price * item.quantity).toLocaleString('vi-VN')}đ</span>
+                    </div>
+                    <div className="text-[9px] text-slate-500 flex justify-between px-1">
+                      <span>Đơn giá: {item.price.toLocaleString('vi-VN')}đ</span>
+                      {item.batchCode && <span className="font-sans">Lô: {item.batchCode}</span>}
+                    </div>
+                    {modifiers && <div className="text-[9px] text-slate-500 px-1 font-sans">Tùy chọn: {modifiers}</div>}
+                    {item.note && <div className="text-[9px] text-slate-500 px-1 font-sans italic">Ghi chú: {item.note}</div>}
                   </div>
-                  <div className="text-[9px] text-slate-500 flex justify-between px-1">
-                    <span>Đơn giá: {item.price.toLocaleString('vi-VN')}đ</span>
-                    {item.batchCode && <span className="font-sans">Lô: {item.batchCode}</span>}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Divider */}
@@ -142,6 +149,26 @@ export default function ReceiptThermal({
 
             {/* Calculation summary */}
             <div className="space-y-1.5 text-slate-800 font-bold">
+              {(order.subtotal !== undefined && (order.discountAmount || order.taxAmount)) ? (
+                <>
+                  <div className="flex justify-between text-[10px] text-slate-600 font-normal">
+                    <span>Tạm tính:</span>
+                    <span>{order.subtotal.toLocaleString('vi-VN')} đ</span>
+                  </div>
+                  {!!order.discountAmount && (
+                    <div className="flex justify-between text-[10px] text-rose-600 font-normal">
+                      <span>Giảm giá:</span>
+                      <span>-{order.discountAmount.toLocaleString('vi-VN')} đ</span>
+                    </div>
+                  )}
+                  {!!order.taxAmount && (
+                    <div className="flex justify-between text-[10px] text-slate-600 font-normal">
+                      <span>Thuế VAT:</span>
+                      <span>+{order.taxAmount.toLocaleString('vi-VN')} đ</span>
+                    </div>
+                  )}
+                </>
+              ) : null}
               <div className="flex justify-between text-xs">
                 <span>TỔNG CỘNG:</span>
                 <span>{order.totalAmount.toLocaleString('vi-VN')} đ</span>
