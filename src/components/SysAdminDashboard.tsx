@@ -178,26 +178,26 @@ export default function SysAdminDashboard({
   return (
     <div id="sysadmin-dashboard-container" className="space-y-6 max-w-7xl mx-auto pb-12 animate-fadeIn">
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-rose-900 via-slate-900 to-indigo-950 rounded-3xl p-6 lg:p-8 text-white relative overflow-hidden shadow-xl border border-rose-800/20">
+      <div className="bg-gradient-to-r from-rose-900 via-slate-900 to-indigo-950 rounded-3xl p-6 lg:p-8 text-white relative overflow-hidden shadow-xl border border-error/20">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,_var(--tw-gradient-stops))] from-rose-500/10 via-transparent to-transparent opacity-85 pointer-events-none"></div>
         <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <span className="px-2.5 py-1 bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-lg text-[10px] font-black tracking-widest uppercase font-mono">
+              <span className="px-2.5 py-1 bg-error/20 text-error border border-error/30 rounded-lg text-[10px] font-black tracking-widest uppercase font-mono">
                 SYSTEM ADMISTRATOR
               </span>
-              <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+              <span className="w-2 h-2 rounded-full bg-error animate-ping"></span>
             </div>
             <h1 className="text-2xl lg:text-3xl font-black tracking-tight uppercase flex items-center gap-2">
-              <Shield className="w-8 h-8 text-rose-400" /> QUẢN TRỊ TRUNG TÂM CLOUD
+              <Shield className="w-8 h-8 text-error" /> QUẢN TRỊ TRUNG TÂM CLOUD
             </h1>
-            <p className="text-xs text-slate-300 font-medium max-w-2xl">
+            <p className="text-xs text-outline font-medium max-w-2xl">
               Hệ thống giám sát, xét duyệt hoạt động các chuỗi và cửa hàng thuộc SmartPOS Cloud Tenant System. Đảm bảo phân tách và kiểm soát dữ liệu.
             </p>
           </div>
           <button
             onClick={() => { fetchData(); triggerBeep(true); }}
-            className="px-4 py-2 bg-white/10 hover:bg-white/15 active:scale-95 transition-all text-xs font-bold rounded-xl border border-white/10 flex items-center gap-2 cursor-pointer"
+            className="px-4 py-2 bg-surface-container-lowest/10 hover:bg-surface-container-lowest/15 active:scale-95 transition-all text-xs font-bold rounded-xl border border-white/10 flex items-center gap-2 cursor-pointer"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Tải lại dữ liệu
           </button>
@@ -206,42 +206,42 @@ export default function SysAdminDashboard({
 
       {/* Overview Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between">
+        <div className="bg-surface-container-lowest p-5 rounded-3xl border border-outline-variant shadow-sm flex items-center justify-between">
           <div>
-            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Tổng số cửa hàng</span>
-            <span className="text-2xl font-black text-slate-900 mt-1 block">{totalStores}</span>
+            <span className="text-[10px] font-extrabold text-on-surface-variant uppercase tracking-wider block">Tổng số cửa hàng</span>
+            <span className="text-2xl font-black text-on-surface mt-1 block">{totalStores}</span>
           </div>
-          <div className="p-3 bg-slate-100 text-slate-600 rounded-2xl">
+          <div className="p-3 bg-surface-container-high text-on-surface-variant rounded-2xl">
             <Store className="w-5 h-5" />
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between">
+        <div className="bg-surface-container-lowest p-5 rounded-3xl border border-outline-variant shadow-sm flex items-center justify-between">
           <div>
-            <span className="text-[10px] font-extrabold text-amber-500 uppercase tracking-wider block">Đang chờ duyệt</span>
-            <span className="text-2xl font-black text-amber-600 mt-1 block">{pendingStores}</span>
+            <span className="text-[10px] font-extrabold text-tertiary uppercase tracking-wider block">Đang chờ duyệt</span>
+            <span className="text-2xl font-black text-tertiary mt-1 block">{pendingStores}</span>
           </div>
-          <div className="p-3 bg-amber-50 text-amber-600 rounded-2xl border border-amber-100">
+          <div className="p-3 bg-tertiary-container text-tertiary rounded-2xl border border-tertiary-container">
             <Clock className="w-5 h-5 animate-pulse" />
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between">
+        <div className="bg-surface-container-lowest p-5 rounded-3xl border border-outline-variant shadow-sm flex items-center justify-between">
           <div>
-            <span className="text-[10px] font-extrabold text-emerald-500 uppercase tracking-wider block">Đã phê duyệt</span>
-            <span className="text-2xl font-black text-emerald-600 mt-1 block">{activeStores}</span>
+            <span className="text-[10px] font-extrabold text-secondary uppercase tracking-wider block">Đã phê duyệt</span>
+            <span className="text-2xl font-black text-secondary mt-1 block">{activeStores}</span>
           </div>
-          <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl border border-emerald-100">
+          <div className="p-3 bg-secondary-container text-secondary rounded-2xl border border-secondary-container">
             <ShieldCheck className="w-5 h-5" />
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between">
+        <div className="bg-surface-container-lowest p-5 rounded-3xl border border-outline-variant shadow-sm flex items-center justify-between">
           <div>
-            <span className="text-[10px] font-extrabold text-rose-500 uppercase tracking-wider block">Người dùng Cloud</span>
-            <span className="text-2xl font-black text-rose-600 mt-1 block">{totalUsers}</span>
+            <span className="text-[10px] font-extrabold text-error uppercase tracking-wider block">Người dùng Cloud</span>
+            <span className="text-2xl font-black text-error mt-1 block">{totalUsers}</span>
           </div>
-          <div className="p-3 bg-rose-50 text-rose-600 rounded-2xl border border-rose-100">
+          <div className="p-3 bg-error-container text-error rounded-2xl border border-error-container">
             <Users className="w-5 h-5" />
           </div>
         </div>
@@ -251,11 +251,11 @@ export default function SysAdminDashboard({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Stores List (Left 8 columns) */}
-        <div className="lg:col-span-8 bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col">
-          <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-slate-50/50">
+        <div className="lg:col-span-8 bg-surface-container-lowest rounded-3xl border border-outline-variant shadow-sm overflow-hidden flex flex-col">
+          <div className="p-5 border-b border-outline-variant flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-surface-container/50">
             <div>
-              <h2 className="text-sm font-black text-slate-800 uppercase tracking-tight">Danh sách chuỗi & cửa hàng đăng ký</h2>
-              <p className="text-[11px] text-slate-400 font-medium">Bấm vào từng cửa hàng để xem chi tiết danh sách tài khoản liên kết.</p>
+              <h2 className="text-sm font-black text-on-surface uppercase tracking-tight">Danh sách chuỗi & cửa hàng đăng ký</h2>
+              <p className="text-[11px] text-on-surface-variant font-medium">Bấm vào từng cửa hàng để xem chi tiết danh sách tài khoản liên kết.</p>
             </div>
             
             <div className="flex gap-2 w-full sm:w-auto">
@@ -263,7 +263,7 @@ export default function SysAdminDashboard({
               {stores.length === 0 && (
                 <button
                   onClick={seedInitialSystemData}
-                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs flex items-center gap-2 cursor-pointer"
+                  className="px-3 py-1.5 bg-primary hover:brightness-110 text-white font-bold rounded-xl text-xs flex items-center gap-2 cursor-pointer"
                 >
                   <Sparkles className="w-3.5 h-3.5" /> Khởi tạo Mẫu
                 </button>
@@ -271,13 +271,13 @@ export default function SysAdminDashboard({
               
               {/* Search box */}
               <div className="relative flex-1 sm:flex-none">
-                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
                 <input
                   type="text"
                   placeholder="Tìm kiếm..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full sm:w-44 pl-9 pr-3 py-1.5 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-rose-500"
+                  className="w-full sm:w-44 pl-9 pr-3 py-1.5 border border-outline-variant rounded-xl text-xs focus:ring-1 focus:ring-rose-500"
                 />
               </div>
 
@@ -285,7 +285,7 @@ export default function SysAdminDashboard({
               <select
                 value={statusFilter}
                 onChange={(e: any) => setStatusFilter(e.target.value)}
-                className="px-2 py-1.5 border border-slate-200 rounded-xl text-xs bg-white text-slate-700 font-bold"
+                className="px-2 py-1.5 border border-outline-variant rounded-xl text-xs bg-surface-container-lowest text-on-surface font-bold"
               >
                 <option value="all">Tất cả trạng thái</option>
                 <option value="pending">Chờ duyệt</option>
@@ -299,20 +299,20 @@ export default function SysAdminDashboard({
           <div className="overflow-x-auto">
             {loading ? (
               <div className="p-12 text-center space-y-2">
-                <svg className="animate-spin h-6 w-6 text-rose-500 mx-auto" fill="none" viewBox="0 0 24 24">
+                <svg className="animate-spin h-6 w-6 text-error mx-auto" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                <span className="text-xs text-slate-400 font-medium block">Đang đọc dữ liệu từ SQLite cục bộ...</span>
+                <span className="text-xs text-on-surface-variant font-medium block">Đang đọc dữ liệu từ SQLite cục bộ...</span>
               </div>
             ) : filteredStores.length === 0 ? (
-              <div className="p-12 text-center text-xs text-slate-400 font-medium">
+              <div className="p-12 text-center text-xs text-on-surface-variant font-medium">
                 Không tìm thấy cửa hàng nào khớp với bộ lọc.
               </div>
             ) : (
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                  <tr className="bg-surface-container border-b border-outline-variant text-[10px] font-extrabold text-on-surface-variant uppercase tracking-wider">
                     <th className="py-3 px-4">Mã Store</th>
                     <th className="py-3 px-4">Tên Cửa Hàng</th>
                     <th className="py-3 px-4">Mô Hình</th>
@@ -321,7 +321,7 @@ export default function SysAdminDashboard({
                     <th className="py-3 px-4 text-right">Thao Tác</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-600">
+                <tbody className="divide-y divide-slate-100 text-xs font-medium text-on-surface-variant">
                   {filteredStores.map((store) => {
                     const status = store.status || 'approved';
                     const isSelected = selectedStoreId === store.id;
@@ -331,14 +331,14 @@ export default function SysAdminDashboard({
                       <tr 
                         key={store.id} 
                         onClick={() => setSelectedStoreId(store.id)}
-                        className={`hover:bg-slate-50/70 transition-colors cursor-pointer ${
-                          isSelected ? 'bg-rose-50/20 hover:bg-rose-50/30 font-semibold' : ''
+                        className={`hover:bg-surface-container/70 transition-colors cursor-pointer ${
+                          isSelected ? 'bg-error-container/20 hover:bg-error-container/30 font-semibold' : ''
                         }`}
                       >
-                        <td className="py-3 px-4 font-mono text-[10px] text-slate-500">{store.id}</td>
+                        <td className="py-3 px-4 font-mono text-[10px] text-on-surface-variant">{store.id}</td>
                         <td className="py-3 px-4">
-                          <div className="font-bold text-slate-900">{store.name}</div>
-                          <div className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
+                          <div className="font-bold text-on-surface">{store.name}</div>
+                          <div className="text-[10px] text-on-surface-variant flex items-center gap-1 mt-0.5">
                             <MapPin className="w-2.5 h-2.5" /> {store.address || 'Không rõ địa chỉ'}
                           </div>
                         </td>
@@ -346,18 +346,18 @@ export default function SysAdminDashboard({
                           <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
                             store.storeType === 'fnb' 
                               ? 'bg-pink-50 text-pink-600 border border-pink-100' 
-                              : 'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                              : 'bg-secondary-container text-secondary border border-secondary-container'
                           }`}>
                             {store.storeType === 'fnb' ? '🍔 FnB (Nhà hàng)' : '🛍️ Bán Lẻ (Retail)'}
                           </span>
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex flex-col text-[10px]">
-                            <span className="font-bold text-slate-700 flex items-center gap-1">
-                              <Phone className="w-2.5 h-2.5 text-slate-400" /> {store.phone}
+                            <span className="font-bold text-on-surface flex items-center gap-1">
+                              <Phone className="w-2.5 h-2.5 text-on-surface-variant" /> {store.phone}
                             </span>
                             {ownerUser && (
-                              <span className="text-slate-400 flex items-center gap-1 mt-0.5">
+                              <span className="text-on-surface-variant flex items-center gap-1 mt-0.5">
                                 <Mail className="w-2.5 h-2.5" /> {ownerUser.email}
                               </span>
                             )}
@@ -365,9 +365,9 @@ export default function SysAdminDashboard({
                         </td>
                         <td className="py-3 px-4">
                           <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-extrabold ${
-                            status === 'pending' ? 'bg-amber-50 text-amber-600 border border-amber-100 animate-pulse' :
-                            status === 'active' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
-                            'bg-rose-50 text-rose-600 border border-rose-100'
+                            status === 'pending' ? 'bg-tertiary-container text-tertiary border border-tertiary-container animate-pulse' :
+                            status === 'active' ? 'bg-secondary-container text-secondary border border-secondary-container' :
+                            'bg-error-container text-error border border-error-container'
                           }`}>
                             {status === 'pending' ? <Clock className="w-3 h-3" /> :
                              status === 'active' ? <CheckCircle2 className="w-3 h-3" /> :
@@ -384,7 +384,7 @@ export default function SysAdminDashboard({
                                 <button
                                   onClick={() => approveStore(store.id)}
                                   disabled={actionLoading !== null}
-                                  className="p-1 px-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 text-white font-extrabold rounded-lg text-[10px] flex items-center gap-1 active:scale-95 transition-all cursor-pointer"
+                                  className="p-1 px-2.5 bg-primary hover:brightness-110 disabled:bg-slate-200 text-white font-extrabold rounded-lg text-[10px] flex items-center gap-1 active:scale-95 transition-all cursor-pointer"
                                   title="Duyệt cửa hàng & seed dữ liệu"
                                 >
                                   <Check className="w-3 h-3" /> Duyệt
@@ -392,7 +392,7 @@ export default function SysAdminDashboard({
                                 <button
                                   onClick={() => handleRejectStore(store)}
                                   disabled={actionLoading !== null}
-                                  className="p-1 px-2.5 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-200 text-white font-extrabold rounded-lg text-[10px] flex items-center gap-1 active:scale-95 transition-all cursor-pointer"
+                                  className="p-1 px-2.5 bg-error hover:brightness-110 disabled:bg-slate-200 text-white font-extrabold rounded-lg text-[10px] flex items-center gap-1 active:scale-95 transition-all cursor-pointer"
                                   title="Từ chối hoạt động"
                                 >
                                   <X className="w-3 h-3" /> Từ chối
@@ -404,7 +404,7 @@ export default function SysAdminDashboard({
                               <button
                                 onClick={() => approveStore(store.id)}
                                 disabled={actionLoading !== null}
-                                className="p-1 px-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 text-white font-extrabold rounded-lg text-[10px] flex items-center gap-1 active:scale-95 transition-all cursor-pointer"
+                                className="p-1 px-2.5 bg-primary hover:brightness-110 disabled:bg-slate-200 text-white font-extrabold rounded-lg text-[10px] flex items-center gap-1 active:scale-95 transition-all cursor-pointer"
                               >
                                 Kích hoạt lại
                               </button>
@@ -414,7 +414,7 @@ export default function SysAdminDashboard({
                               <button
                                 onClick={() => handleRejectStore(store)}
                                 disabled={actionLoading !== null}
-                                className="p-1 px-2 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 disabled:bg-slate-200 text-slate-500 font-extrabold rounded-lg text-[10px] flex items-center gap-1 active:scale-95 transition-all cursor-pointer"
+                                className="p-1 px-2 bg-surface-container-high hover:bg-error-container hover:text-error disabled:bg-slate-200 text-on-surface-variant font-extrabold rounded-lg text-[10px] flex items-center gap-1 active:scale-95 transition-all cursor-pointer"
                               >
                                 Vô hiệu hóa
                               </button>
@@ -432,38 +432,38 @@ export default function SysAdminDashboard({
 
         {/* Store Detail & Associated Accounts (Right 4 columns) */}
         <div className="lg:col-span-4 space-y-6">
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden p-5 space-y-4">
+          <div className="bg-surface-container-lowest rounded-3xl border border-outline-variant shadow-sm overflow-hidden p-5 space-y-4">
             <div>
-              <h3 className="text-xs font-black text-slate-800 uppercase tracking-tight flex items-center gap-1.5">
-                <Users className="w-4 h-4 text-rose-500" /> Tài khoản liên kết
+              <h3 className="text-xs font-black text-on-surface uppercase tracking-tight flex items-center gap-1.5">
+                <Users className="w-4 h-4 text-error" /> Tài khoản liên kết
               </h3>
-              <p className="text-[11px] text-slate-400 font-medium">Nhân viên & chủ thuộc Store ID được chọn.</p>
+              <p className="text-[11px] text-on-surface-variant font-medium">Nhân viên & chủ thuộc Store ID được chọn.</p>
             </div>
 
             {selectedStoreId ? (
               <div className="space-y-3">
-                <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100 text-xs space-y-1.5">
-                  <div className="font-bold text-slate-800 flex items-center gap-1">
-                    <Store className="w-3.5 h-3.5 text-rose-500" /> {activeStore?.name || 'Cửa hàng không tên'}
+                <div className="p-3.5 bg-surface-container rounded-2xl border border-outline-variant text-xs space-y-1.5">
+                  <div className="font-bold text-on-surface flex items-center gap-1">
+                    <Store className="w-3.5 h-3.5 text-error" /> {activeStore?.name || 'Cửa hàng không tên'}
                   </div>
-                  <div className="text-[10px] text-slate-400 font-mono">ID: {selectedStoreId}</div>
-                  <div className="text-[11px] text-slate-500">Mô hình: {activeStore?.storeType === 'fnb' ? '🍔 Nhà hàng FnB' : '🛍️ Cửa hàng Tạp hóa/Bán lẻ'}</div>
+                  <div className="text-[10px] text-on-surface-variant font-mono">ID: {selectedStoreId}</div>
+                  <div className="text-[11px] text-on-surface-variant">Mô hình: {activeStore?.storeType === 'fnb' ? '🍔 Nhà hàng FnB' : '🛍️ Cửa hàng Tạp hóa/Bán lẻ'}</div>
                 </div>
 
                 <div className="space-y-2">
-                  <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Danh sách Nhân viên ({storeUsers.length})</div>
+                  <div className="text-[10px] font-extrabold text-on-surface-variant uppercase tracking-wider">Danh sách Nhân viên ({storeUsers.length})</div>
                   {storeUsers.length === 0 ? (
-                    <div className="text-[11px] text-slate-400 font-medium py-4 text-center">Chưa có người dùng nào thuộc Store này.</div>
+                    <div className="text-[11px] text-on-surface-variant font-medium py-4 text-center">Chưa có người dùng nào thuộc Store này.</div>
                   ) : (
                     <div className="divide-y divide-slate-100 max-h-[300px] overflow-y-auto pr-1">
                       {storeUsers.map((u) => (
                         <div key={u.uid} className="py-2 flex items-center justify-between">
                           <div className="space-y-0.5">
-                            <div className="text-xs font-bold text-slate-800">{u.name || 'Chưa đặt tên'}</div>
-                            <div className="text-[10px] text-slate-400 font-mono">{u.email}</div>
+                            <div className="text-xs font-bold text-on-surface">{u.name || 'Chưa đặt tên'}</div>
+                            <div className="text-[10px] text-on-surface-variant font-mono">{u.email}</div>
                           </div>
                           <span className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase ${
-                            u.role === 'owner' ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-blue-100 text-blue-800 border border-blue-200'
+                            u.role === 'owner' ? 'bg-tertiary-container text-on-tertiary-container border border-tertiary-container' : 'bg-primary-container text-on-primary-container border border-primary-container'
                           }`}>
                             {u.role === 'owner' ? 'CHỦ TIỆM' : 'NHÂN VIÊN'}
                           </span>
@@ -474,7 +474,7 @@ export default function SysAdminDashboard({
                 </div>
               </div>
             ) : (
-              <div className="p-8 text-center text-xs text-slate-400 font-medium border border-dashed border-slate-200 rounded-2xl">
+              <div className="p-8 text-center text-xs text-on-surface-variant font-medium border border-dashed border-outline-variant rounded-2xl">
                 ⚠️ Click chọn một cửa hàng từ danh sách bên trái để tải dữ liệu tài khoản liên kết.
               </div>
             )}
@@ -485,13 +485,13 @@ export default function SysAdminDashboard({
             <div className="absolute right-0 bottom-0 translate-x-1/4 translate-y-1/4 pointer-events-none opacity-5">
               <Shield className="w-40 h-40" />
             </div>
-            <div className="flex items-center gap-1.5 text-rose-400 text-xs font-black uppercase tracking-wider font-mono">
+            <div className="flex items-center gap-1.5 text-error text-xs font-black uppercase tracking-wider font-mono">
               <ShieldCheck className="w-4.5 h-4.5" /> Quy tắc phân mảnh dữ liệu
             </div>
-            <p className="text-[11px] text-slate-300 leading-relaxed font-medium">
-              Tất cả dữ liệu kinh doanh (hóa đơn, sản phẩm, tồn kho, sơ đồ bàn...) được lưu trong 1 file SQLite duy nhất trên thiết bị, mọi bảng đều gắn cột <code className="font-mono text-rose-300 text-[10px]">store_id</code> để phân tách dữ liệu giữa các cửa hàng. Khi bật đồng bộ Cloud, dữ liệu của các cửa hàng khác cũng được hợp nhất vào cùng file này để phục vụ báo cáo toàn hệ thống.
+            <p className="text-[11px] text-outline leading-relaxed font-medium">
+              Tất cả dữ liệu kinh doanh (hóa đơn, sản phẩm, tồn kho, sơ đồ bàn...) được lưu trong 1 file SQLite duy nhất trên thiết bị, mọi bảng đều gắn cột <code className="font-mono text-error text-[10px]">store_id</code> để phân tách dữ liệu giữa các cửa hàng. Khi bật đồng bộ Cloud, dữ liệu của các cửa hàng khác cũng được hợp nhất vào cùng file này để phục vụ báo cáo toàn hệ thống.
             </p>
-            <div className="text-[11px] text-slate-400 font-medium">
+            <div className="text-[11px] text-on-surface-variant font-medium">
               Chỉ có System Admin mới được cấp quyền truy cập đa chủ thể (multi-tenant) để phục vụ công tác phê duyệt và hậu kiểm.
             </div>
           </div>
@@ -500,19 +500,19 @@ export default function SysAdminDashboard({
         {/* Confirm Modal */}
         {confirmAction && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4">
-              <div className="text-lg font-black text-slate-900">Xác nhận</div>
-              <p className="text-sm text-slate-600">{confirmAction.message}</p>
+            <div className="bg-surface-container-lowest rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4">
+              <div className="text-lg font-black text-on-surface">Xác nhận</div>
+              <p className="text-sm text-on-surface-variant">{confirmAction.message}</p>
               <div className="flex gap-2 justify-end">
                 <button
                   onClick={() => setConfirmAction(null)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs"
+                  className="px-4 py-2 bg-surface-container-high hover:bg-slate-200 text-on-surface font-bold rounded-xl text-xs"
                 >
                   Hủy
                 </button>
                 <button
                   onClick={confirmAction.onConfirm}
-                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs"
+                  className="px-4 py-2 bg-error hover:brightness-110 text-white font-bold rounded-xl text-xs"
                 >
                   Xác nhận
                 </button>

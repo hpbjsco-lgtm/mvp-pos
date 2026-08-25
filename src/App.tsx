@@ -9,28 +9,18 @@ import {
   ShoppingBag,
   Layers,
   TrendingUp,
-  Cloud,
   User,
   LogOut,
   Store,
   ChevronRight,
   ChevronDown,
-  Info,
   Coffee,
   Check,
   X,
   XCircle,
-  Plus,
-  AlertTriangle,
   ShieldAlert,
   MapPin,
   Phone,
-  BarChart2,
-  Lock,
-  Cpu,
-  UserCheck,
-  Settings,
-  HelpCircle,
   Clock,
   WifiOff,
   UserCircle,
@@ -40,7 +30,8 @@ import {
   Briefcase,
   Truck,
   History,
-  Wallet
+  Wallet,
+  Menu
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import KitchenDisplay from './components/KitchenDisplay';
@@ -132,6 +123,7 @@ export default function App() {
 
   // Sidebar collapsibility state
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState<boolean>(false);
 
   // Play audio-visual Beep simulators
   const triggerBeep = (success: boolean) => {
@@ -332,23 +324,25 @@ export default function App() {
 
   // Define Navigation Items dynamically based on active Store Type
   const navItems = isSysAdmin ? [
-    { id: 'reports', name: 'Báo cáo doanh thu', icon: TrendingUp, color: 'text-amber-500' },
-    { id: 'sysadmin', name: 'Quản trị hệ thống', icon: ShieldAlert, color: 'text-rose-500' }
+    { id: 'reports', name: 'Báo cáo doanh thu', icon: TrendingUp },
+    { id: 'sysadmin', name: 'Quản trị hệ thống', icon: ShieldAlert }
   ] : [
-    ...(simUserRole !== 'staff' ? [{ id: 'reports', name: 'Báo cáo doanh thu', icon: TrendingUp, color: 'text-amber-500' }] : []),
-    { id: 'pos', name: simStoreType === 'fnb' ? 'Bán hàng (F&B Order)' : 'Quầy bán lẻ (POS)', icon: ShoppingBag, color: 'text-emerald-500' },
+    ...(simUserRole !== 'staff' ? [{ id: 'reports', name: 'Báo cáo doanh thu', icon: TrendingUp }] : []),
+    { id: 'pos', name: simStoreType === 'fnb' ? 'Bán hàng (F&B Order)' : 'Quầy bán lẻ (POS)', icon: ShoppingBag },
     ...(simStoreType === 'fnb' ? [
-      { id: 'kitchen', name: 'Màn hình Bếp (KDS)', icon: ChefHat, color: 'text-orange-500' },
-      { id: 'menu', name: 'Thực đơn & Menu', icon: Coffee, color: 'text-pink-500' },
-      { id: 'tables', name: 'Sơ đồ bàn', icon: ClipboardList, color: 'text-violet-500' }
-    ] : []),
-    { id: 'orders', name: 'Lịch sử hóa đơn', icon: History, color: 'text-slate-500' },
-    { id: 'shifts', name: 'Sổ quỹ ca làm việc', icon: Wallet, color: 'text-teal-500' },
-    { id: 'inventory', name: 'Quản lý kho (FEFO)', icon: Layers, color: 'text-blue-500' },
-    { id: 'customers', name: 'Quản lý khách hàng', icon: Users, color: 'text-emerald-500' },
+      { id: 'kitchen', name: 'Màn hình Bếp (KDS)', icon: ChefHat },
+      { id: 'menu', name: 'Thực đơn & Menu', icon: Coffee },
+      { id: 'tables', name: 'Sơ đồ bàn', icon: ClipboardList }
+    ] : [
+      { id: 'menu', name: 'Quản lý sản phẩm', icon: Coffee }
+    ]),
+    { id: 'orders', name: 'Lịch sử hóa đơn', icon: History },
+    { id: 'shifts', name: 'Sổ quỹ ca làm việc', icon: Wallet },
+    { id: 'inventory', name: 'Quản lý kho (FEFO)', icon: Layers },
+    { id: 'customers', name: 'Quản lý khách hàng', icon: Users },
     ...(simUserRole !== 'staff' ? [
-      { id: 'employees', name: 'Quản lý nhân viên', icon: Briefcase, color: 'text-amber-500' },
-      { id: 'suppliers', name: 'Quản lý nhà cung cấp', icon: Truck, color: 'text-blue-500' }
+      { id: 'employees', name: 'Quản lý nhân viên', icon: Briefcase },
+      { id: 'suppliers', name: 'Quản lý nhà cung cấp', icon: Truck }
     ] : []),
   ];
 
@@ -486,57 +480,68 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100/60 font-sans text-slate-800 flex flex-col md:flex-row antialiased">
-      
+    <div className="min-h-screen bg-surface-container-low font-sans text-on-surface flex antialiased">
+
       {/* Audio-visual virtual speaker indicator (simulated beeps) */}
       <AnimatePresence>
         {simSuccessBeep && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
-            className="fixed bottom-6 right-6 z-50 px-4 py-3 bg-emerald-600 text-white rounded-xl shadow-lg border border-emerald-500 flex items-center space-x-3 pointer-events-none"
+            className="fixed bottom-6 right-6 z-50 px-4 py-3 bg-secondary text-on-secondary rounded-xl shadow-lg flex items-center space-x-3 pointer-events-none"
           >
             <div className="w-2.5 h-2.5 bg-white rounded-full animate-ping" />
-            <span className="text-xs font-bold tracking-wider uppercase">🔔 BEEP SUCCESS</span>
+            <span className="text-sm font-bold tracking-wide">Thành công</span>
           </motion.div>
         )}
         {simErrorBeep && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
-            className="fixed bottom-6 right-6 z-50 px-4 py-3 bg-rose-600 text-white rounded-xl shadow-lg border border-rose-500 flex items-center space-x-3 pointer-events-none"
+            className="fixed bottom-6 right-6 z-50 px-4 py-3 bg-error text-on-error rounded-xl shadow-lg flex items-center space-x-3 pointer-events-none"
           >
             <div className="w-2.5 h-2.5 bg-white rounded-full animate-ping" />
-            <span className="text-xs font-bold tracking-wider uppercase">🚨 BEEP ERROR</span>
+            <span className="text-sm font-bold tracking-wide">Có lỗi xảy ra</span>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* --- SIDEBAR NAVIGATION (Desktop) --- */}
-      <aside className={`w-full ${sidebarCollapsed ? 'md:w-20' : 'md:w-72'} bg-slate-900 text-slate-300 flex-shrink-0 flex flex-col border-r border-slate-800 shadow-xl relative z-10 transition-all duration-300`}>
-        
+      {/* Nền mờ phía sau menu điều hướng trên di động */}
+      {mobileNavOpen && (
+        <div
+          onClick={() => setMobileNavOpen(false)}
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+        />
+      )}
+
+      {/* --- SIDEBAR NAVIGATION: off-canvas trên di động, cố định trên màn lớn --- */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-72 ${sidebarCollapsed ? 'lg:w-20' : 'lg:w-72'} bg-slate-900 text-slate-300 flex-shrink-0 flex flex-col shadow-xl transition-transform duration-300
+          ${mobileNavOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 lg:static lg:z-10 lg:border-r lg:border-slate-800`}
+      >
+
         {/* Logo & Store Header */}
         <div className="p-4 border-b border-slate-800 bg-slate-950/40 flex items-center justify-between">
           <div className="flex items-center space-x-3 overflow-hidden">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20 flex-shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-on-primary shadow-lg flex-shrink-0">
               <Store className="w-5 h-5" />
             </div>
             {!sidebarCollapsed && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15 }} className="min-w-0">
-                <h1 className="text-base font-extrabold text-white tracking-tight uppercase truncate max-w-[170px]" title={fbStoreProfile?.name || demoSession?.storeName || 'SmartPOS Lite'}>
+                <h1 className="text-base font-bold text-white tracking-tight truncate max-w-[170px]" title={fbStoreProfile?.name || demoSession?.storeName || 'SmartPOS Lite'}>
                   {fbStoreProfile?.name || demoSession?.storeName || 'SmartPOS Lite'}
                 </h1>
-                <p className="text-[10px] text-slate-400 font-medium flex items-center mt-0.5 whitespace-nowrap">
+                <p className="text-sm text-slate-400 font-semibold flex items-center mt-0.5 whitespace-nowrap">
                   {isDemoOfflineMode ? (
                     <>
-                      <WifiOff className="w-3 h-3 text-amber-500 mr-1 flex-shrink-0" />
+                      <WifiOff className="w-3.5 h-3.5 text-tertiary mr-1 flex-shrink-0" />
                       Demo Ngoại tuyến
                     </>
                   ) : (
                     <>
-                      <Check className="w-3 h-3 text-emerald-400 mr-1 flex-shrink-0" />
+                      <Check className="w-3.5 h-3.5 text-secondary mr-1 flex-shrink-0" />
                       Tài khoản đã đăng ký
                     </>
                   )}
@@ -544,14 +549,24 @@ export default function App() {
               </motion.div>
             )}
           </div>
-          {/* Collapse/Expand Toggle button */}
-          <button 
-            onClick={() => { setSidebarCollapsed(!sidebarCollapsed); triggerBeep(true); }}
-            className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-slate-200 transition-colors hidden md:block cursor-pointer"
-            title={sidebarCollapsed ? "Mở rộng menu" : "Thu gọn menu"}
-          >
-            {sidebarCollapsed ? <ChevronRight className="w-4.5 h-4.5" /> : <ChevronDown className="w-4.5 h-4.5 -rotate-90" />}
-          </button>
+          <div className="flex items-center gap-1">
+            {/* Collapse/Expand Toggle button (chỉ trên màn lớn) */}
+            <button
+              onClick={() => { setSidebarCollapsed(!sidebarCollapsed); triggerBeep(true); }}
+              className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-slate-200 transition-colors hidden lg:block cursor-pointer"
+              title={sidebarCollapsed ? "Mở rộng menu" : "Thu gọn menu"}
+            >
+              {sidebarCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronDown className="w-5 h-5 -rotate-90" />}
+            </button>
+            {/* Nút đóng menu trên di động */}
+            <button
+              onClick={() => setMobileNavOpen(false)}
+              className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-slate-200 transition-colors lg:hidden cursor-pointer"
+              title="Đóng menu"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Navigation Options */}
@@ -562,20 +577,17 @@ export default function App() {
             return (
               <button
                 key={item.id}
-                onClick={() => setActiveScreen(item.id as any)}
-                className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center px-0 py-3' : 'space-x-3.5 px-4 py-3'} rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
-                  isActive 
-                    ? 'bg-slate-800/80 text-white shadow-inner border-l-4 border-emerald-500' 
+                onClick={() => { setActiveScreen(item.id as any); setMobileNavOpen(false); }}
+                className={`w-full flex items-center ${sidebarCollapsed ? 'lg:justify-center lg:px-0 lg:py-3' : 'px-4 py-3'} space-x-3.5 rounded-xl text-base font-bold transition-all duration-200 cursor-pointer ${
+                  isActive
+                    ? 'bg-slate-800 text-white border-l-4 border-primary'
                     : 'hover:bg-slate-800/40 text-slate-400 hover:text-slate-100'
                 }`}
                 title={item.name}
               >
-                <Icon className={`w-4.5 h-4.5 flex-shrink-0 ${isActive ? item.color : 'text-slate-500'}`} />
-                {!sidebarCollapsed && (
-                  <span className="flex-1 text-left whitespace-nowrap truncate">{item.name}</span>
-                )}
-                {!sidebarCollapsed && isActive && (
-                  <ChevronRight className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+                <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-primary' : 'text-slate-500'}`} />
+                {!(sidebarCollapsed) && (
+                  <span className={`flex-1 text-left whitespace-nowrap truncate ${sidebarCollapsed ? 'lg:hidden' : ''}`}>{item.name}</span>
                 )}
               </button>
             );
@@ -583,105 +595,110 @@ export default function App() {
         </nav>
 
         {/* User Card & Logout bottom region */}
-        <div className={`p-4 border-t border-slate-800 bg-slate-950/60 flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
+        <div className={`p-4 border-t border-slate-800 bg-slate-950/60 flex items-center ${sidebarCollapsed ? 'lg:justify-center' : 'justify-between'}`}>
           <div className="flex items-center space-x-2.5 overflow-hidden">
             <div className="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 flex-shrink-0" title={fbUserProfile?.name || demoSession?.userName || 'Nhân viên Demo'}>
               <UserCircle className="w-5 h-5 text-slate-400" />
             </div>
-            {!sidebarCollapsed && (
-              <div className="min-w-0">
-                <p className="text-xs font-bold text-white truncate">
-                  {fbUserProfile?.name || demoSession?.userName || 'Nhân viên Demo'}
-                </p>
-                <p className="text-[10px] text-slate-500 truncate mt-0.5">
-                  {fbUserProfile?.email || `ID: ${demoSession?.storeId || 'Sandbox'}`}
-                </p>
-              </div>
-            )}
+            <div className={`min-w-0 ${sidebarCollapsed ? 'lg:hidden' : ''}`}>
+              <p className="text-sm font-bold text-white truncate">
+                {fbUserProfile?.name || demoSession?.userName || 'Nhân viên Demo'}
+              </p>
+              <p className="text-sm text-slate-500 truncate mt-0.5">
+                {fbUserProfile?.email || `ID: ${demoSession?.storeId || 'Sandbox'}`}
+              </p>
+            </div>
           </div>
-          {!sidebarCollapsed && (
-            <button 
-              onClick={() => handleFirebaseLogout()}
-              className="p-2 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-slate-800/80 transition-colors cursor-pointer"
-              title="Đăng xuất"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
-          )}
+          <button
+            onClick={() => handleFirebaseLogout()}
+            className={`p-2 text-slate-500 hover:text-error rounded-lg hover:bg-slate-800/80 transition-colors cursor-pointer ${sidebarCollapsed ? 'lg:hidden' : ''}`}
+            title="Đăng xuất"
+          >
+            <LogOut className="w-5 h-5" />
+          </button>
         </div>
       </aside>
 
       {/* --- MAIN CORE SECTION VIEWPORT --- */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        
+
         {/* --- GLOBAL APP BAR / HEADER --- */}
-        <header className="bg-white border-b border-slate-200 h-16 px-4 md:px-6 flex items-center justify-between flex-shrink-0">
-          <div className="flex items-center space-x-3">
-            <h2 className="text-sm font-extrabold text-slate-900 tracking-tight uppercase hidden md:block">
-              {activeScreen === 'pos' && 'QUẦY BÁN HÀNG'}
-              {activeScreen === 'kitchen' && 'MÀN HÌNH BẾP CHẾ BIẾN (KDS)'}
-              {activeScreen === 'menu' && 'THIẾT LẬP THỰC ĐƠN & MENU'}
-              {activeScreen === 'tables' && 'THIẾT LẬP & CHỈNH SỬA SƠ ĐỒ BÀN'}
-              {activeScreen === 'inventory' && (simStoreType === 'fnb' ? 'QUẢN LÝ KHO NGUYÊN VẬT LIỆU (FIFO/FEFO)' : 'QUẢN LÝ KHO HÀNG HÓA (FIFO)')}
-              {activeScreen === 'reports' && 'BÁO CÁO DOANH THU & CHỈ SỐ'}
-              {activeScreen === 'orders' && 'LỊCH SỬ HÓA ĐƠN'}
-              {activeScreen === 'shifts' && 'SỔ QUỸ CA LÀM VIỆC'}
-              {activeScreen === 'account' && 'THIẾT LẬP TÀI KHOẢN'}
+        <header className="bg-surface-container-lowest border-b border-outline-variant h-16 px-3 md:px-6 flex items-center justify-between flex-shrink-0 gap-2">
+          <div className="flex items-center space-x-3 min-w-0">
+            {/* Nút mở menu điều hướng trên di động */}
+            <button
+              onClick={() => setMobileNavOpen(true)}
+              className="m3-icon-btn lg:hidden -ml-1"
+              title="Mở menu"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+
+            <h2 className="text-base font-bold text-on-surface tracking-tight hidden md:block truncate">
+              {activeScreen === 'pos' && 'Quầy bán hàng'}
+              {activeScreen === 'kitchen' && 'Màn hình bếp (KDS)'}
+              {activeScreen === 'menu' && (simStoreType === 'fnb' ? 'Thực đơn & Menu' : 'Quản lý sản phẩm')}
+              {activeScreen === 'tables' && 'Sơ đồ bàn'}
+              {activeScreen === 'inventory' && (simStoreType === 'fnb' ? 'Quản lý kho nguyên vật liệu (FIFO/FEFO)' : 'Quản lý kho hàng hóa (FIFO)')}
+              {activeScreen === 'reports' && 'Báo cáo doanh thu & chỉ số'}
+              {activeScreen === 'orders' && 'Lịch sử hóa đơn'}
+              {activeScreen === 'shifts' && 'Sổ quỹ ca làm việc'}
+              {activeScreen === 'account' && 'Thiết lập tài khoản'}
             </h2>
-            
+
             {/* Store ID Tag next to title */}
-            <div className="hidden md:flex items-center space-x-1.5 bg-indigo-50 border border-indigo-100 px-3 py-1.5 rounded-xl text-[10px] font-black text-indigo-700 font-mono shadow-sm">
-              <span>MÃ CỬA HÀNG (STORE ID):</span>
-              <span className="text-emerald-600 select-all">{fbUserProfile?.storeId || demoSession?.storeId || 'LOCAL-DEMO'}</span>
+            <div className="hidden md:flex items-center space-x-1.5 bg-primary-container px-3 py-1.5 rounded-xl text-sm font-bold text-on-primary-container font-mono">
+              <span>Mã cửa hàng:</span>
+              <span className="select-all">{fbUserProfile?.storeId || demoSession?.storeId || 'LOCAL-DEMO'}</span>
             </div>
 
-            <div className="md:hidden flex items-center space-x-2">
-              <Store className="w-4.5 h-4.5 text-emerald-500" />
-              <span className="text-xs font-bold text-slate-900 uppercase truncate max-w-[120px]">
+            <div className="md:hidden flex items-center space-x-2 min-w-0">
+              <Store className="w-5 h-5 text-primary flex-shrink-0" />
+              <span className="text-base font-bold text-on-surface truncate">
                 {fbStoreProfile?.name || demoSession?.storeName || 'SmartPOS'}
               </span>
             </div>
           </div>
 
-          <div className="flex items-center space-x-4">
-            
+          <div className="flex items-center space-x-3 shrink-0">
+
             {/* Quick stats tags */}
-            <div className="hidden lg:flex items-center space-x-3.5 text-xs text-slate-500 border-r border-slate-200 pr-4 font-semibold">
+            <div className="hidden lg:flex items-center space-x-3.5 text-sm text-on-surface-variant border-r border-outline-variant pr-4 font-semibold">
               <div className="flex items-center">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5" />
-                Món khả dụng: <strong className="text-slate-800 ml-1">{simProducts.filter(p => p.isAvailable).length}</strong>
+                <span className="w-2 h-2 rounded-full bg-secondary mr-1.5" />
+                Món khả dụng: <strong className="text-on-surface ml-1">{simProducts.filter(p => p.isAvailable).length}</strong>
               </div>
               {simStoreType === 'fnb' && (
                 <div className="flex items-center">
-                  <span className="w-1.5 h-1.5 rounded-full bg-orange-500 mr-1.5" />
-                  Bàn đang dùng: <strong className="text-slate-800 ml-1">{simTables.filter(t => t.status === 'serving').length}</strong>
+                  <span className="w-2 h-2 rounded-full bg-tertiary mr-1.5" />
+                  Bàn đang dùng: <strong className="text-on-surface ml-1">{simTables.filter(t => t.status === 'serving').length}</strong>
                 </div>
               )}
             </div>
 
             {/* Current Real Time */}
-            <div className="flex items-center space-x-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-600 font-mono shadow-sm">
-              <Clock className="w-3.5 h-3.5 text-slate-400" />
+            <div className="hidden sm:flex items-center space-x-2 bg-surface-container border border-outline-variant rounded-xl px-3 py-1.5 text-sm font-bold text-on-surface-variant font-mono">
+              <Clock className="w-4 h-4" />
               <span>{timeStr || '00:00:00'}</span>
             </div>
 
             {/* Status Indicator */}
             {isDemoOfflineMode ? (
-              <span className="px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200/60 rounded-xl text-[10px] font-bold flex items-center">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse mr-1.5" />
-                OFFLINE DEMO
+              <span className="m3-badge m3-badge-warning">
+                <span className="w-2 h-2 rounded-full bg-tertiary animate-pulse" />
+                <span className="hidden sm:inline">Offline Demo</span>
               </span>
             ) : (
-              <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-xl text-[10px] font-bold flex items-center">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5" />
-                TÀI KHOẢN CHÍNH THỨC
+              <span className="m3-badge m3-badge-success">
+                <span className="w-2 h-2 rounded-full bg-secondary" />
+                <span className="hidden sm:inline">Tài khoản chính thức</span>
               </span>
             )}
           </div>
         </header>
 
         {/* --- DYNAMIC SCREEN RENDER STAGE --- */}
-        <section className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-50/50">
+        <section className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 bg-surface-container-low">
           
           <AnimatePresence mode="wait">
             {activeScreen === 'pos' && (
@@ -817,7 +834,7 @@ export default function App() {
               </motion.div>
             )}
 
-            {activeScreen === 'menu' && simStoreType === 'fnb' && (
+            {activeScreen === 'menu' && (
               <motion.div
                 key="menu"
                 initial={{ opacity: 0, y: 10 }}
@@ -831,6 +848,7 @@ export default function App() {
                   triggerBeep={triggerBeep}
                   isOffline={isDemoOfflineMode}
                   storeId={fbUserProfile?.storeId || demoSession?.storeId || 'Sandbox'}
+                  storeType={simStoreType}
                 />
               </motion.div>
             )}

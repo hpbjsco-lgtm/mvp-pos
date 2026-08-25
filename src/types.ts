@@ -41,6 +41,8 @@ export interface Product {
   price: number;
   cost: number;
   category: string;
+  unit?: string; // Đơn vị tính (cái/kg/lốc/thùng...), chủ yếu dùng cho bán lẻ
+  imageUrl?: string; // Ảnh sản phẩm hiển thị trên lưới bán hàng (POS)
   isAvailable: boolean; // Trạng thái món ăn / sản phẩm (còn hàng / hết hàng, đặc biệt hữu ích cho F&B)
   createdAt: string;
 }

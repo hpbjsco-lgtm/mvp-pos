@@ -81,88 +81,88 @@ export default function ShiftSection({
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
-      <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
-        <h2 className="text-xl font-black text-slate-900 tracking-tight uppercase flex items-center gap-2">
+      <div className="bg-surface-container-lowest border border-outline-variant rounded-3xl p-6 shadow-sm">
+        <h2 className="text-xl font-black text-on-surface tracking-tight uppercase flex items-center gap-2">
           <Wallet className="w-6 h-6 text-teal-500" />
           Sổ quỹ ca làm việc
         </h2>
-        <p className="text-xs text-slate-500 mt-1">
+        <p className="text-xs text-on-surface-variant mt-1">
           Mở ca trước khi bắt đầu bán hàng, đóng ca cuối ngày để đối soát tiền mặt thực tế so với hệ thống.
         </p>
       </div>
 
       {!openShift ? (
-        <form onSubmit={handleOpenShift} className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
-          <div className="flex items-center gap-2 text-slate-700">
-            <PlayCircle className="w-5 h-5 text-emerald-500" />
+        <form onSubmit={handleOpenShift} className="bg-surface-container-lowest border border-outline-variant rounded-3xl p-6 shadow-sm space-y-4">
+          <div className="flex items-center gap-2 text-on-surface">
+            <PlayCircle className="w-5 h-5 text-secondary" />
             <h3 className="text-sm font-black uppercase">Mở ca làm việc mới</h3>
           </div>
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-500 uppercase">Tiền quỹ đầu ca (đ)</label>
+            <label className="text-[10px] font-bold text-on-surface-variant uppercase">Tiền quỹ đầu ca (đ)</label>
             <input
               type="number"
               min="0"
               value={openingCashInput || ''}
               onChange={(e) => setOpeningCashInput(Math.max(0, parseInt(e.target.value) || 0))}
               placeholder="0"
-              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm font-bold font-mono"
+              className="w-full px-3 py-2.5 border border-outline-variant rounded-xl text-sm font-bold font-mono"
               required
             />
           </div>
           <button
             type="submit"
-            className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-md active:scale-98 cursor-pointer flex items-center justify-center gap-2"
+            className="w-full py-3 bg-primary hover:brightness-110 text-white rounded-xl text-xs font-bold transition-all shadow-md active:scale-98 cursor-pointer flex items-center justify-center gap-2"
           >
             <PlayCircle className="w-4 h-4" /> Mở ca cho {currentUser.name}
           </button>
         </form>
       ) : (
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-5">
-          <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+        <div className="bg-surface-container-lowest border border-outline-variant rounded-3xl p-6 shadow-sm space-y-5">
+          <div className="flex justify-between items-center border-b border-outline-variant pb-3">
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <h3 className="text-sm font-black uppercase text-slate-800">Ca đang mở - {openShift.staffName}</h3>
+              <span className="w-2 h-2 rounded-full bg-secondary animate-pulse" />
+              <h3 className="text-sm font-black uppercase text-on-surface">Ca đang mở - {openShift.staffName}</h3>
             </div>
-            <span className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
+            <span className="text-[10px] text-on-surface-variant font-mono flex items-center gap-1">
               <Clock className="w-3 h-3" /> Mở lúc {new Date(openShift.openedAt).toLocaleString('vi-VN')}
             </span>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 text-center">
-              <span className="text-[9px] text-slate-400 font-bold uppercase block">Quỹ đầu ca</span>
-              <span className="text-sm font-black text-slate-900">{openShift.openingCash.toLocaleString('vi-VN')}đ</span>
+            <div className="p-3 bg-surface-container rounded-2xl border border-outline-variant text-center">
+              <span className="text-[9px] text-on-surface-variant font-bold uppercase block">Quỹ đầu ca</span>
+              <span className="text-sm font-black text-on-surface">{openShift.openingCash.toLocaleString('vi-VN')}đ</span>
             </div>
-            <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-100 text-center">
-              <span className="text-[9px] text-emerald-600 font-bold uppercase block">Thu tiền mặt</span>
-              <span className="text-sm font-black text-emerald-700">{cashRevenue.toLocaleString('vi-VN')}đ</span>
+            <div className="p-3 bg-secondary-container rounded-2xl border border-secondary-container text-center">
+              <span className="text-[9px] text-secondary font-bold uppercase block">Thu tiền mặt</span>
+              <span className="text-sm font-black text-on-secondary-container">{cashRevenue.toLocaleString('vi-VN')}đ</span>
             </div>
-            <div className="p-3 bg-blue-50 rounded-2xl border border-blue-100 text-center">
-              <span className="text-[9px] text-blue-600 font-bold uppercase block">Thu thẻ / QR</span>
-              <span className="text-sm font-black text-blue-700">{(cardRevenue + qrRevenue).toLocaleString('vi-VN')}đ</span>
+            <div className="p-3 bg-primary-container rounded-2xl border border-primary-container text-center">
+              <span className="text-[9px] text-primary font-bold uppercase block">Thu thẻ / QR</span>
+              <span className="text-sm font-black text-primary">{(cardRevenue + qrRevenue).toLocaleString('vi-VN')}đ</span>
             </div>
-            <div className="p-3 bg-amber-50 rounded-2xl border border-amber-100 text-center">
-              <span className="text-[9px] text-amber-600 font-bold uppercase block">Số hóa đơn</span>
-              <span className="text-sm font-black text-amber-700">{shiftOrders.length}</span>
+            <div className="p-3 bg-tertiary-container rounded-2xl border border-tertiary-container text-center">
+              <span className="text-[9px] text-tertiary font-bold uppercase block">Số hóa đơn</span>
+              <span className="text-sm font-black text-on-tertiary-container">{shiftOrders.length}</span>
             </div>
           </div>
 
           <div className="p-4 bg-slate-950 rounded-2xl text-center space-y-1">
-            <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest block">Tiền mặt kỳ vọng trong két</span>
+            <span className="text-[9px] text-on-surface-variant font-bold uppercase tracking-widest block">Tiền mặt kỳ vọng trong két</span>
             <span className="text-2xl font-mono font-black text-white block">{expectedCash.toLocaleString('vi-VN')} đ</span>
           </div>
 
           {!closeStep ? (
             <button
               onClick={() => { setClosingCashInput(expectedCash); setCloseStep(true); }}
-              className="w-full py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shadow-md active:scale-98 cursor-pointer flex items-center justify-center gap-2"
+              className="w-full py-3 bg-error hover:brightness-110 text-white rounded-xl text-xs font-bold transition-all shadow-md active:scale-98 cursor-pointer flex items-center justify-center gap-2"
             >
               <StopCircle className="w-4 h-4" /> Đóng ca & đối soát tiền mặt
             </button>
           ) : (
-            <form onSubmit={handleCloseShift} className="space-y-3 pt-2 border-t border-slate-100">
+            <form onSubmit={handleCloseShift} className="space-y-3 pt-2 border-t border-outline-variant">
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1">
+                <label className="text-[10px] font-bold text-on-surface-variant uppercase flex items-center gap-1">
                   <Banknote className="w-3.5 h-3.5" /> Tiền mặt đếm thực tế (đ)
                 </label>
                 <input
@@ -170,14 +170,14 @@ export default function ShiftSection({
                   min="0"
                   value={closingCashInput || ''}
                   onChange={(e) => setClosingCashInput(Math.max(0, parseInt(e.target.value) || 0))}
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm font-bold font-mono"
+                  className="w-full px-3 py-2.5 border border-outline-variant rounded-xl text-sm font-bold font-mono"
                   required
                 />
               </div>
               <div className={`p-2.5 rounded-xl text-center text-xs font-bold ${
                 closingCashInput - expectedCash === 0
-                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-                  : 'bg-rose-50 text-rose-700 border border-rose-100'
+                  ? 'bg-secondary-container text-on-secondary-container border border-secondary-container'
+                  : 'bg-error-container text-on-error-container border border-error-container'
               }`}>
                 Chênh lệch: {closingCashInput - expectedCash >= 0 ? '+' : ''}{(closingCashInput - expectedCash).toLocaleString('vi-VN')} đ
               </div>
@@ -185,13 +185,13 @@ export default function ShiftSection({
                 <button
                   type="button"
                   onClick={() => setCloseStep(false)}
-                  className="flex-1 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-xl font-bold text-xs transition-colors cursor-pointer"
+                  className="flex-1 py-2.5 bg-surface-container hover:bg-surface-container-high text-on-surface-variant rounded-xl font-bold text-xs transition-colors cursor-pointer"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs shadow transition-all cursor-pointer"
+                  className="flex-1 py-2.5 bg-error hover:brightness-110 text-white rounded-xl font-bold text-xs shadow transition-all cursor-pointer"
                 >
                   Xác nhận đóng ca
                 </button>
@@ -202,14 +202,14 @@ export default function ShiftSection({
       )}
 
       {pastShifts.length > 0 && (
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-3">
-          <h3 className="text-xs font-black uppercase text-slate-700 flex items-center gap-1.5">
-            <History className="w-4 h-4 text-slate-400" /> Lịch sử ca đã đóng
+        <div className="bg-surface-container-lowest border border-outline-variant rounded-3xl p-6 shadow-sm space-y-3">
+          <h3 className="text-xs font-black uppercase text-on-surface flex items-center gap-1.5">
+            <History className="w-4 h-4 text-on-surface-variant" /> Lịch sử ca đã đóng
           </h3>
-          <div className="overflow-x-auto rounded-xl border border-slate-100">
+          <div className="overflow-x-auto rounded-xl border border-outline-variant">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-slate-50 text-slate-400 font-bold uppercase border-b border-slate-100">
+                <tr className="bg-surface-container text-on-surface-variant font-bold uppercase border-b border-outline-variant">
                   <th className="p-3">Nhân viên</th>
                   <th className="p-3">Mở ca</th>
                   <th className="p-3">Đóng ca</th>
@@ -218,17 +218,17 @@ export default function ShiftSection({
                   <th className="p-3 text-right">Chênh lệch</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
+              <tbody className="divide-y divide-slate-100 text-on-surface font-medium">
                 {pastShifts.map(s => {
                   const diff = (s.closingCashActual || 0) - (s.closingCashExpected || 0);
                   return (
                     <tr key={s.id}>
                       <td className="p-3 font-bold">{s.staffName}</td>
-                      <td className="p-3 text-slate-500">{new Date(s.openedAt).toLocaleString('vi-VN')}</td>
-                      <td className="p-3 text-slate-500">{s.closedAt ? new Date(s.closedAt).toLocaleString('vi-VN') : '—'}</td>
+                      <td className="p-3 text-on-surface-variant">{new Date(s.openedAt).toLocaleString('vi-VN')}</td>
+                      <td className="p-3 text-on-surface-variant">{s.closedAt ? new Date(s.closedAt).toLocaleString('vi-VN') : '—'}</td>
                       <td className="p-3 text-right font-mono">{(s.closingCashExpected || 0).toLocaleString('vi-VN')}đ</td>
                       <td className="p-3 text-right font-mono">{(s.closingCashActual || 0).toLocaleString('vi-VN')}đ</td>
-                      <td className={`p-3 text-right font-mono font-bold ${diff === 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      <td className={`p-3 text-right font-mono font-bold ${diff === 0 ? 'text-secondary' : 'text-error'}`}>
                         {diff >= 0 ? '+' : ''}{diff.toLocaleString('vi-VN')}đ
                       </td>
                     </tr>

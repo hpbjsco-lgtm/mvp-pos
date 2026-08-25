@@ -87,36 +87,36 @@ export default function OrderHistorySection({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white border border-slate-200 rounded-3xl p-6 shadow-sm gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-surface-container-lowest border border-outline-variant rounded-3xl p-6 shadow-sm gap-4">
         <div>
-          <h2 className="text-xl font-black text-slate-900 tracking-tight uppercase flex items-center gap-2">
-            <History className="w-6 h-6 text-emerald-500" />
+          <h2 className="text-xl font-black text-on-surface tracking-tight uppercase flex items-center gap-2">
+            <History className="w-6 h-6 text-secondary" />
             Lịch sử hóa đơn
           </h2>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-on-surface-variant mt-1">
             Tra cứu, in lại hóa đơn cũ{canVoid ? ', hoặc hủy đơn hàng bị nhập sai' : ''}.
           </p>
         </div>
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm space-y-4">
+      <div className="bg-surface-container-lowest border border-outline-variant rounded-3xl p-5 shadow-sm space-y-4">
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+            <Search className="w-4 h-4 text-on-surface-variant absolute left-3.5 top-3.5" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Tìm theo số hóa đơn, tên khách, thu ngân, số bàn..."
-              className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-emerald-500 font-semibold"
+              className="w-full pl-10 pr-4 py-3 border border-outline-variant rounded-xl text-xs focus:ring-1 focus:ring-emerald-500 font-semibold"
             />
           </div>
-          <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-[10px] font-bold">
+          <div className="flex bg-surface-container-high p-1 rounded-xl border border-outline-variant text-[10px] font-bold">
             {(['all', 'completed', 'void'] as const).map(s => (
               <button
                 key={s}
                 onClick={() => setStatusFilter(s)}
-                className={`px-3 py-2 rounded-lg transition-all ${statusFilter === s ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
+                className={`px-3 py-2 rounded-lg transition-all ${statusFilter === s ? 'bg-surface-container-lowest text-on-surface shadow-sm' : 'text-on-surface-variant'}`}
               >
                 {s === 'all' ? 'Tất cả' : s === 'completed' ? 'Hoàn tất' : 'Đã hủy'}
               </button>
@@ -125,14 +125,14 @@ export default function OrderHistorySection({
         </div>
 
         {filteredOrders.length === 0 ? (
-          <div className="py-16 text-center text-slate-400 text-xs border border-dashed border-slate-200 rounded-2xl">
+          <div className="py-16 text-center text-on-surface-variant text-xs border border-dashed border-outline-variant rounded-2xl">
             🧾 Không tìm thấy hóa đơn nào phù hợp bộ lọc.
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-slate-100">
+          <div className="overflow-x-auto rounded-xl border border-outline-variant">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-slate-50 text-slate-400 font-bold uppercase border-b border-slate-100">
+                <tr className="bg-surface-container text-on-surface-variant font-bold uppercase border-b border-outline-variant">
                   <th className="p-4">Số hóa đơn</th>
                   <th className="p-4">Thời gian</th>
                   <th className="p-4">Khách / Bàn</th>
@@ -142,18 +142,18 @@ export default function OrderHistorySection({
                   <th className="p-4 text-right">Thao tác</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+              <tbody className="divide-y divide-slate-100 font-medium text-on-surface">
                 {filteredOrders.map((o) => {
                   const isVoid = (o.status || 'completed') === 'void';
                   return (
-                    <tr key={o.id} className={`hover:bg-slate-50/50 transition-colors ${isVoid ? 'opacity-50' : ''}`}>
-                      <td className="p-4 font-mono font-bold text-slate-900">{o.orderNumber}</td>
-                      <td className="p-4 text-slate-500">{new Date(o.createdAt).toLocaleString('vi-VN')}</td>
-                      <td className="p-4 text-slate-600">{o.tableNumber || o.customerName || 'Khách vãng lai'}</td>
-                      <td className="p-4 text-slate-500">{o.staffName || '—'}</td>
-                      <td className="p-4 text-right font-black text-slate-900">{o.totalAmount.toLocaleString('vi-VN')} đ</td>
+                    <tr key={o.id} className={`hover:bg-surface-container/50 transition-colors ${isVoid ? 'opacity-50' : ''}`}>
+                      <td className="p-4 font-mono font-bold text-on-surface">{o.orderNumber}</td>
+                      <td className="p-4 text-on-surface-variant">{new Date(o.createdAt).toLocaleString('vi-VN')}</td>
+                      <td className="p-4 text-on-surface-variant">{o.tableNumber || o.customerName || 'Khách vãng lai'}</td>
+                      <td className="p-4 text-on-surface-variant">{o.staffName || '—'}</td>
+                      <td className="p-4 text-right font-black text-on-surface">{o.totalAmount.toLocaleString('vi-VN')} đ</td>
                       <td className="p-4 text-center">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${isVoid ? 'bg-rose-50 text-rose-600 border border-rose-100' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'}`}>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${isVoid ? 'bg-error-container text-error border border-error-container' : 'bg-secondary-container text-secondary border border-secondary-container'}`}>
                           {isVoid ? 'Đã hủy' : 'Hoàn tất'}
                         </span>
                       </td>
@@ -161,7 +161,7 @@ export default function OrderHistorySection({
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             onClick={() => setReprintOrder(o)}
-                            className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-blue-600 transition-all cursor-pointer"
+                            className="p-1.5 hover:bg-surface-container-high rounded-lg text-on-surface-variant hover:text-primary transition-all cursor-pointer"
                             title="In lại hóa đơn"
                           >
                             <Printer className="w-3.5 h-3.5" />
@@ -169,7 +169,7 @@ export default function OrderHistorySection({
                           {canVoid && !isVoid && (
                             <button
                               onClick={() => handleVoidOrder(o)}
-                              className="p-1.5 hover:bg-rose-50 rounded-lg text-slate-500 hover:text-rose-600 transition-all cursor-pointer"
+                              className="p-1.5 hover:bg-error-container rounded-lg text-on-surface-variant hover:text-error transition-all cursor-pointer"
                               title="Hủy hóa đơn"
                             >
                               <Ban className="w-3.5 h-3.5" />

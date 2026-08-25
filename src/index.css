@@ -1,5 +1,136 @@
 @import "tailwindcss";
 
+/* Font Inter — tự lưu trong app (không tải qua mạng) để phù hợp app offline-first.
+   Chọn Inter vì độ rõ nét cao ở cỡ chữ nhỏ, phù hợp người dùng lớn tuổi. */
+@import "@fontsource-variable/inter";
+
+/* ------------------------------------------------------------------ */
+/* Design tokens — Material Design 3 (bảng màu "Blue")                 */
+/* Dùng dần cho từng màn hình khi làm lại giao diện, bắt đầu từ POS.    */
+/* Sinh tự động thành utility: bg-primary, text-on-surface, v.v.        */
+/* ------------------------------------------------------------------ */
+@theme {
+  --font-sans: 'Inter Variable', 'Inter', system-ui, -apple-system, sans-serif;
+
+  --color-primary: #0d5cab;
+  --color-primary-container: #d5e6ff;
+  --color-on-primary: #ffffff;
+  --color-on-primary-container: #001c3b;
+
+  --color-secondary: #2e8b3d;
+  --color-secondary-container: #c8f0c9;
+  --color-on-secondary: #ffffff;
+  --color-on-secondary-container: #072b0c;
+
+  --color-surface: #f7faff;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #eef4fc;
+  --color-surface-container: #e6eefb;
+  --color-surface-container-high: #dde8f7;
+  --color-surface-container-highest: #d3e1f3;
+  /* Đậm hơn bản MD3 gốc một chút để tăng độ tương phản, dễ đọc hơn cho người lớn tuổi */
+  --color-on-surface: #10161f;
+  --color-on-surface-variant: #38424f;
+  --color-outline: #6b7a8f;
+  --color-outline-variant: #c6d2e0;
+
+  --color-error: #ba1a1a;
+  --color-error-container: #ffdad6;
+  --color-on-error: #ffffff;
+  --color-on-error-container: #410002;
+
+  /* Vai trò thứ 3: cảnh báo / trạng thái chờ (hạn dùng cận kề, đang xử lý...) */
+  --color-tertiary: #8a5100;
+  --color-tertiary-container: #ffddb1;
+  --color-on-tertiary: #ffffff;
+  --color-on-tertiary-container: #2b1700;
+}
+
+/* ------------------------------------------------------------------ */
+/* Component lớp Material 3 dùng chung (button / input / card / chip)  */
+/* ------------------------------------------------------------------ */
+@layer components {
+  .m3-btn,
+  .m3-btn-filled,
+  .m3-btn-tonal,
+  .m3-btn-outlined,
+  .m3-btn-text,
+  .m3-btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-full text-base font-bold
+      min-h-12 px-6 transition-colors active:scale-[0.98] cursor-pointer select-none
+      disabled:opacity-40 disabled:pointer-events-none;
+  }
+  .m3-btn-filled {
+    @apply bg-primary text-on-primary hover:brightness-110 shadow-sm;
+  }
+  .m3-btn-tonal {
+    @apply bg-secondary-container text-on-secondary-container hover:brightness-95;
+  }
+  .m3-btn-outlined {
+    @apply border border-outline text-primary bg-transparent hover:bg-primary-container/40;
+  }
+  .m3-btn-text {
+    @apply text-primary bg-transparent hover:bg-primary-container/40 px-4;
+  }
+  .m3-btn-danger {
+    @apply bg-error text-on-error hover:brightness-110 shadow-sm;
+  }
+  .m3-icon-btn {
+    @apply inline-flex items-center justify-center rounded-full w-11 h-11 shrink-0
+      text-on-surface-variant hover:bg-surface-container-high active:scale-95 transition-colors cursor-pointer;
+  }
+  .m3-card {
+    @apply bg-surface-container-low rounded-3xl border border-outline-variant/60;
+  }
+  .m3-input {
+    @apply w-full min-h-12 px-4 rounded-xl border border-outline-variant bg-surface-container-lowest
+      text-on-surface font-semibold placeholder:text-on-surface-variant/70 placeholder:font-normal text-base
+      focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-shadow;
+  }
+  .m3-chip {
+    @apply inline-flex items-center justify-center gap-1 min-h-9 px-4 rounded-lg text-sm font-bold
+      border border-outline-variant text-on-surface-variant bg-surface-container-lowest
+      transition-colors cursor-pointer select-none;
+  }
+  .m3-chip-selected {
+    @apply bg-secondary-container border-secondary-container text-on-secondary-container;
+  }
+
+  /* Badge trạng thái (còn hàng/hết hàng, hoạt động/đã hủy, cận hạn...) */
+  .m3-badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-sm font-bold whitespace-nowrap;
+  }
+  .m3-badge-neutral {
+    @apply bg-surface-container-high text-on-surface-variant;
+  }
+  .m3-badge-success {
+    @apply bg-secondary-container text-on-secondary-container;
+  }
+  .m3-badge-warning {
+    @apply bg-tertiary-container text-on-tertiary-container;
+  }
+  .m3-badge-error {
+    @apply bg-error-container text-on-error-container;
+  }
+
+  /* Bảng dữ liệu dùng chung (danh sách khách hàng, nhân viên, hóa đơn...) */
+  .m3-table {
+    @apply w-full text-left border-collapse text-base;
+  }
+  .m3-table thead tr {
+    @apply bg-surface-container text-on-surface-variant text-sm font-bold uppercase tracking-wide;
+  }
+  .m3-table th {
+    @apply p-3.5;
+  }
+  .m3-table tbody tr {
+    @apply border-t border-outline-variant/60;
+  }
+  .m3-table td {
+    @apply p-3.5 text-on-surface;
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /* Tinh chỉnh cho app native (iOS / Android) đóng gói bằng Capacitor   */
 /* ------------------------------------------------------------------ */
@@ -20,6 +151,7 @@ body,
 
 body {
   margin: 0;
+  font-family: var(--font-sans);
   /* Chặn kéo giãn đàn hồi (rubber-band) của WebView iOS */
   overscroll-behavior: none;
   -webkit-tap-highlight-color: transparent;

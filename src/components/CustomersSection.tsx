@@ -140,48 +140,48 @@ export default function CustomersSection({
     <div className="space-y-6">
       
       {/* Header section */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white border border-slate-200 rounded-3xl p-6 shadow-sm gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-surface-container-lowest border border-outline-variant rounded-3xl p-6 shadow-sm gap-4">
         <div>
-          <h2 className="text-xl font-black text-slate-900 tracking-tight uppercase flex items-center gap-2">
-            <Users className="w-6 h-6 text-emerald-500" />
+          <h2 className="text-xl font-black text-on-surface tracking-tight uppercase flex items-center gap-2">
+            <Users className="w-6 h-6 text-secondary" />
             Quản lý cơ sở dữ liệu Khách hàng
           </h2>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-on-surface-variant mt-1">
             Tra cứu thông tin khách hàng, tích điểm thành viên hội viên và quản lý lịch sử liên hệ.
           </p>
         </div>
         <button
           onClick={handleOpenAdd}
-          className="px-4.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-md active:scale-95 flex items-center gap-2 cursor-pointer"
+          className="px-4.5 py-2.5 bg-primary hover:brightness-110 text-white rounded-xl text-xs font-bold transition-all shadow-md active:scale-95 flex items-center gap-2 cursor-pointer"
         >
           <Plus className="w-4 h-4" /> Thêm khách hàng mới
         </button>
       </div>
 
       {/* Main Grid table */}
-      <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm space-y-4">
+      <div className="bg-surface-container-lowest border border-outline-variant rounded-3xl p-5 shadow-sm space-y-4">
         {/* Controls */}
         <div className="flex items-center relative">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+          <Search className="w-4 h-4 text-on-surface-variant absolute left-3.5 top-3.5" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Tìm kiếm khách hàng theo Tên, Số điện thoại hoặc Email..."
-            className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-emerald-500 font-semibold"
+            className="w-full pl-10 pr-4 py-3 border border-outline-variant rounded-xl text-xs focus:ring-1 focus:ring-emerald-500 font-semibold"
           />
         </div>
 
         {/* List Content */}
         {filteredCustomers.length === 0 ? (
-          <div className="py-16 text-center text-slate-400 text-xs border border-dashed border-slate-200 rounded-2xl">
+          <div className="py-16 text-center text-on-surface-variant text-xs border border-dashed border-outline-variant rounded-2xl">
             🔍 Không tìm thấy hồ sơ khách hàng nào phù hợp bộ lọc tìm kiếm.
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-slate-100">
+          <div className="overflow-x-auto rounded-xl border border-outline-variant">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-slate-50 text-slate-400 font-bold uppercase border-b border-slate-100">
+                <tr className="bg-surface-container text-on-surface-variant font-bold uppercase border-b border-outline-variant">
                   <th className="p-4">Tên khách hàng</th>
                   <th className="p-4">Số điện thoại</th>
                   <th className="p-4">Địa chỉ Email</th>
@@ -190,46 +190,46 @@ export default function CustomersSection({
                   <th className="p-4 text-right">Thao tác</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+              <tbody className="divide-y divide-slate-100 font-medium text-on-surface">
                 {filteredCustomers.map((c) => {
                   const isWalkin = c.id === 'khach-vang-lai';
                   // Calculate tier
                   let tierName = 'Đồng (Bronze)';
-                  let tierColor = 'bg-slate-100 text-slate-600 border border-slate-200';
+                  let tierColor = 'bg-surface-container-high text-on-surface-variant border border-outline-variant';
                   if (c.points >= 500) {
                     tierName = 'Kim Cương (Diamond)';
                     tierColor = 'bg-cyan-50 text-cyan-700 border border-cyan-200';
                   } else if (c.points >= 200) {
                     tierName = 'Vàng (Gold)';
-                    tierColor = 'bg-amber-50 text-amber-700 border border-amber-200';
+                    tierColor = 'bg-tertiary-container text-on-tertiary-container border border-tertiary-container';
                   } else if (c.points >= 50) {
                     tierName = 'Bạc (Silver)';
-                    tierColor = 'bg-blue-50 text-blue-700 border border-blue-200';
+                    tierColor = 'bg-primary-container text-primary border border-primary-container';
                   }
 
                   return (
-                    <tr key={c.id} className={`hover:bg-slate-50/50 transition-colors ${isWalkin ? 'bg-slate-50/30' : ''}`}>
+                    <tr key={c.id} className={`hover:bg-surface-container/50 transition-colors ${isWalkin ? 'bg-surface-container/30' : ''}`}>
                       <td className="p-4">
                         <div className="flex items-center gap-2.5">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs uppercase ${
-                            isWalkin ? 'bg-slate-200 text-slate-600' : 'bg-emerald-50 text-emerald-600'
+                            isWalkin ? 'bg-slate-200 text-on-surface-variant' : 'bg-secondary-container text-secondary'
                           }`}>
                             {c.name.slice(0, 2)}
                           </div>
                           <div>
-                            <p className="font-extrabold text-slate-900">{c.name}</p>
-                            <p className="text-[10px] text-slate-400 font-mono mt-0.5">{c.id}</p>
+                            <p className="font-extrabold text-on-surface">{c.name}</p>
+                            <p className="text-[10px] text-on-surface-variant font-mono mt-0.5">{c.id}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="p-4 font-mono text-slate-600">
-                        {c.phone || <span className="text-slate-300">Chưa cập nhật</span>}
+                      <td className="p-4 font-mono text-on-surface-variant">
+                        {c.phone || <span className="text-outline">Chưa cập nhật</span>}
                       </td>
-                      <td className="p-4 text-slate-500">
-                        {c.email || <span className="text-slate-300">Chưa cập nhật</span>}
+                      <td className="p-4 text-on-surface-variant">
+                        {c.email || <span className="text-outline">Chưa cập nhật</span>}
                       </td>
                       <td className="p-4 text-center">
-                        <span className="font-black text-slate-950 font-mono text-sm">
+                        <span className="font-black text-on-surface font-mono text-sm">
                           {c.points}
                         </span>
                       </td>
@@ -243,7 +243,7 @@ export default function CustomersSection({
                           <button
                             onClick={() => handleOpenEdit(c)}
                             disabled={isWalkin}
-                            className={`p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-blue-600 transition-all cursor-pointer ${
+                            className={`p-1.5 hover:bg-surface-container-high rounded-lg text-on-surface-variant hover:text-primary transition-all cursor-pointer ${
                               isWalkin ? 'opacity-30 cursor-not-allowed' : ''
                             }`}
                             title="Chỉnh sửa thông tin"
@@ -253,7 +253,7 @@ export default function CustomersSection({
                           <button
                             onClick={() => handleDelete(c)}
                             disabled={isWalkin}
-                            className={`p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-rose-600 transition-all cursor-pointer ${
+                            className={`p-1.5 hover:bg-surface-container-high rounded-lg text-on-surface-variant hover:text-error transition-all cursor-pointer ${
                               isWalkin ? 'opacity-30 cursor-not-allowed' : ''
                             }`}
                             title="Xóa khách hàng"
@@ -273,15 +273,15 @@ export default function CustomersSection({
 
       {/* Detail card displaying Premium Loyalty Program Rules */}
       <div className="bg-gradient-to-r from-emerald-600 to-teal-500 rounded-3xl p-6 text-white shadow-md relative overflow-hidden flex flex-col md:flex-row justify-between items-center gap-6">
-        <div className="absolute top-0 right-0 w-36 h-36 bg-white/5 rounded-full blur-2xl" />
+        <div className="absolute top-0 right-0 w-36 h-36 bg-surface-container-lowest/5 rounded-full blur-2xl" />
         <div className="space-y-2">
-          <span className="bg-white/10 text-white border border-white/20 px-2 py-0.5 rounded-full text-[9px] font-black tracking-wider uppercase">Chương trình Loyalty VIP</span>
+          <span className="bg-surface-container-lowest/10 text-white border border-white/20 px-2 py-0.5 rounded-full text-[9px] font-black tracking-wider uppercase">Chương trình Loyalty VIP</span>
           <h3 className="text-base font-extrabold tracking-tight">Cơ chế tích điểm thành viên tự động</h3>
           <p className="text-xs text-white/80 max-w-xl">
             Khi thanh toán hóa đơn, cứ mỗi <strong>10,000 đ</strong> chi tiêu, thành viên sẽ tự động tích lũy được <strong>1 điểm</strong>. Điểm tích lũy dùng để xếp hạng hội viên (Đồng, Bạc, Vàng, Kim Cương) và trừ trực tiếp vào hóa đơn tiếp theo.
           </p>
         </div>
-        <div className="flex items-center gap-3.5 bg-white/10 border border-white/20 rounded-2xl px-5 py-4 backdrop-blur-sm">
+        <div className="flex items-center gap-3.5 bg-surface-container-lowest/10 border border-white/20 rounded-2xl px-5 py-4 backdrop-blur-sm">
           <Award className="w-8 h-8 text-yellow-300 animate-pulse flex-shrink-0" />
           <div className="text-left">
             <p className="text-xs font-extrabold uppercase">Thống kê hội viên</p>
@@ -293,15 +293,15 @@ export default function CustomersSection({
       {/* Modal Dialog Form */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white rounded-3xl border border-slate-200 max-w-md w-full p-6 shadow-xl space-y-4">
+          <div className="bg-surface-container-lowest rounded-3xl border border-outline-variant max-w-md w-full p-6 shadow-xl space-y-4">
             
-            <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-              <h3 className="text-sm font-black text-slate-900 uppercase">
+            <div className="flex justify-between items-center pb-3 border-b border-outline-variant">
+              <h3 className="text-sm font-black text-on-surface uppercase">
                 {editingCustomer ? 'Cập nhật thông tin khách hàng' : 'Thêm hồ sơ khách hàng mới'}
               </h3>
               <button 
                 onClick={() => setModalOpen(false)}
-                className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 transition-colors"
+                className="p-1 hover:bg-surface-container-high rounded-lg text-on-surface-variant hover:text-on-surface-variant transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -309,61 +309,61 @@ export default function CustomersSection({
 
             <form onSubmit={handleSave} className="space-y-4">
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Họ và tên khách hàng</label>
+                <label className="text-[10px] font-bold text-on-surface-variant uppercase">Họ và tên khách hàng</label>
                 <input
                   type="text"
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
                   placeholder="Ví dụ: Nguyễn Văn Hải"
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-semibold focus:ring-1 focus:ring-emerald-500"
+                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-semibold focus:ring-1 focus:ring-emerald-500"
                   required
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Số điện thoại</label>
+                <label className="text-[10px] font-bold text-on-surface-variant uppercase">Số điện thoại</label>
                 <input
                   type="text"
                   value={formPhone}
                   onChange={(e) => setFormPhone(e.target.value)}
                   placeholder="Ví dụ: 0912345678"
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-mono font-bold focus:ring-1 focus:ring-emerald-500"
+                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-mono font-bold focus:ring-1 focus:ring-emerald-500"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Địa chỉ Email</label>
+                <label className="text-[10px] font-bold text-on-surface-variant uppercase">Địa chỉ Email</label>
                 <input
                   type="email"
                   value={formEmail}
                   onChange={(e) => setFormEmail(e.target.value)}
                   placeholder="username@domain.com"
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-emerald-500"
+                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs focus:ring-1 focus:ring-emerald-500"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Điểm tích lũy thành viên</label>
+                <label className="text-[10px] font-bold text-on-surface-variant uppercase">Điểm tích lũy thành viên</label>
                 <input
                   type="number"
                   value={formPoints}
                   onChange={(e) => setFormPoints(Math.max(0, parseInt(e.target.value) || 0))}
                   placeholder="0"
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-mono font-bold focus:ring-1 focus:ring-emerald-500"
+                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-mono font-bold focus:ring-1 focus:ring-emerald-500"
                 />
               </div>
 
-              <div className="pt-4 border-t border-slate-100 flex justify-end gap-2 text-xs">
+              <div className="pt-4 border-t border-outline-variant flex justify-end gap-2 text-xs">
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-xl font-bold transition-colors cursor-pointer"
+                  className="px-4 py-2 bg-surface-container hover:bg-surface-container-high text-on-surface-variant rounded-xl font-bold transition-colors cursor-pointer"
                 >
                   Hủy bỏ
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow transition-all cursor-pointer"
+                  className="px-5 py-2.5 bg-primary hover:brightness-110 text-white rounded-xl font-bold shadow transition-all cursor-pointer"
                 >
                   Lưu hồ sơ
                 </button>

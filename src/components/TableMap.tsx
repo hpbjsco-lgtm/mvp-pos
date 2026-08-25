@@ -221,25 +221,25 @@ export default function TableMap({
   });
 
   return (
-    <div id="table-map-panel" className="bg-white border border-slate-200 rounded-3xl p-5 space-y-5 shadow-sm" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}>
+    <div id="table-map-panel" className="bg-surface-container-lowest border border-outline-variant rounded-3xl p-5 space-y-5 shadow-sm" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}>
       
       {/* Visual map header and Admin toggles */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 pb-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-outline-variant pb-4">
         <div className="space-y-1">
-          <h3 className="text-sm font-extrabold text-slate-900 uppercase tracking-tight flex items-center gap-2">
-            <Grid className="w-4 h-4 text-indigo-600" /> Sơ đồ bàn F&B Trực quan
+          <h3 className="text-sm font-extrabold text-on-surface uppercase tracking-tight flex items-center gap-2">
+            <Grid className="w-4 h-4 text-primary" /> Sơ đồ bàn F&B Trực quan
           </h3>
-          <p className="text-xs text-slate-500">Đặt bàn trực tiếp, xem trạng thái phòng bàn thời gian thực</p>
+          <p className="text-xs text-on-surface-variant">Đặt bàn trực tiếp, xem trạng thái phòng bàn thời gian thực</p>
         </div>
 
         {/* Admin drag action mode toggle */}
         {simUserRole === 'admin' && (
           <button
             onClick={() => { setIsDesignMode(!isDesignMode); triggerBeep(true); }}
-            className={`py-1.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-              isDesignMode 
-                ? 'bg-amber-600 text-white shadow-sm shadow-amber-500/10' 
-                : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+            className={`py-1.5 px-3 rounded-xl text-sm font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+              isDesignMode
+                ? 'bg-tertiary text-on-tertiary shadow-sm'
+                : 'bg-surface-container-high hover:bg-surface-container text-on-surface border border-outline-variant'
             }`}
           >
             {isDesignMode ? (
@@ -259,40 +259,40 @@ export default function TableMap({
       <div className="flex flex-wrap items-center gap-2">
         <button
           onClick={() => { setSelectedZoneId('all'); triggerBeep(true); }}
-          className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            selectedZoneId === 'all' 
-              ? 'bg-slate-900 text-white shadow-md' 
-              : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'
+          className={`py-2 px-3 rounded-xl text-sm font-bold transition-all cursor-pointer ${
+            selectedZoneId === 'all'
+              ? 'bg-primary text-on-primary shadow-md'
+              : 'bg-surface-container hover:bg-surface-container-high text-on-surface-variant border border-outline-variant'
           }`}
         >
-          🌐 Tất cả khu vực
+          Tất cả khu vực
         </button>
 
         {simZones.map(z => (
           <button
             key={z.id}
             onClick={() => { setSelectedZoneId(z.id); triggerBeep(true); }}
-            className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              selectedZoneId === z.id 
-                ? 'bg-slate-900 text-white shadow-md' 
-                : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'
+            className={`py-2 px-3 rounded-xl text-sm font-bold transition-all cursor-pointer ${
+              selectedZoneId === z.id
+                ? 'bg-primary text-on-primary shadow-md'
+                : 'bg-surface-container hover:bg-surface-container-high text-on-surface-variant border border-outline-variant'
             }`}
           >
-            📍 {z.name}
+            {z.name}
           </button>
         ))}
       </div>
 
       {/* Main Floor Plan Drawing Board Canvas */}
       <div 
-        className="h-[340px] bg-slate-50 border border-slate-200 rounded-2xl relative overflow-hidden p-4 select-none"
+        className="h-[340px] bg-surface-container border border-outline-variant rounded-2xl relative overflow-hidden p-4 select-none"
         style={{ backgroundImage: 'radial-gradient(#e2e8f0 1.5px, transparent 1.5px)', bgSize: '24px 24px' }}
       >
         {filteredTables.length === 0 ? (
-          <div className="absolute inset-0 flex flex-col justify-center items-center text-center text-slate-400 p-4">
-            <Eye className="w-8 h-8 mb-2 text-slate-300" />
+          <div className="absolute inset-0 flex flex-col justify-center items-center text-center text-on-surface-variant p-4">
+            <Eye className="w-8 h-8 mb-2 text-outline" />
             <p className="text-xs font-semibold">Chưa có bàn ăn nào được định nghĩa ở khu vực này.</p>
-            <p className="text-[11px] text-slate-400 mt-0.5">Sử dụng bảng quản trị phía dưới để thêm bàn ăn.</p>
+            <p className="text-[11px] text-on-surface-variant mt-0.5">Sử dụng bảng quản trị phía dưới để thêm bàn ăn.</p>
           </div>
         ) : (
           filteredTables.map(t => {
@@ -314,27 +314,27 @@ export default function TableMap({
                 }}
                 className={`rounded-2xl border-2 flex flex-col justify-between p-3 cursor-pointer shadow-sm transition-all select-none ${
                   isSelected
-                    ? 'border-indigo-600 bg-indigo-50/95 ring-4 ring-indigo-100 scale-[1.03] z-20'
+                    ? 'border-primary bg-primary-container/95 ring-4 ring-primary-container scale-[1.03] z-20'
                     : isTableServing
-                      ? 'border-emerald-600 bg-emerald-50/70 hover:bg-emerald-50'
-                      : 'border-slate-300 bg-white hover:bg-slate-50'
+                      ? 'border-secondary bg-secondary-container/70 hover:bg-secondary-container'
+                      : 'border-outline-variant bg-surface-container-lowest hover:bg-surface-container'
                 } ${isDesignMode && simUserRole === 'admin' ? 'cursor-move active:scale-95' : ''}`}
               >
                 {/* Table Header: Name & capacity */}
                 <div className="flex justify-between items-start">
-                  <span className={`text-[11px] font-black uppercase tracking-tight ${isSelected ? 'text-indigo-900' : 'text-slate-800'}`}>
+                  <span className={`text-xs font-black uppercase tracking-tight ${isSelected ? 'text-on-primary-container' : 'text-on-surface'}`}>
                     {t.name}
                   </span>
-                  
+
                   {simUserRole === 'admin' && isDesignMode ? (
                     <button
                       onClick={(e) => handleDeleteTable(t.id, e)}
-                      className="p-1 text-slate-400 hover:text-red-600 rounded-md hover:bg-slate-100"
+                      className="p-1 text-on-surface-variant hover:text-error rounded-md hover:bg-surface-container-high"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   ) : (
-                    <span className="text-[9px] text-slate-400 font-bold flex items-center gap-0.5">
+                    <span className="text-[10px] text-on-surface-variant font-bold flex items-center gap-0.5">
                       <Users className="w-2.5 h-2.5" /> {t.capacity}
                     </span>
                   )}
@@ -344,7 +344,7 @@ export default function TableMap({
                 {t.reservationName && (
                   <button
                     onClick={(e) => openReservationModal(t, e)}
-                    className="text-[9px] px-1.5 py-0.5 rounded font-bold bg-amber-100 text-amber-700 border border-amber-200 flex items-center gap-1 self-start"
+                    className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-tertiary-container text-on-tertiary-container border border-tertiary-container flex items-center gap-1 self-start"
                     title="Xem / sửa thông tin đặt bàn trước"
                   >
                     <Calendar className="w-2.5 h-2.5" /> Đã đặt: {t.reservationName}
@@ -353,10 +353,10 @@ export default function TableMap({
 
                 {/* Table Status trigger */}
                 <div className="flex justify-between items-end gap-1">
-                  <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase ${
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold uppercase ${
                     isTableServing
-                      ? 'bg-emerald-500/15 text-emerald-700 border border-emerald-500/25'
-                      : 'bg-slate-200 text-slate-500 border border-slate-300'
+                      ? 'bg-secondary/15 text-on-secondary-container border border-secondary/25'
+                      : 'bg-surface-container-high text-on-surface-variant border border-outline-variant'
                   }`}>
                     {isTableServing ? 'Phục vụ' : 'Trống'}
                   </span>
@@ -366,7 +366,7 @@ export default function TableMap({
                       {!t.reservationName && (
                         <button
                           onClick={(e) => openReservationModal(t, e)}
-                          className="p-1 bg-white hover:bg-amber-50 hover:text-amber-600 rounded-lg text-[9px] font-bold border border-slate-200 hover:border-amber-200 shadow-sm"
+                          className="p-1 bg-surface-container-lowest hover:bg-tertiary-container hover:text-tertiary rounded-lg text-[9px] font-bold border border-outline-variant hover:border-tertiary-container shadow-sm"
                           title="Đặt bàn trước"
                         >
                           <Calendar className="w-3 h-3" />
@@ -374,7 +374,7 @@ export default function TableMap({
                       )}
                       <button
                         onClick={(e) => handleToggleTableStatus(t.id, e)}
-                        className="p-1 bg-white hover:bg-slate-100 rounded-lg text-[9px] font-bold border border-slate-200 hover:border-slate-300 shadow-sm"
+                        className="p-1 bg-surface-container-lowest hover:bg-surface-container-high rounded-lg text-[10px] font-bold border border-outline-variant hover:border-outline shadow-sm"
                         title="Chuyển trạng thái bàn"
                       >
                         {isTableServing ? 'Trả bàn' : 'Gọi khách'}
@@ -385,7 +385,7 @@ export default function TableMap({
 
                 {/* Visual indicator of dragging state */}
                 {draggingId === t.id && (
-                  <div className="absolute inset-0 bg-indigo-500/10 border-2 border-dashed border-indigo-400 rounded-2xl pointer-events-none animate-pulse"></div>
+                  <div className="absolute inset-0 bg-primary/10 border-2 border-dashed border-primary rounded-2xl pointer-events-none animate-pulse"></div>
                 )}
               </div>
             );
@@ -395,18 +395,18 @@ export default function TableMap({
 
       {/* Control console for custom design adding */}
       {simUserRole === 'admin' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-100 pt-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-outline-variant pt-4">
           
           {/* Form 1: Add new table */}
-          <form onSubmit={handleAddTable} className="space-y-2 bg-slate-50 border border-slate-200 p-3.5 rounded-2xl">
-            <h5 className="text-[11px] font-black text-slate-800 uppercase tracking-wide">🔧 THÊM BÀN ĂN MỚI</h5>
+          <form onSubmit={handleAddTable} className="space-y-2 bg-surface-container border border-outline-variant p-3.5 rounded-2xl">
+            <h5 className="text-xs font-black text-on-surface uppercase tracking-wide">Thêm bàn ăn mới</h5>
             <div className="grid grid-cols-3 gap-2">
               <input
                 type="text"
                 value={newTableName}
                 onChange={(e) => setNewTableName(e.target.value)}
                 placeholder="Bàn 06"
-                className="col-span-2 px-2.5 py-1.5 border border-slate-200 bg-white rounded-xl text-xs"
+                className="col-span-2 m3-input !py-1.5 !text-sm"
                 required
               />
               <input
@@ -414,7 +414,7 @@ export default function TableMap({
                 value={newTableCapacity}
                 onChange={(e) => setNewTableCapacity(parseInt(e.target.value) || 4)}
                 placeholder="Ghế"
-                className="px-2.5 py-1.5 border border-slate-200 bg-white rounded-xl text-xs font-semibold text-center"
+                className="m3-input !py-1.5 !text-sm font-semibold text-center"
                 min="1"
                 max="24"
                 required
@@ -422,28 +422,28 @@ export default function TableMap({
             </div>
             <button
               type="submit"
-              className="w-full py-1.5 bg-slate-900 hover:bg-indigo-600 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+              className="m3-btn-filled w-full !py-1.5 !text-sm"
             >
               + Tạo bàn ăn
             </button>
           </form>
 
           {/* Form 2: Add new zone */}
-          <form onSubmit={handleAddZone} className="space-y-2 bg-slate-50 border border-slate-200 p-3.5 rounded-2xl flex flex-col justify-between">
+          <form onSubmit={handleAddZone} className="space-y-2 bg-surface-container border border-outline-variant p-3.5 rounded-2xl flex flex-col justify-between">
             <div>
-              <h5 className="text-[11px] font-black text-slate-800 uppercase tracking-wide">📍 THÊM KHU VỰC SƠ ĐỒ MỚI</h5>
+              <h5 className="text-xs font-black text-on-surface uppercase tracking-wide">Thêm khu vực sơ đồ mới</h5>
               <input
                 type="text"
                 value={newZoneName}
                 onChange={(e) => setNewZoneName(e.target.value)}
                 placeholder="Tầng lửng ngoài trời"
-                className="w-full px-2.5 py-1.5 border border-slate-200 bg-white rounded-xl text-xs mt-2"
+                className="w-full m3-input !py-1.5 !text-sm mt-2"
                 required
               />
             </div>
             <button
               type="submit"
-              className="w-full py-1.5 bg-slate-900 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all shadow-sm mt-2"
+              className="m3-btn-filled w-full !py-1.5 !text-sm mt-2"
             >
               + Thêm khu vực
             </button>
@@ -455,14 +455,14 @@ export default function TableMap({
       {/* Reservation modal */}
       {reservationTableId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white rounded-3xl border border-slate-200 max-w-sm w-full p-6 shadow-xl space-y-4">
-            <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-              <h3 className="text-sm font-black text-slate-900 uppercase flex items-center gap-1.5">
-                <Calendar className="w-4 h-4 text-amber-500" /> Đặt bàn trước
+          <div className="bg-surface-container-lowest rounded-3xl border border-outline-variant max-w-sm w-full p-6 shadow-xl space-y-4">
+            <div className="flex justify-between items-center pb-3 border-b border-outline-variant">
+              <h3 className="text-sm font-black text-on-surface uppercase flex items-center gap-1.5">
+                <Calendar className="w-4 h-4 text-tertiary" /> Đặt bàn trước
               </h3>
               <button
                 onClick={() => setReservationTableId(null)}
-                className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 transition-colors"
+                className="p-1 hover:bg-surface-container-high rounded-lg text-on-surface-variant hover:text-on-surface-variant transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -470,43 +470,43 @@ export default function TableMap({
 
             <form onSubmit={handleSaveReservation} className="space-y-3.5">
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Tên khách đặt bàn</label>
+                <label className="text-[10px] font-bold text-on-surface-variant uppercase">Tên khách đặt bàn</label>
                 <input
                   type="text"
                   value={resName}
                   onChange={(e) => setResName(e.target.value)}
                   placeholder="Ví dụ: Anh Hải"
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-semibold focus:ring-1 focus:ring-amber-500"
+                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-semibold focus:ring-1 focus:ring-tertiary/50"
                   required
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Số điện thoại</label>
+                <label className="text-[10px] font-bold text-on-surface-variant uppercase">Số điện thoại</label>
                 <input
                   type="text"
                   value={resPhone}
                   onChange={(e) => setResPhone(e.target.value)}
                   placeholder="0912345678"
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-mono font-bold focus:ring-1 focus:ring-amber-500"
+                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-mono font-bold focus:ring-1 focus:ring-tertiary/50"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Giờ hẹn</label>
+                <label className="text-[10px] font-bold text-on-surface-variant uppercase">Giờ hẹn</label>
                 <input
                   type="time"
                   value={resTime}
                   onChange={(e) => setResTime(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-mono font-bold focus:ring-1 focus:ring-amber-500"
+                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-mono font-bold focus:ring-1 focus:ring-tertiary/50"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Ghi chú (số lượng khách, yêu cầu...)</label>
+                <label className="text-[10px] font-bold text-on-surface-variant uppercase">Ghi chú (số lượng khách, yêu cầu...)</label>
                 <textarea
                   value={resNote}
                   onChange={(e) => setResNote(e.target.value)}
                   rows={2}
                   placeholder="Ví dụ: 6 người, có trẻ em"
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-amber-500"
+                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs focus:ring-1 focus:ring-tertiary/50"
                 />
               </div>
 
@@ -515,14 +515,14 @@ export default function TableMap({
                   <button
                     type="button"
                     onClick={handleClearReservation}
-                    className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl font-bold transition-colors cursor-pointer"
+                    className="px-4 py-2 bg-error-container hover:brightness-95 text-error rounded-xl font-bold transition-colors cursor-pointer"
                   >
                     Hủy đặt bàn
                   </button>
                 ) : <span />}
                 <button
                   type="submit"
-                  className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold shadow transition-all cursor-pointer"
+                  className="px-5 py-2.5 bg-tertiary hover:brightness-110 text-on-tertiary rounded-xl font-bold shadow transition-all cursor-pointer"
                 >
                   Lưu đặt bàn
                 </button>

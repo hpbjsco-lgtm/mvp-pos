@@ -157,47 +157,47 @@ export default function InventoryScreen({
       
       {/* Visual KPI Stats dashboard cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white border border-slate-200 rounded-3xl p-5 flex items-center justify-between shadow-sm">
+        <div className="bg-surface-container-lowest border border-outline-variant rounded-3xl p-5 flex items-center justify-between shadow-sm">
           <div className="space-y-1">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+            <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block">
               {isFnB ? 'Tổng giá trị tồn nguyên vật liệu' : 'Tổng giá trị vốn kho'}
             </span>
-            <h4 className="text-xl font-black text-slate-900">{totalStockValuation.toLocaleString('vi-VN')} đ</h4>
-            <span className="text-[10px] text-slate-500 font-medium">Từ các lô đang hiện hữu</span>
+            <h4 className="text-xl font-black text-on-surface">{totalStockValuation.toLocaleString('vi-VN')} đ</h4>
+            <span className="text-[10px] text-on-surface-variant font-medium">Từ các lô đang hiện hữu</span>
           </div>
-          <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl border border-blue-100">
+          <div className="p-3 bg-primary-container text-primary rounded-2xl border border-primary-container">
             <DollarSign className="w-5 h-5" />
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-3xl p-5 flex items-center justify-between shadow-sm">
+        <div className="bg-surface-container-lowest border border-outline-variant rounded-3xl p-5 flex items-center justify-between shadow-sm">
           <div className="space-y-1">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+            <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block">
               {isFnB ? 'Tổng lượng NVL lưu kho' : 'Số lượng tổng kho'}
             </span>
-            <h4 className="text-xl font-black text-slate-900">
+            <h4 className="text-xl font-black text-on-surface">
               {totalQuantity.toLocaleString('vi-VN')} {isFnB ? 'Đơn vị (kg/lon/hộp...)' : 'SP'}
             </h4>
-            <span className="text-[10px] text-slate-500 font-medium">
+            <span className="text-[10px] text-on-surface-variant font-medium">
               {simBatches.length} Lô {isFnB ? 'nguyên liệu' : 'hàng'} khác nhau
             </span>
           </div>
-          <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl border border-indigo-100">
+          <div className="p-3 bg-primary-container text-primary rounded-2xl border border-primary-container">
             <Package className="w-5 h-5" />
           </div>
         </div>
 
-        <div className="bg-rose-50 border border-rose-200 rounded-3xl p-5 flex items-center justify-between shadow-sm">
+        <div className="bg-error-container border border-error-container rounded-3xl p-5 flex items-center justify-between shadow-sm">
           <div className="space-y-1">
-            <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider block">
+            <span className="text-[10px] font-bold text-error uppercase tracking-wider block">
               {isFnB ? 'Lô nguyên liệu cận/hết hạn' : 'Lô cận hạn / hết hạn'}
             </span>
-            <h4 className="text-xl font-black text-rose-700">
+            <h4 className="text-xl font-black text-on-error-container">
               {simBatches.filter(b => getExpiryStatus(b.expiryDate) !== 'healthy').length} Lô
             </h4>
-            <span className="text-[10px] text-rose-600 font-semibold font-sans">Cần chú ý xuất FIFO gấp!</span>
+            <span className="text-[10px] text-error font-semibold font-sans">Cần chú ý xuất FIFO gấp!</span>
           </div>
-          <div className="p-3 bg-rose-100 text-rose-600 rounded-2xl border border-rose-200">
+          <div className="p-3 bg-error-container text-error rounded-2xl border border-error-container">
             <AlertTriangle className="w-5 h-5" />
           </div>
         </div>
@@ -206,25 +206,25 @@ export default function InventoryScreen({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Left Column: Register New Inventory Batch Form */}
-        <div className="lg:col-span-4 bg-white border border-slate-200 rounded-3xl p-5 space-y-4 shadow-sm h-fit">
-          <div className="border-b border-slate-100 pb-3">
-            <h3 className="text-sm font-extrabold text-slate-900 uppercase">
+        <div className="lg:col-span-4 bg-surface-container-lowest border border-outline-variant rounded-3xl p-5 space-y-4 shadow-sm h-fit">
+          <div className="border-b border-outline-variant pb-3">
+            <h3 className="text-sm font-extrabold text-on-surface uppercase">
               Khai báo Lô {isFnB ? 'Nguyên Liệu' : 'Hàng'} Mới
             </h3>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-on-surface-variant">
               {isFnB ? 'Nhập thông tin NSX, HSD để quản lý hạn dùng nguyên liệu' : 'Thiết lập ngày sản xuất, giá nhập để tính khấu hao FIFO'}
             </p>
           </div>
 
           <form onSubmit={handleAddBatch} className="space-y-3.5">
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-500 uppercase">
+              <label className="text-[10px] font-bold text-on-surface-variant uppercase">
                 {isFnB ? 'Nguyên vật liệu liên kết' : 'Sản phẩm liên kết'}
               </label>
               <select
                 value={selectedProductId}
                 onChange={(e) => setSelectedProductId(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 bg-white rounded-xl text-xs font-semibold text-slate-700 focus:ring-1 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-outline-variant bg-surface-container-lowest rounded-xl text-xs font-semibold text-on-surface focus:ring-1 focus:ring-primary/50"
               >
                 {simProducts.map(p => (
                   <option key={p.id} value={p.id}>
@@ -235,35 +235,35 @@ export default function InventoryScreen({
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-500 uppercase">Mã Lô nhập</label>
+              <label className="text-[10px] font-bold text-on-surface-variant uppercase">Mã Lô nhập</label>
               <input
                 type="text"
                 value={newBatchCode}
                 onChange={(e) => setNewBatchCode(e.target.value)}
                 placeholder="LOT-2026-07A"
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-mono font-bold"
+                className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-mono font-bold"
                 required
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Ngày Sản xuất</label>
+                <label className="text-[10px] font-bold text-on-surface-variant uppercase">Ngày Sản xuất</label>
                 <input
                   type="date"
                   value={newManufactureDate}
                   onChange={(e) => setNewManufactureDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs"
+                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Hạn Sử Dụng</label>
+                <label className="text-[10px] font-bold text-on-surface-variant uppercase">Hạn Sử Dụng</label>
                 <input
                   type="date"
                   value={newExpiryDate}
                   onChange={(e) => setNewExpiryDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-rose-600"
+                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-semibold text-error"
                   required
                 />
               </div>
@@ -271,24 +271,24 @@ export default function InventoryScreen({
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Giá Nhập (vốn)</label>
+                <label className="text-[10px] font-bold text-on-surface-variant uppercase">Giá Nhập (vốn)</label>
                 <input
                   type="number"
                   value={newImportPrice}
                   onChange={(e) => setNewImportPrice(parseInt(e.target.value) || 0)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold"
+                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-bold"
                   min="0"
                   required
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Số lượng nhập</label>
+                <label className="text-[10px] font-bold text-on-surface-variant uppercase">Số lượng nhập</label>
                 <input
                   type="number"
                   value={newQuantity}
                   onChange={(e) => setNewQuantity(parseInt(e.target.value) || 0)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold"
+                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-bold"
                   min="1"
                   required
                 />
@@ -297,7 +297,7 @@ export default function InventoryScreen({
 
             <button
               type="submit"
-              className="w-full py-3 bg-slate-900 hover:bg-indigo-600 text-white rounded-xl text-xs font-bold transition-all shadow-md active:scale-98 cursor-pointer mt-2"
+              className="w-full py-3 bg-slate-900 hover:bg-primary text-white rounded-xl text-xs font-bold transition-all shadow-md active:scale-98 cursor-pointer mt-2"
             >
               + Nhập kho lô {isFnB ? 'nguyên liệu' : 'hàng'} mới (FIFO/FEFO)
             </button>
@@ -305,34 +305,34 @@ export default function InventoryScreen({
         </div>
 
         {/* Right Column: Active Batch Grid & Timeline Alerts */}
-        <div className="lg:col-span-8 bg-white border border-slate-200 rounded-3xl p-5 space-y-4 shadow-sm">
+        <div className="lg:col-span-8 bg-surface-container-lowest border border-outline-variant rounded-3xl p-5 space-y-4 shadow-sm">
           
           {/* Timeline & Filters Header */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 pb-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-outline-variant pb-4">
             <div className="space-y-1">
-              <h3 className="text-sm font-extrabold text-slate-900 uppercase">
+              <h3 className="text-sm font-extrabold text-on-surface uppercase">
                 Danh sách các Lô {isFnB ? 'nguyên vật liệu' : 'hàng'} đang lưu kho
               </h3>
-              <p className="text-xs text-slate-500">Giám sát vòng đời, hạn bảo quản và định vị lô nhanh chóng</p>
+              <p className="text-xs text-on-surface-variant">Giám sát vòng đời, hạn bảo quản và định vị lô nhanh chóng</p>
             </div>
 
             {/* Status filtering badges */}
-            <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-[10px]">
+            <div className="flex bg-surface-container-high p-1 rounded-xl border border-outline-variant text-[10px]">
               <button
                 onClick={() => setStatusFilter('all')}
-                className={`px-2 py-1 font-bold rounded-lg transition-all ${statusFilter === 'all' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
+                className={`px-2 py-1 font-bold rounded-lg transition-all ${statusFilter === 'all' ? 'bg-surface-container-lowest text-on-surface shadow-sm' : 'text-on-surface-variant'}`}
               >
                 Tất cả
               </button>
               <button
                 onClick={() => setStatusFilter('expired')}
-                className={`px-2 py-1 font-bold rounded-lg transition-all ${statusFilter === 'expired' ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-500'}`}
+                className={`px-2 py-1 font-bold rounded-lg transition-all ${statusFilter === 'expired' ? 'bg-error text-white shadow-sm' : 'text-on-surface-variant'}`}
               >
                 Hết hạn
               </button>
               <button
                 onClick={() => setStatusFilter('near_expiry')}
-                className={`px-2 py-1 font-bold rounded-lg transition-all ${statusFilter === 'near_expiry' ? 'bg-amber-600 text-white shadow-sm' : 'text-slate-500'}`}
+                className={`px-2 py-1 font-bold rounded-lg transition-all ${statusFilter === 'near_expiry' ? 'bg-tertiary text-white shadow-sm' : 'text-on-surface-variant'}`}
               >
                 Cận hạn
               </button>
@@ -341,19 +341,19 @@ export default function InventoryScreen({
 
           {/* Search bar inside list */}
           <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+            <Search className="w-4 h-4 text-on-surface-variant absolute left-3 top-3" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={isFnB ? "Tìm theo tên nguyên liệu hoặc ký hiệu mã lô..." : "Tìm theo tên sản phẩm hoặc ký hiệu mã lô..."}
-              className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-blue-500"
+              className="w-full pl-9 pr-4 py-2 border border-outline-variant rounded-xl text-xs focus:ring-1 focus:ring-primary/50"
             />
           </div>
 
           {/* Active lots list */}
           {filteredBatches.length === 0 ? (
-            <div className="py-12 text-center text-slate-400 text-xs border border-dashed border-slate-200 rounded-2xl">
+            <div className="py-12 text-center text-on-surface-variant text-xs border border-dashed border-outline-variant rounded-2xl">
               🔍 Không tìm thấy lô {isFnB ? 'nguyên liệu' : 'sản phẩm'} nào tương ứng bộ lọc.
             </div>
           ) : (
@@ -368,10 +368,10 @@ export default function InventoryScreen({
                     key={b.id}
                     className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:shadow-sm ${
                       status === 'expired'
-                        ? 'border-rose-200 bg-rose-50/50'
+                        ? 'border-error-container bg-error-container/50'
                         : status === 'near_expiry'
-                          ? 'border-amber-200 bg-amber-50/40'
-                          : 'border-slate-200 bg-white'
+                          ? 'border-tertiary-container bg-tertiary-container/40'
+                          : 'border-outline-variant bg-white'
                     }`}
                   >
                     {/* Item specs details */}
@@ -382,10 +382,10 @@ export default function InventoryScreen({
                         </span>
                         <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase ${
                           status === 'expired'
-                            ? 'bg-rose-200 text-rose-700 border border-rose-300'
+                            ? 'bg-error-container text-on-error-container border border-error-container'
                             : status === 'near_expiry'
-                              ? 'bg-amber-100 text-amber-700 border border-amber-200'
-                              : 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                              ? 'bg-tertiary-container text-on-tertiary-container border border-tertiary-container'
+                              : 'bg-secondary-container text-on-secondary-container border border-secondary-container'
                         }`}>
                           {status === 'expired' && '❌ Đã hết hạn'}
                           {status === 'near_expiry' && '⚠️ Cận hạn'}
@@ -393,28 +393,28 @@ export default function InventoryScreen({
                         </span>
                       </div>
 
-                      <h4 className="text-xs font-black text-slate-800">{prod?.name || 'Sản phẩm lỗi'}</h4>
+                      <h4 className="text-xs font-black text-on-surface">{prod?.name || 'Sản phẩm lỗi'}</h4>
                       
-                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-slate-500">
-                        <span className="flex items-center gap-1 font-mono"><Clock className="w-3 h-3 text-slate-400" /> Hạn dùng: {b.expiryDate}</span>
-                        {b.manufactureDate && <span className="flex items-center gap-1"><Info className="w-3 h-3 text-slate-400" /> NSX: {b.manufactureDate}</span>}
-                        <span className="font-semibold text-slate-700">Giá nhập: {(b.importPrice || 10000).toLocaleString('vi-VN')} đ</span>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-on-surface-variant">
+                        <span className="flex items-center gap-1 font-mono"><Clock className="w-3 h-3 text-on-surface-variant" /> Hạn dùng: {b.expiryDate}</span>
+                        {b.manufactureDate && <span className="flex items-center gap-1"><Info className="w-3 h-3 text-on-surface-variant" /> NSX: {b.manufactureDate}</span>}
+                        <span className="font-semibold text-on-surface">Giá nhập: {(b.importPrice || 10000).toLocaleString('vi-VN')} đ</span>
                       </div>
 
                       {/* Visual remaining stock meter */}
                       <div className="space-y-1 max-w-xs pt-1">
-                        <div className="flex justify-between text-[9px] text-slate-400">
+                        <div className="flex justify-between text-[9px] text-on-surface-variant">
                           <span>Sức chứa: {b.quantity}/{b.originalQuantity} {isFnB ? 'Đơn vị' : 'SP'}</span>
                           <span>{Math.round(ratio)}% còn lại</span>
                         </div>
-                        <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-1.5 w-full bg-surface-container-high rounded-full overflow-hidden">
                           <div 
                             className={`h-full rounded-full ${
                               status === 'expired' 
-                                ? 'bg-rose-500' 
+                                ? 'bg-error' 
                                 : status === 'near_expiry' 
-                                  ? 'bg-amber-500' 
-                                  : 'bg-indigo-600'
+                                  ? 'bg-tertiary' 
+                                  : 'bg-primary'
                             }`}
                             style={{ width: `${ratio}%` }}
                           ></div>
@@ -425,13 +425,13 @@ export default function InventoryScreen({
                     {/* Leftside operational controllers */}
                     <div className="flex items-center gap-2.5">
                       <div className="text-right sm:block hidden">
-                        <p className="text-xs font-black text-slate-900">{b.quantity} {isFnB ? 'đơn vị' : 'SP'}</p>
-                        <p className="text-[9px] text-slate-400 font-mono">Tồn kho lô</p>
+                        <p className="text-xs font-black text-on-surface">{b.quantity} {isFnB ? 'đơn vị' : 'SP'}</p>
+                        <p className="text-[9px] text-on-surface-variant font-mono">Tồn kho lô</p>
                       </div>
 
                       <button
                         onClick={() => handleDeleteBatch(b.id)}
-                        className="p-2 hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-slate-200 hover:border-rose-200 rounded-xl transition-all cursor-pointer"
+                        className="p-2 hover:bg-error-container text-on-surface-variant hover:text-error border border-outline-variant hover:border-error-container rounded-xl transition-all cursor-pointer"
                         title="Xóa lô hàng lỗi"
                       >
                         <Trash2 className="w-3.5 h-3.5" />

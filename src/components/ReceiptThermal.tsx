@@ -34,34 +34,34 @@ export default function ReceiptThermal({
 
   return (
     <div id="receipt-thermal-modal" className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-surface-container-lowest rounded-3xl border border-outline-variant shadow-2xl max-w-md w-full overflow-hidden flex flex-col max-h-[90vh]">
         
         {/* Header Modal controllers */}
-        <div className="bg-slate-50 border-b border-slate-100 px-6 py-4 flex items-center justify-between">
+        <div className="bg-surface-container border-b border-outline-variant px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100">
+            <div className="p-1.5 bg-secondary-container text-secondary rounded-lg border border-secondary-container">
               <Check className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-extrabold text-slate-900">Giao dịch thành công</h3>
-              <p className="text-[10px] text-slate-400 font-mono">ID: {order.id}</p>
+              <h3 className="text-sm font-extrabold text-on-surface">Giao dịch thành công</h3>
+              <p className="text-[10px] text-on-surface-variant font-mono">ID: {order.id}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 hover:bg-slate-200 text-slate-400 hover:text-slate-600 rounded-xl transition-colors cursor-pointer"
+            className="p-1.5 hover:bg-slate-200 text-on-surface-variant hover:text-on-surface-variant rounded-xl transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* 80mm Thermal Paper Scroll Container */}
-        <div className="flex-1 overflow-y-auto p-6 bg-slate-100 flex justify-center">
+        <div className="flex-1 overflow-y-auto p-6 bg-surface-container-high flex justify-center">
           
           {/* Simulated 80mm Thermal Receipt */}
           <div 
             id="print-area"
-            className="w-[300px] bg-white p-5 shadow-md border border-slate-300 font-mono text-[11px] text-slate-900 relative leading-normal"
+            className="w-[300px] bg-surface-container-lowest p-5 shadow-md border border-slate-300 font-mono text-[11px] text-on-surface relative leading-normal"
             style={{ fontFamily: "'Courier New', Courier, monospace" }}
           >
             {/* Top jagged paper cutout design */}
@@ -70,23 +70,23 @@ export default function ReceiptThermal({
             {/* Store Header */}
             <div className="text-center space-y-1 pt-2">
               <h4 className="text-sm font-extrabold uppercase tracking-tight">{storeInfo.name}</h4>
-              <p className="text-[10px] text-slate-600 font-sans leading-tight">{storeInfo.address}</p>
-              <p className="text-[10px] text-slate-600">SĐT: {storeInfo.phone}</p>
-              <p className="text-[10px] text-slate-400 font-sans italic">*** Phân hệ: {storeInfo.storeType === 'fnb' ? 'F&B Nhà hàng' : 'Bán lẻ Tạp hóa'} ***</p>
+              <p className="text-[10px] text-on-surface-variant font-sans leading-tight">{storeInfo.address}</p>
+              <p className="text-[10px] text-on-surface-variant">SĐT: {storeInfo.phone}</p>
+              <p className="text-[10px] text-on-surface-variant font-sans italic">*** Phân hệ: {storeInfo.storeType === 'fnb' ? 'F&B Nhà hàng' : 'Bán lẻ Tạp hóa'} ***</p>
             </div>
 
             {/* Receipt Title */}
             <div className="text-center my-4 space-y-1">
               <h5 className="text-xs font-bold uppercase tracking-widest">HÓA ĐƠN THANH TOÁN</h5>
-              <p className="text-[9px] text-slate-500">Số: {order.orderNumber}</p>
-              <p className="text-[9px] text-slate-500">Ngày: {new Date(order.createdAt).toLocaleString('vi-VN')}</p>
+              <p className="text-[9px] text-on-surface-variant">Số: {order.orderNumber}</p>
+              <p className="text-[9px] text-on-surface-variant">Ngày: {new Date(order.createdAt).toLocaleString('vi-VN')}</p>
             </div>
 
             {/* Divider */}
             <div className="border-t border-dashed border-slate-400 my-3"></div>
 
             {/* Transaction metadata */}
-            <div className="space-y-1 text-slate-700">
+            <div className="space-y-1 text-on-surface">
               <div className="flex justify-between">
                 <span>Thu ngân:</span>
                 <span className="font-bold">{staffName}</span>
@@ -114,7 +114,7 @@ export default function ReceiptThermal({
 
             {/* Items Table list */}
             <div className="space-y-2">
-              <div className="grid grid-cols-12 font-bold text-slate-800">
+              <div className="grid grid-cols-12 font-bold text-on-surface">
                 <span className="col-span-5">Tên món</span>
                 <span className="col-span-2 text-center">SL</span>
                 <span className="col-span-5 text-right">Thành tiền</span>
@@ -127,18 +127,18 @@ export default function ReceiptThermal({
                   .filter(Boolean)
                   .join(' - ');
                 return (
-                  <div key={idx} className="space-y-0.5 text-slate-800">
+                  <div key={idx} className="space-y-0.5 text-on-surface">
                     <div className="grid grid-cols-12 gap-0.5">
                       <span className="col-span-5 truncate">{item.name}</span>
                       <span className="col-span-2 text-center">{item.quantity}</span>
                       <span className="col-span-5 text-right">{(item.price * item.quantity).toLocaleString('vi-VN')}đ</span>
                     </div>
-                    <div className="text-[9px] text-slate-500 flex justify-between px-1">
+                    <div className="text-[9px] text-on-surface-variant flex justify-between px-1">
                       <span>Đơn giá: {item.price.toLocaleString('vi-VN')}đ</span>
                       {item.batchCode && <span className="font-sans">Lô: {item.batchCode}</span>}
                     </div>
-                    {modifiers && <div className="text-[9px] text-slate-500 px-1 font-sans">Tùy chọn: {modifiers}</div>}
-                    {item.note && <div className="text-[9px] text-slate-500 px-1 font-sans italic">Ghi chú: {item.note}</div>}
+                    {modifiers && <div className="text-[9px] text-on-surface-variant px-1 font-sans">Tùy chọn: {modifiers}</div>}
+                    {item.note && <div className="text-[9px] text-on-surface-variant px-1 font-sans italic">Ghi chú: {item.note}</div>}
                   </div>
                 );
               })}
@@ -148,21 +148,21 @@ export default function ReceiptThermal({
             <div className="border-t border-dashed border-slate-400 my-3"></div>
 
             {/* Calculation summary */}
-            <div className="space-y-1.5 text-slate-800 font-bold">
+            <div className="space-y-1.5 text-on-surface font-bold">
               {(order.subtotal !== undefined && (order.discountAmount || order.taxAmount)) ? (
                 <>
-                  <div className="flex justify-between text-[10px] text-slate-600 font-normal">
+                  <div className="flex justify-between text-[10px] text-on-surface-variant font-normal">
                     <span>Tạm tính:</span>
                     <span>{order.subtotal.toLocaleString('vi-VN')} đ</span>
                   </div>
                   {!!order.discountAmount && (
-                    <div className="flex justify-between text-[10px] text-rose-600 font-normal">
+                    <div className="flex justify-between text-[10px] text-error font-normal">
                       <span>Giảm giá:</span>
                       <span>-{order.discountAmount.toLocaleString('vi-VN')} đ</span>
                     </div>
                   )}
                   {!!order.taxAmount && (
-                    <div className="flex justify-between text-[10px] text-slate-600 font-normal">
+                    <div className="flex justify-between text-[10px] text-on-surface-variant font-normal">
                       <span>Thuế VAT:</span>
                       <span>+{order.taxAmount.toLocaleString('vi-VN')} đ</span>
                     </div>
@@ -173,16 +173,16 @@ export default function ReceiptThermal({
                 <span>TỔNG CỘNG:</span>
                 <span>{order.totalAmount.toLocaleString('vi-VN')} đ</span>
               </div>
-              <div className="flex justify-between text-[10px] text-slate-600 font-normal">
+              <div className="flex justify-between text-[10px] text-on-surface-variant font-normal">
                 <span>Khách đưa ({order.paymentMethod === 'cash' ? 'Tiền mặt' : order.paymentMethod === 'qr' ? 'Chuyển khoản QR' : 'Thẻ ngân hàng'}):</span>
                 <span>{order.paidAmount.toLocaleString('vi-VN')} đ</span>
               </div>
-              <div className="flex justify-between text-[10px] text-slate-600 font-normal">
+              <div className="flex justify-between text-[10px] text-on-surface-variant font-normal">
                 <span>Tiền trả lại:</span>
                 <span>{order.changeAmount.toLocaleString('vi-VN')} đ</span>
               </div>
               {order.customerPointsEarned && order.customerPointsEarned > 0 ? (
-                <div className="flex justify-between text-[9px] text-emerald-700 font-normal border border-emerald-100 bg-emerald-50 px-1 py-0.5 rounded font-sans">
+                <div className="flex justify-between text-[9px] text-on-secondary-container font-normal border border-secondary-container bg-secondary-container px-1 py-0.5 rounded font-sans">
                   <span>Điểm tích lũy cộng thêm:</span>
                   <span>+{order.customerPointsEarned} điểm</span>
                 </div>
@@ -197,14 +197,14 @@ export default function ReceiptThermal({
               <div className="h-8 bg-slate-950 flex items-center justify-center font-mono text-[9px] text-white tracking-[6px] select-none mx-auto w-40 font-bold">
                 |||||{order.orderNumber}||||
               </div>
-              <p className="text-[8px] text-slate-500 font-sans">Quét mã vạch này để tra cứu đơn hàng trực tiếp</p>
+              <p className="text-[8px] text-on-surface-variant font-sans">Quét mã vạch này để tra cứu đơn hàng trực tiếp</p>
             </div>
 
             {/* Thank you note */}
-            <div className="text-center mt-3 text-[10px] text-slate-600 font-sans italic space-y-0.5 pb-2">
+            <div className="text-center mt-3 text-[10px] text-on-surface-variant font-sans italic space-y-0.5 pb-2">
               <p>Cảm ơn Quý Khách đã ủng hộ!</p>
               <p>Hẹn gặp lại quý khách lần sau.</p>
-              <p className="text-[8px] text-slate-400">Powered by SmartPOS Multi-tenant Cloud</p>
+              <p className="text-[8px] text-on-surface-variant">Powered by SmartPOS Multi-tenant Cloud</p>
             </div>
 
             {/* Bottom jagged paper cutout design */}
@@ -214,17 +214,17 @@ export default function ReceiptThermal({
         </div>
 
         {/* Action Button Controls */}
-        <div className="p-4 bg-slate-50 border-t border-slate-100 flex gap-3">
+        <div className="p-4 bg-surface-container border-t border-outline-variant flex gap-3">
           <button
             onClick={handleNativePrint}
-            className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-lg shadow-emerald-500/10"
+            className="flex-1 py-3 px-4 bg-primary hover:brightness-110 text-white rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-lg shadow-emerald-500/10"
           >
             <Printer className="w-4 h-4" /> IN HÓA ĐƠN NHIỆT (80mm)
           </button>
           
           <button
             onClick={onClose}
-            className="py-3 px-5 bg-white hover:bg-slate-100 text-slate-700 rounded-2xl font-bold text-xs border border-slate-200 transition-all active:scale-95 cursor-pointer"
+            className="py-3 px-5 bg-surface-container-lowest hover:bg-surface-container-high text-on-surface rounded-2xl font-bold text-xs border border-outline-variant transition-all active:scale-95 cursor-pointer"
           >
             Đóng
           </button>
