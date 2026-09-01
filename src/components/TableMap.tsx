@@ -21,6 +21,8 @@ interface TableMapProps {
   triggerBeep: (success: boolean) => void;
   isOffline?: boolean;
   storeId?: string;
+  /** Thu nhỏ kích thước ô bàn khi nhúng vào cột hẹp (VD: tab Phòng bàn trong màn hình bán hàng) để tránh chồng lấn. */
+  compact?: boolean;
 }
 
 export default function TableMap({
@@ -33,7 +35,8 @@ export default function TableMap({
   simUserRole,
   triggerBeep,
   isOffline = true,
-  storeId = 'Sandbox'
+  storeId = 'Sandbox',
+  compact = false
 }: TableMapProps) {
   const [selectedZoneId, setSelectedZoneId] = useState<string>('all');
   
@@ -224,6 +227,7 @@ export default function TableMap({
     <div id="table-map-panel" className="bg-surface-container-lowest border border-outline-variant rounded-3xl p-5 space-y-5 shadow-sm" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}>
       
       {/* Visual map header and Admin toggles */}
+      {!compact && (
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-outline-variant pb-4">
         <div className="space-y-1">
           <h3 className="text-sm font-extrabold text-on-surface uppercase tracking-tight flex items-center gap-2">
@@ -254,12 +258,13 @@ export default function TableMap({
           </button>
         )}
       </div>
+      )}
 
       {/* Zone Navigator Slider Tabs */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className={`flex flex-wrap items-center gap-2 ${compact ? 'text-sm' : ''}`}>
         <button
           onClick={() => { setSelectedZoneId('all'); triggerBeep(true); }}
-          className={`py-2 px-3 rounded-xl text-sm font-bold transition-all cursor-pointer ${
+          className={`${compact ? 'py-1.5 px-2.5 text-sm' : 'py-2 px-3'} rounded-xl font-bold transition-all cursor-pointer ${
             selectedZoneId === 'all'
               ? 'bg-primary text-on-primary shadow-md'
               : 'bg-surface-container hover:bg-surface-container-high text-on-surface-variant border border-outline-variant'
@@ -272,7 +277,7 @@ export default function TableMap({
           <button
             key={z.id}
             onClick={() => { setSelectedZoneId(z.id); triggerBeep(true); }}
-            className={`py-2 px-3 rounded-xl text-sm font-bold transition-all cursor-pointer ${
+            className={`${compact ? 'py-1.5 px-2.5 text-sm' : 'py-2 px-3'} rounded-xl font-bold transition-all cursor-pointer ${
               selectedZoneId === z.id
                 ? 'bg-primary text-on-primary shadow-md'
                 : 'bg-surface-container hover:bg-surface-container-high text-on-surface-variant border border-outline-variant'
@@ -284,8 +289,8 @@ export default function TableMap({
       </div>
 
       {/* Main Floor Plan Drawing Board Canvas */}
-      <div 
-        className="h-[340px] bg-surface-container border border-outline-variant rounded-2xl relative overflow-hidden p-4 select-none"
+      <div
+        className={`${compact ? 'h-[420px]' : 'h-[340px]'} bg-surface-container border border-outline-variant rounded-2xl relative overflow-hidden p-4 select-none`}
         style={{ backgroundImage: 'radial-gradient(#e2e8f0 1.5px, transparent 1.5px)', bgSize: '24px 24px' }}
       >
         {filteredTables.length === 0 ? (
@@ -308,11 +313,11 @@ export default function TableMap({
                   position: 'absolute',
                   left: `${t.x || 10}%`,
                   top: `${t.y || 15}%`,
-                  width: `${t.width || 90}px`,
-                  height: `${t.height || 90}px`,
+                  width: `${compact ? Math.min(t.width || 90, 74) : (t.width || 90)}px`,
+                  height: `${compact ? Math.min(t.height || 90, 74) : (t.height || 90)}px`,
                   touchAction: 'none'
                 }}
-                className={`rounded-2xl border-2 flex flex-col justify-between p-3 cursor-pointer shadow-sm transition-all select-none ${
+                className={`rounded-2xl border-2 flex flex-col justify-between ${compact ? 'p-2' : 'p-3'} cursor-pointer shadow-sm transition-all select-none ${
                   isSelected
                     ? 'border-primary bg-primary-container/95 ring-4 ring-primary-container scale-[1.03] z-20'
                     : isTableServing
@@ -341,7 +346,7 @@ export default function TableMap({
                 </div>
 
                 {/* Reservation badge */}
-                {t.reservationName && (
+                {!compact && t.reservationName && (
                   <button
                     onClick={(e) => openReservationModal(t, e)}
                     className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-tertiary-container text-on-tertiary-container border border-tertiary-container flex items-center gap-1 self-start"
@@ -361,7 +366,7 @@ export default function TableMap({
                     {isTableServing ? 'Phục vụ' : 'Trống'}
                   </span>
 
-                  {!isDesignMode && (
+                  {!compact && !isDesignMode && (
                     <div className="flex items-center gap-1">
                       {!t.reservationName && (
                         <button
@@ -394,7 +399,7 @@ export default function TableMap({
       </div>
 
       {/* Control console for custom design adding */}
-      {simUserRole === 'admin' && (
+      {!compact && simUserRole === 'admin' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-outline-variant pt-4">
           
           {/* Form 1: Add new table */}

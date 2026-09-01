@@ -643,6 +643,10 @@ export default function App() {
               {activeScreen === 'reports' && 'Báo cáo doanh thu & chỉ số'}
               {activeScreen === 'orders' && 'Lịch sử hóa đơn'}
               {activeScreen === 'shifts' && 'Sổ quỹ ca làm việc'}
+              {activeScreen === 'customers' && 'Quản lý khách hàng'}
+              {activeScreen === 'employees' && 'Quản lý nhân viên'}
+              {activeScreen === 'suppliers' && 'Quản lý nhà cung cấp'}
+              {activeScreen === 'sysadmin' && 'Quản trị hệ thống'}
               {activeScreen === 'account' && 'Thiết lập tài khoản'}
             </h2>
 

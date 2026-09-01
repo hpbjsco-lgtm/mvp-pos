@@ -108,7 +108,7 @@ export default function OrderHistorySection({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Tìm theo số hóa đơn, tên khách, thu ngân, số bàn..."
-              className="w-full pl-10 pr-4 py-3 border border-outline-variant rounded-xl text-xs focus:ring-1 focus:ring-emerald-500 font-semibold"
+              className="w-full pl-10 pr-4 py-3 border border-outline-variant rounded-xl text-xs focus:ring-1 focus:ring-primary font-semibold"
             />
           </div>
           <div className="flex bg-surface-container-high p-1 rounded-xl border border-outline-variant text-[10px] font-bold">

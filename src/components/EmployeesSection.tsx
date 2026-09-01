@@ -157,7 +157,7 @@ export default function EmployeesSection({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Tìm kiếm nhân viên theo Tên, Email hoặc Vai trò..."
-              className="w-full pl-10 pr-4 py-3 border border-outline-variant rounded-xl text-xs focus:ring-1 focus:ring-emerald-500 font-semibold"
+              className="w-full pl-10 pr-4 py-3 border border-outline-variant rounded-xl text-xs focus:ring-1 focus:ring-primary font-semibold"
             />
           </div>
 
@@ -412,7 +412,7 @@ export default function EmployeesSection({
                   value={formHourlyRate}
                   onChange={(e) => setFormHourlyRate(Math.max(0, parseInt(e.target.value) || 0))}
                   placeholder="25000"
-                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-mono font-bold focus:ring-1 focus:ring-emerald-500"
+                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-mono font-bold focus:ring-1 focus:ring-primary"
                   required
                 />
                 <span className="text-[9px] text-on-surface-variant font-semibold block mt-1">

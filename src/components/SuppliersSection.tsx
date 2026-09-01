@@ -157,7 +157,7 @@ export default function SuppliersSection({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Tìm kiếm theo Tên nhà cung cấp, Điện thoại, Email hoặc Địa chỉ..."
-            className="w-full pl-10 pr-4 py-3 border border-outline-variant rounded-xl text-xs focus:ring-1 focus:ring-emerald-500 font-semibold"
+            className="w-full pl-10 pr-4 py-3 border border-outline-variant rounded-xl text-xs focus:ring-1 focus:ring-primary font-semibold"
           />
         </div>
 
@@ -254,7 +254,7 @@ export default function SuppliersSection({
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
                   placeholder="Ví dụ: Công ty TNHH Cà Phê Măng Đen"
-                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-semibold focus:ring-1 focus:ring-emerald-500"
+                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-semibold focus:ring-1 focus:ring-primary"
                   required
                 />
               </div>
@@ -266,7 +266,7 @@ export default function SuppliersSection({
                   value={formPhone}
                   onChange={(e) => setFormPhone(e.target.value)}
                   placeholder="Ví dụ: 0281234567"
-                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-mono font-bold focus:ring-1 focus:ring-emerald-500"
+                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-mono font-bold focus:ring-1 focus:ring-primary"
                 />
               </div>
 
@@ -277,7 +277,7 @@ export default function SuppliersSection({
                   value={formEmail}
                   onChange={(e) => setFormEmail(e.target.value)}
                   placeholder="contact@nhacungcap.com"
-                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs focus:ring-1 focus:ring-emerald-500"
+                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs focus:ring-1 focus:ring-primary"
                 />
               </div>
 
@@ -288,7 +288,7 @@ export default function SuppliersSection({
                   onChange={(e) => setFormAddress(e.target.value)}
                   placeholder="Nhập địa chỉ của nhà cung cấp..."
                   rows={2}
-                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs focus:ring-1 focus:ring-emerald-500"
+                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs focus:ring-1 focus:ring-primary"
                 />
               </div>
 

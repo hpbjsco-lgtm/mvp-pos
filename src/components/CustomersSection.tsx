@@ -168,7 +168,7 @@ export default function CustomersSection({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Tìm kiếm khách hàng theo Tên, Số điện thoại hoặc Email..."
-            className="w-full pl-10 pr-4 py-3 border border-outline-variant rounded-xl text-xs focus:ring-1 focus:ring-emerald-500 font-semibold"
+            className="w-full pl-10 pr-4 py-3 border border-outline-variant rounded-xl text-xs focus:ring-1 focus:ring-primary font-semibold"
           />
         </div>
 
@@ -315,7 +315,7 @@ export default function CustomersSection({
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
                   placeholder="Ví dụ: Nguyễn Văn Hải"
-                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-semibold focus:ring-1 focus:ring-emerald-500"
+                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-semibold focus:ring-1 focus:ring-primary"
                   required
                 />
               </div>
@@ -327,7 +327,7 @@ export default function CustomersSection({
                   value={formPhone}
                   onChange={(e) => setFormPhone(e.target.value)}
                   placeholder="Ví dụ: 0912345678"
-                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-mono font-bold focus:ring-1 focus:ring-emerald-500"
+                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-mono font-bold focus:ring-1 focus:ring-primary"
                 />
               </div>
 
@@ -338,7 +338,7 @@ export default function CustomersSection({
                   value={formEmail}
                   onChange={(e) => setFormEmail(e.target.value)}
                   placeholder="username@domain.com"
-                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs focus:ring-1 focus:ring-emerald-500"
+                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs focus:ring-1 focus:ring-primary"
                 />
               </div>
 
@@ -349,7 +349,7 @@ export default function CustomersSection({
                   value={formPoints}
                   onChange={(e) => setFormPoints(Math.max(0, parseInt(e.target.value) || 0))}
                   placeholder="0"
-                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-mono font-bold focus:ring-1 focus:ring-emerald-500"
+                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-mono font-bold focus:ring-1 focus:ring-primary"
                 />
               </div>
 

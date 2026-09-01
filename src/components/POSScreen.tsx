@@ -7,7 +7,8 @@ import React, { useState, useEffect } from 'react';
 import {
   Trash2, Plus, Minus, ScanLine, Printer,
   X, Landmark, RefreshCw, ShoppingCart, Edit3, ClipboardList,
-  UserPlus, Coins, User, ChefHat, ChevronDown, Banknote, QrCode, CreditCard, Search
+  UserPlus, Coins, User, ChefHat, ChevronDown, Banknote, QrCode, CreditCard, Search,
+  LayoutGrid, UtensilsCrossed
 } from 'lucide-react';
 import { Product, DiningTable, Zone, KitchenItem, Order, PaymentMethod, TableStatus, KitchenStatus, InventoryBatch, Customer } from '../types';
 import TableMap from './TableMap';
@@ -90,6 +91,9 @@ export default function POSScreen({
   setSimBatches
 }: POSScreenProps) {
   
+  // Tab bên trái cho fnb: "Phòng bàn" (sơ đồ bàn, mặc định) hoặc "Thực đơn" (gọi thêm món)
+  const [fnbLeftTab, setFnbLeftTab] = useState<'tables' | 'menu'>('tables');
+
   const [activeCategory, setActiveCategory] = useState<string>('Tất cả');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [barcodeInputValue, setBarcodeInputValue] = useState<string>('');
@@ -1010,69 +1014,121 @@ export default function POSScreen({
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 items-start">
 
-        {/* Danh mục sản phẩm */}
-        <div className="lg:col-span-5 m3-card p-4 sm:p-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-base font-bold text-on-surface">Danh mục sản phẩm</h3>
-            <span className="text-sm text-on-surface-variant font-semibold">{filteredProducts.length} món</span>
-          </div>
+        {/* Cột trái: Phòng bàn (fnb) hoặc lưới sản phẩm */}
+        <div className="lg:col-span-5 space-y-3">
 
-          <div className="relative">
-            <Search className="w-4 h-4 text-on-surface-variant absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Tìm tên sản phẩm..."
-              className="m3-input pl-10"
-            />
-          </div>
-
-          <div className="flex overflow-x-auto gap-2 pb-1 scrollbar-none">
-            {categories.map(cat => (
+          {simStoreType === 'fnb' && (
+            <div className="flex bg-surface-container-high p-1 rounded-2xl border border-outline-variant gap-1">
               <button
-                key={cat}
-                onClick={() => { setActiveCategory(cat); playBeep(true); }}
-                className={`m3-chip whitespace-nowrap ${activeCategory === cat ? 'm3-chip-selected' : ''}`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 gap-3 max-h-[440px] overflow-y-auto pr-1 -mr-1">
-            {filteredProducts.map(prod => (
-              <button
-                key={prod.id}
-                onClick={() => handleAddToCart(prod)}
-                disabled={!prod.isAvailable}
-                className={`rounded-2xl border text-left flex flex-col overflow-hidden cursor-pointer transition-colors ${
-                  prod.isAvailable
-                    ? 'border-outline-variant bg-surface-container-lowest hover:bg-surface-container active:bg-surface-container-high'
-                    : 'border-outline-variant/50 bg-surface-container-lowest opacity-50 cursor-not-allowed'
+                onClick={() => { setFnbLeftTab('tables'); playBeep(true); }}
+                className={`flex-1 flex items-center justify-center gap-1.5 min-h-10 rounded-xl text-sm font-bold transition-colors cursor-pointer ${
+                  fnbLeftTab === 'tables' ? 'bg-surface-container-lowest text-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'
                 }`}
               >
-                <div className="relative aspect-[4/3] w-full shrink-0">
-                  {prod.imageUrl ? (
-                    <img src={prod.imageUrl} alt={prod.name} className="absolute inset-0 w-full h-full object-cover" />
-                  ) : (
-                    <div className={`absolute inset-0 flex items-center justify-center text-2xl font-black ${categoryPlaceholderColor(prod.category)}`}>
-                      {prod.name.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                  {!prod.isAvailable && (
-                    <span className="absolute top-1.5 right-1.5 text-sm px-1.5 py-0.5 rounded-full font-bold bg-error-container text-on-error-container">
-                      Hết hàng
-                    </span>
-                  )}
-                </div>
-                <div className="p-2.5 space-y-0.5">
-                  <h4 className="text-sm font-bold text-on-surface line-clamp-2 leading-snug">{prod.name}</h4>
-                  <span className="text-base font-bold text-primary block">{prod.price.toLocaleString('vi-VN')}đ</span>
-                </div>
+                <LayoutGrid className="w-4 h-4" /> Phòng bàn
               </button>
-            ))}
-          </div>
+              <button
+                onClick={() => { setFnbLeftTab('menu'); playBeep(true); }}
+                className={`flex-1 flex items-center justify-center gap-1.5 min-h-10 rounded-xl text-sm font-bold transition-colors cursor-pointer ${
+                  fnbLeftTab === 'menu' ? 'bg-surface-container-lowest text-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'
+                }`}
+              >
+                <UtensilsCrossed className="w-4 h-4" /> Thực đơn
+              </button>
+            </div>
+          )}
+
+          {simStoreType === 'fnb' && fnbLeftTab === 'tables' ? (
+            <TableMap
+              simTables={simTables}
+              setSimTables={setSimTables}
+              simZones={simZones}
+              setSimZones={setSimZones}
+              simSelectedTableId={simSelectedTableId}
+              setSimSelectedTableId={(id) => { setSimSelectedTableId(id); setFnbLeftTab('menu'); playBeep(true); }}
+              simUserRole={simUserRole}
+              triggerBeep={triggerBeep}
+              compact
+            />
+          ) : (
+            <div className="m3-card p-4 sm:p-5 space-y-4">
+              {simStoreType === 'fnb' && (
+                <div className="flex items-center justify-between p-2.5 bg-primary-container rounded-xl">
+                  <span className="text-sm font-bold text-on-primary-container flex items-center gap-1.5 min-w-0 truncate">
+                    <ShoppingCart className="w-4 h-4 shrink-0" /> Đang gọi món cho: {selectedTableName}
+                  </span>
+                  <button
+                    onClick={() => { setFnbLeftTab('tables'); playBeep(true); }}
+                    className="text-sm font-bold text-on-primary-container underline shrink-0 cursor-pointer"
+                  >
+                    Đổi bàn
+                  </button>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-bold text-on-surface">Danh mục sản phẩm</h3>
+                <span className="text-sm text-on-surface-variant font-semibold">{filteredProducts.length} món</span>
+              </div>
+
+              <div className="relative">
+                <Search className="w-4 h-4 text-on-surface-variant absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Tìm tên sản phẩm..."
+                  className="m3-input pl-10"
+                />
+              </div>
+
+              <div className="flex overflow-x-auto gap-2 pb-1 scrollbar-none">
+                {categories.map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => { setActiveCategory(cat); playBeep(true); }}
+                    className={`m3-chip whitespace-nowrap ${activeCategory === cat ? 'm3-chip-selected' : ''}`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 gap-3 max-h-[440px] overflow-y-auto pr-1 -mr-1">
+                {filteredProducts.map(prod => (
+                  <button
+                    key={prod.id}
+                    onClick={() => handleAddToCart(prod)}
+                    disabled={!prod.isAvailable}
+                    className={`rounded-2xl border text-left flex flex-col overflow-hidden cursor-pointer transition-colors ${
+                      prod.isAvailable
+                        ? 'border-outline-variant bg-surface-container-lowest hover:bg-surface-container active:bg-surface-container-high'
+                        : 'border-outline-variant/50 bg-surface-container-lowest opacity-50 cursor-not-allowed'
+                    }`}
+                  >
+                    <div className="relative aspect-[4/3] w-full shrink-0">
+                      {prod.imageUrl ? (
+                        <img src={prod.imageUrl} alt={prod.name} className="absolute inset-0 w-full h-full object-cover" />
+                      ) : (
+                        <div className={`absolute inset-0 flex items-center justify-center text-2xl font-black ${categoryPlaceholderColor(prod.category)}`}>
+                          {prod.name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      {!prod.isAvailable && (
+                        <span className="absolute top-1.5 right-1.5 text-sm px-1.5 py-0.5 rounded-full font-bold bg-error-container text-on-error-container">
+                          Hết hàng
+                        </span>
+                      )}
+                    </div>
+                    <div className="p-2.5 space-y-0.5">
+                      <h4 className="text-sm font-bold text-on-surface line-clamp-2 leading-snug">{prod.name}</h4>
+                      <span className="text-base font-bold text-primary block">{prod.price.toLocaleString('vi-VN')}đ</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Đơn hàng + thanh toán: sidebar cố định trên desktop, bottom sheet trên di động */}

@@ -178,7 +178,7 @@ export default function MenuManagement({
                 value={newItemName}
                 onChange={(e) => setNewItemName(e.target.value)}
                 placeholder="Ví dụ: Bạc Xỉu Sương Sáo"
-                className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-semibold focus:ring-1 focus:ring-emerald-500"
+                className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-semibold focus:ring-1 focus:ring-primary"
                 required
               />
             </div>
@@ -191,7 +191,7 @@ export default function MenuManagement({
                 value={newItemCategory}
                 onChange={(e) => setNewItemCategory(e.target.value)}
                 placeholder="Nhập tự do, ví dụ: Bánh kẹo..."
-                className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-semibold focus:ring-1 focus:ring-emerald-500"
+                className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-semibold focus:ring-1 focus:ring-primary"
               />
               <datalist id="category-suggestions">
                 {Array.from(new Set([...existingCategories, ...categorySuggestions])).map(cat => (
@@ -207,7 +207,7 @@ export default function MenuManagement({
                   type="number"
                   value={newItemPrice}
                   onChange={(e) => setNewItemPrice(parseInt(e.target.value) || 0)}
-                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-bold focus:ring-1 focus:ring-emerald-500"
+                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-bold focus:ring-1 focus:ring-primary"
                   min="0"
                   required
                 />
@@ -219,7 +219,7 @@ export default function MenuManagement({
                   type="number"
                   value={newItemCost}
                   onChange={(e) => setNewItemCost(parseInt(e.target.value) || 0)}
-                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-bold focus:ring-1 focus:ring-emerald-500"
+                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-bold focus:ring-1 focus:ring-primary"
                   min="0"
                   required
                 />
@@ -234,7 +234,7 @@ export default function MenuManagement({
                   value={newItemUnit}
                   onChange={(e) => setNewItemUnit(e.target.value)}
                   placeholder="Ví dụ: cái, kg, lốc, thùng..."
-                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-semibold focus:ring-1 focus:ring-emerald-500"
+                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-semibold focus:ring-1 focus:ring-primary"
                 />
               </div>
             )}
@@ -246,7 +246,7 @@ export default function MenuManagement({
                 value={newItemImageUrl}
                 onChange={(e) => setNewItemImageUrl(e.target.value)}
                 placeholder="https://..."
-                className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-semibold focus:ring-1 focus:ring-emerald-500"
+                className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-semibold focus:ring-1 focus:ring-primary"
               />
             </div>
 
@@ -257,7 +257,7 @@ export default function MenuManagement({
                 value={newItemSku}
                 onChange={(e) => setNewItemSku(e.target.value)}
                 placeholder="Tự động tạo nếu bỏ trống"
-                className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-mono font-bold uppercase focus:ring-1 focus:ring-emerald-500"
+                className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-mono font-bold uppercase focus:ring-1 focus:ring-primary"
               />
             </div>
 
@@ -305,7 +305,7 @@ export default function MenuManagement({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={isRetail ? 'Tìm theo tên sản phẩm hoặc mã SKU/Barcode...' : 'Tìm theo tên món hoặc mã SKU...'}
-              className="w-full pl-9 pr-4 py-2 border border-outline-variant rounded-xl text-xs focus:ring-1 focus:ring-emerald-500"
+              className="w-full pl-9 pr-4 py-2 border border-outline-variant rounded-xl text-xs focus:ring-1 focus:ring-primary"
             />
           </div>
 
