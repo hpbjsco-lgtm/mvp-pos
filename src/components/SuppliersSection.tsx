@@ -4,10 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import {
-  Truck, Search, Plus, Edit2, Trash2, MapPin,
-  Phone, Mail, Check, AlertCircle, X, ShieldAlert
-} from 'lucide-react';
+import { Edit2, Plus, Search, Trash2, Truck, X } from 'lucide-react';
 import { Supplier } from '../types';
 import { logOperation } from '../utils/logger';
 
@@ -20,8 +17,6 @@ interface SuppliersSectionProps {
 }
 
 export default function SuppliersSection({
-  isOffline,
-  storeId,
   triggerBeep,
   simSuppliers,
   setSimSuppliers
@@ -126,184 +121,135 @@ export default function SuppliersSection({
   });
 
   return (
-    <div className="space-y-6">
-      
-      {/* Header section */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-surface-container-lowest border border-outline-variant rounded-3xl p-6 shadow-sm gap-4">
-        <div>
-          <h2 className="text-xl font-black text-on-surface tracking-tight uppercase flex items-center gap-2">
-            <Truck className="w-6 h-6 text-secondary" />
-            Quản lý nhà cung cấp (Suppliers)
-          </h2>
-          <p className="text-xs text-on-surface-variant mt-1">
-            Đăng ký và quản lý thông tin các đơn vị cung cấp nguyên vật liệu, lô hàng hóa nhập kho.
-          </p>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Truck className="w-5 h-5 text-primary" />
+          <h2 className="text-lg font-bold text-on-surface">Nhà cung cấp</h2>
         </div>
-        <button
-          onClick={handleOpenAdd}
-          className="px-4.5 py-2.5 bg-primary hover:brightness-110 text-white rounded-xl text-xs font-bold transition-all shadow-md active:scale-95 flex items-center gap-2 cursor-pointer"
-        >
-          <Plus className="w-4 h-4" /> Thêm nhà cung cấp mới
+        <button onClick={handleOpenAdd} className="m3-btn-filled !min-h-10 !px-4 text-sm">
+          <Plus className="w-4 h-4" /> Thêm NCC
         </button>
       </div>
 
-      {/* Main Grid table */}
-      <div className="bg-surface-container-lowest border border-outline-variant rounded-3xl p-5 shadow-sm space-y-4">
-        {/* Controls */}
-        <div className="flex items-center relative">
-          <Search className="w-4 h-4 text-on-surface-variant absolute left-3.5 top-3.5" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Tìm kiếm theo Tên nhà cung cấp, Điện thoại, Email hoặc Địa chỉ..."
-            className="w-full pl-10 pr-4 py-3 border border-outline-variant rounded-xl text-xs focus:ring-1 focus:ring-primary font-semibold"
-          />
-        </div>
-
-        {/* List Content */}
-        {filteredSuppliers.length === 0 ? (
-          <div className="py-16 text-center text-on-surface-variant text-xs border border-dashed border-outline-variant rounded-2xl">
-            🚚 Không tìm thấy đối tác nhà cung cấp nào phù hợp bộ lọc tìm kiếm.
-          </div>
-        ) : (
-          <div className="overflow-x-auto rounded-xl border border-outline-variant">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-surface-container text-on-surface-variant font-bold uppercase border-b border-outline-variant">
-                  <th className="p-4">Đối tác cung ứng</th>
-                  <th className="p-4">Số điện thoại</th>
-                  <th className="p-4">Địa chỉ Email</th>
-                  <th className="p-4">Văn phòng / Địa chỉ</th>
-                  <th className="p-4 text-right">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-medium text-on-surface">
-                {filteredSuppliers.map((s) => {
-                  return (
-                    <tr key={s.id} className="hover:bg-surface-container/50 transition-colors">
-                      <td className="p-4">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-full bg-surface-container-high text-on-surface-variant flex items-center justify-center font-bold text-xs uppercase border border-outline-variant">
-                            {s.name.slice(0, 2)}
-                          </div>
-                          <div>
-                            <p className="font-extrabold text-on-surface">{s.name}</p>
-                            <p className="text-[10px] text-on-surface-variant font-mono mt-0.5">{s.id}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="p-4 font-mono text-on-surface-variant">
-                        {s.phone || <span className="text-outline">Chưa bổ sung</span>}
-                      </td>
-                      <td className="p-4 text-on-surface-variant">
-                        {s.email || <span className="text-outline">Chưa bổ sung</span>}
-                      </td>
-                      <td className="p-4 text-on-surface-variant max-w-xs truncate" title={s.address}>
-                        {s.address || <span className="text-outline">Chưa bổ sung</span>}
-                      </td>
-                      <td className="p-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            onClick={() => handleOpenEdit(s)}
-                            className="p-1.5 hover:bg-surface-container-high rounded-lg text-on-surface-variant hover:text-primary transition-all cursor-pointer"
-                            title="Sửa thông tin NCC"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(s)}
-                            className="p-1.5 hover:bg-surface-container-high rounded-lg text-on-surface-variant hover:text-error transition-all cursor-pointer"
-                            title="Xóa nhà cung cấp"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+      <div className="relative">
+        <Search className="w-4 h-4 text-on-surface-variant absolute left-3.5 top-1/2 -translate-y-1/2" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Tìm kiếm nhà cung cấp..."
+          className="m3-input !rounded-full pl-10"
+        />
       </div>
+
+      {filteredSuppliers.length === 0 ? (
+        <div className="py-16 text-center text-on-surface-variant flex flex-col items-center justify-center gap-2">
+          <Truck className="w-8 h-8 text-outline-variant" />
+          <p className="text-base font-bold">Không tìm thấy nhà cung cấp nào</p>
+          <p className="text-sm">Thử đổi từ khóa tìm kiếm.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          {filteredSuppliers.map((s) => (
+            <div key={s.id} className="m3-card p-4 flex items-start gap-3">
+              <span className="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center shrink-0">
+                <Truck className="w-4 h-4 text-on-surface-variant" />
+              </span>
+              <div className="flex-1 min-w-0 space-y-1">
+                <h4 className="text-base font-bold text-on-surface truncate">{s.name}</h4>
+                <p className="text-sm text-on-surface-variant flex items-center gap-1.5 font-mono">
+                   {s.phone || 'Chưa bổ sung'}
+                </p>
+                {s.email && (
+                  <p className="text-sm text-on-surface-variant flex items-center gap-1.5 truncate">
+                     {s.email}
+                  </p>
+                )}
+                {s.address && (
+                  <p className="text-sm text-on-surface-variant flex items-center gap-1.5 truncate" title={s.address}>
+                     {s.address}
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-col gap-1.5 shrink-0">
+                <button onClick={() => handleOpenEdit(s)} className="m3-icon-btn" title="Sửa thông tin NCC">
+                  <Edit2 className="w-4 h-4" />
+                </button>
+                <button onClick={() => handleDelete(s)} className="m3-icon-btn hover:text-error" title="Xóa nhà cung cấp">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Modal Dialog Form */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-surface-container-lowest rounded-3xl border border-outline-variant max-w-md w-full p-6 shadow-xl space-y-4">
-            
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="m3-card !bg-surface-container-lowest max-w-md w-full p-6 shadow-xl space-y-4">
+
             <div className="flex justify-between items-center pb-3 border-b border-outline-variant">
-              <h3 className="text-sm font-black text-on-surface uppercase">
+              <h3 className="text-base font-bold text-on-surface">
                 {editingSupplier ? 'Cập nhật nhà cung cấp' : 'Thêm nhà cung cấp mới'}
               </h3>
-              <button 
-                onClick={() => setModalOpen(false)}
-                className="p-1 hover:bg-surface-container-high rounded-lg text-on-surface-variant hover:text-on-surface-variant transition-colors"
-              >
-                <X className="w-4 h-4" />
+              <button onClick={() => setModalOpen(false)} className="m3-icon-btn">
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="space-y-4">
+            <form onSubmit={handleSave} className="space-y-3">
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-on-surface-variant uppercase">Tên nhà cung cấp / Công ty đối tác</label>
+                <label className="text-sm font-semibold text-on-surface-variant">Tên nhà cung cấp / Công ty đối tác</label>
                 <input
                   type="text"
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
                   placeholder="Ví dụ: Công ty TNHH Cà Phê Măng Đen"
-                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-semibold focus:ring-1 focus:ring-primary"
+                  className="m3-input"
                   required
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-on-surface-variant uppercase">Số điện thoại liên hệ</label>
+                <label className="text-sm font-semibold text-on-surface-variant">Số điện thoại liên hệ</label>
                 <input
                   type="text"
                   value={formPhone}
                   onChange={(e) => setFormPhone(e.target.value)}
                   placeholder="Ví dụ: 0281234567"
-                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-mono font-bold focus:ring-1 focus:ring-primary"
+                  className="m3-input font-mono"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-on-surface-variant uppercase">Địa chỉ Email</label>
+                <label className="text-sm font-semibold text-on-surface-variant">Địa chỉ Email</label>
                 <input
                   type="email"
                   value={formEmail}
                   onChange={(e) => setFormEmail(e.target.value)}
                   placeholder="contact@nhacungcap.com"
-                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs focus:ring-1 focus:ring-primary"
+                  className="m3-input"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-on-surface-variant uppercase">Văn phòng / Địa chỉ nhà kho</label>
+                <label className="text-sm font-semibold text-on-surface-variant">Văn phòng / Địa chỉ nhà kho</label>
                 <textarea
                   value={formAddress}
                   onChange={(e) => setFormAddress(e.target.value)}
                   placeholder="Nhập địa chỉ của nhà cung cấp..."
                   rows={2}
-                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs focus:ring-1 focus:ring-primary"
+                  className="m3-input !h-auto py-2.5"
                 />
               </div>
 
-              <div className="pt-4 border-t border-outline-variant flex justify-end gap-2 text-xs">
-                <button
-                  type="button"
-                  onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 bg-surface-container hover:bg-surface-container-high text-on-surface-variant rounded-xl font-bold transition-colors cursor-pointer"
-                >
+              <div className="pt-3 border-t border-outline-variant flex justify-end gap-2">
+                <button type="button" onClick={() => setModalOpen(false)} className="m3-btn-tonal !min-h-10 text-sm">
                   Hủy bỏ
                 </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 bg-primary hover:brightness-110 text-white rounded-xl font-bold shadow transition-all cursor-pointer"
-                >
+                <button type="submit" className="m3-btn-filled !min-h-10 text-sm">
                   Lưu đối tác
                 </button>
               </div>

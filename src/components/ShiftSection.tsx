@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { Wallet, PlayCircle, StopCircle, Clock, Banknote, History } from 'lucide-react';
+import { PlayCircle, Wallet } from 'lucide-react';
 import { Shift, Order } from '../types';
 
 interface ShiftSectionProps {
@@ -38,6 +38,7 @@ export default function ShiftSection({
   const cashRevenue = shiftOrders.filter(o => o.paymentMethod === 'cash').reduce((s, o) => s + o.totalAmount, 0);
   const cardRevenue = shiftOrders.filter(o => o.paymentMethod === 'card').reduce((s, o) => s + o.totalAmount, 0);
   const qrRevenue = shiftOrders.filter(o => o.paymentMethod === 'qr').reduce((s, o) => s + o.totalAmount, 0);
+  const totalRevenue = cashRevenue + cardRevenue + qrRevenue;
   const expectedCash = (openShift?.openingCash || 0) + cashRevenue;
 
   const handleOpenShift = (e: React.FormEvent) => {
@@ -80,119 +81,123 @@ export default function ShiftSection({
   const pastShifts = simShifts.filter(s => s.status === 'closed').slice(0, 20);
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
-      <div className="bg-surface-container-lowest border border-outline-variant rounded-3xl p-6 shadow-sm">
-        <h2 className="text-xl font-black text-on-surface tracking-tight uppercase flex items-center gap-2">
-          <Wallet className="w-6 h-6 text-teal-500" />
-          Sổ quỹ ca làm việc
-        </h2>
-        <p className="text-xs text-on-surface-variant mt-1">
-          Mở ca trước khi bắt đầu bán hàng, đóng ca cuối ngày để đối soát tiền mặt thực tế so với hệ thống.
-        </p>
+    <div className="space-y-4 max-w-2xl mx-auto">
+      <div className="flex items-center gap-2">
+        <Wallet className="w-5 h-5 text-primary" />
+        <h2 className="text-lg font-bold text-on-surface">Sổ quỹ ca làm việc</h2>
       </div>
 
       {!openShift ? (
-        <form onSubmit={handleOpenShift} className="bg-surface-container-lowest border border-outline-variant rounded-3xl p-6 shadow-sm space-y-4">
+        <form onSubmit={handleOpenShift} className="m3-card p-5 space-y-4">
           <div className="flex items-center gap-2 text-on-surface">
-            <PlayCircle className="w-5 h-5 text-secondary" />
-            <h3 className="text-sm font-black uppercase">Mở ca làm việc mới</h3>
+            <PlayCircle className="w-5 h-5 text-primary" />
+            <h3 className="text-base font-bold">Mở ca làm việc mới</h3>
           </div>
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-on-surface-variant uppercase">Tiền quỹ đầu ca (đ)</label>
+            <label className="text-sm font-semibold text-on-surface-variant">Tiền quỹ đầu ca (đ)</label>
             <input
               type="number"
               min="0"
               value={openingCashInput || ''}
               onChange={(e) => setOpeningCashInput(Math.max(0, parseInt(e.target.value) || 0))}
               placeholder="0"
-              className="w-full px-3 py-2.5 border border-outline-variant rounded-xl text-sm font-bold font-mono"
+              className="m3-input font-mono"
               required
             />
           </div>
-          <button
-            type="submit"
-            className="w-full py-3 bg-primary hover:brightness-110 text-white rounded-xl text-xs font-bold transition-all shadow-md active:scale-98 cursor-pointer flex items-center justify-center gap-2"
-          >
-            <PlayCircle className="w-4 h-4" /> Mở ca cho {currentUser.name}
+          <button type="submit" className="m3-btn-filled w-full !min-h-12">
+             Mở ca cho {currentUser.name}
           </button>
         </form>
       ) : (
-        <div className="bg-surface-container-lowest border border-outline-variant rounded-3xl p-6 shadow-sm space-y-5">
-          <div className="flex justify-between items-center border-b border-outline-variant pb-3">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-secondary animate-pulse" />
-              <h3 className="text-sm font-black uppercase text-on-surface">Ca đang mở - {openShift.staffName}</h3>
+        <div className="space-y-4">
+          {/* Trạng thái ca hiện tại */}
+          <div className="rounded-3xl bg-primary text-on-primary p-5 space-y-3">
+            <div className="flex justify-between items-center">
+              <div>
+                <span className="text-sm font-semibold opacity-80 block">Trạng thái</span>
+                <span className="text-base font-bold flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                  Đang mở ca
+                </span>
+              </div>
+              <div className="text-right">
+                <span className="text-sm font-semibold opacity-80 block">Thu ngân</span>
+                <span className="text-base font-bold">{openShift.staffName}</span>
+              </div>
             </div>
-            <span className="text-[10px] text-on-surface-variant font-mono flex items-center gap-1">
-              <Clock className="w-3 h-3" /> Mở lúc {new Date(openShift.openedAt).toLocaleString('vi-VN')}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="p-3 bg-surface-container rounded-2xl border border-outline-variant text-center">
-              <span className="text-[9px] text-on-surface-variant font-bold uppercase block">Quỹ đầu ca</span>
-              <span className="text-sm font-black text-on-surface">{openShift.openingCash.toLocaleString('vi-VN')}đ</span>
-            </div>
-            <div className="p-3 bg-secondary-container rounded-2xl border border-secondary-container text-center">
-              <span className="text-[9px] text-secondary font-bold uppercase block">Thu tiền mặt</span>
-              <span className="text-sm font-black text-on-secondary-container">{cashRevenue.toLocaleString('vi-VN')}đ</span>
-            </div>
-            <div className="p-3 bg-primary-container rounded-2xl border border-primary-container text-center">
-              <span className="text-[9px] text-primary font-bold uppercase block">Thu thẻ / QR</span>
-              <span className="text-sm font-black text-primary">{(cardRevenue + qrRevenue).toLocaleString('vi-VN')}đ</span>
-            </div>
-            <div className="p-3 bg-tertiary-container rounded-2xl border border-tertiary-container text-center">
-              <span className="text-[9px] text-tertiary font-bold uppercase block">Số hóa đơn</span>
-              <span className="text-sm font-black text-on-tertiary-container">{shiftOrders.length}</span>
+            <div className="pt-3 border-t border-on-primary/20 flex items-center gap-1.5 text-sm font-semibold opacity-90">
+               Bắt đầu: {new Date(openShift.openedAt).toLocaleString('vi-VN')}
             </div>
           </div>
 
-          <div className="p-4 bg-slate-950 rounded-2xl text-center space-y-1">
-            <span className="text-[9px] text-on-surface-variant font-bold uppercase tracking-widest block">Tiền mặt kỳ vọng trong két</span>
-            <span className="text-2xl font-mono font-black text-white block">{expectedCash.toLocaleString('vi-VN')} đ</span>
+          <div className="space-y-2">
+            <h3 className="text-base font-bold text-on-surface">Tổng kết doanh thu</h3>
+            <div className="m3-card p-4 border-l-4 border-l-primary">
+              <span className="text-sm font-semibold text-on-surface-variant block">Tổng doanh thu tạm tính</span>
+              <span className="text-2xl font-bold text-primary">{totalRevenue.toLocaleString('vi-VN')} đ</span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="m3-card p-3.5 space-y-1">
+                <span className="text-sm text-on-surface-variant flex items-center gap-1.5"> Tiền mặt</span>
+                <span className="text-base font-bold text-on-surface">{cashRevenue.toLocaleString('vi-VN')} đ</span>
+              </div>
+              <div className="m3-card p-3.5 space-y-1">
+                <span className="text-sm text-on-surface-variant flex items-center gap-1.5"> Chuyển khoản / QR</span>
+                <span className="text-base font-bold text-on-surface">{qrRevenue.toLocaleString('vi-VN')} đ</span>
+              </div>
+              <div className="m3-card p-3.5 space-y-1">
+                <span className="text-sm text-on-surface-variant flex items-center gap-1.5"> Thẻ tín dụng</span>
+                <span className="text-base font-bold text-on-surface">{cardRevenue.toLocaleString('vi-VN')} đ</span>
+              </div>
+              <div className="m3-card p-3.5 space-y-1">
+                <span className="text-sm text-on-surface-variant flex items-center gap-1.5"> Quỹ đầu ca</span>
+                <span className="text-base font-bold text-on-surface">{openShift.openingCash.toLocaleString('vi-VN')} đ</span>
+              </div>
+            </div>
+
+            <div className="rounded-2xl bg-tertiary-container p-4 flex items-center justify-between gap-2">
+              <div>
+                <span className="text-sm font-semibold text-on-tertiary-container block">Tiền mặt trong két (Dự kiến)</span>
+                <span className="text-sm text-on-tertiary-container/80">Tiền mặt + Quỹ đầu ca</span>
+              </div>
+              <span className="text-xl font-bold text-on-tertiary-container shrink-0">{expectedCash.toLocaleString('vi-VN')} đ</span>
+            </div>
           </div>
 
           {!closeStep ? (
             <button
               onClick={() => { setClosingCashInput(expectedCash); setCloseStep(true); }}
-              className="w-full py-3 bg-error hover:brightness-110 text-white rounded-xl text-xs font-bold transition-all shadow-md active:scale-98 cursor-pointer flex items-center justify-center gap-2"
+              className="m3-btn-danger w-full !min-h-12"
             >
-              <StopCircle className="w-4 h-4" /> Đóng ca & đối soát tiền mặt
+               Đóng ca làm việc
             </button>
           ) : (
-            <form onSubmit={handleCloseShift} className="space-y-3 pt-2 border-t border-outline-variant">
+            <form onSubmit={handleCloseShift} className="m3-card p-5 space-y-3">
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-on-surface-variant uppercase flex items-center gap-1">
-                  <Banknote className="w-3.5 h-3.5" /> Tiền mặt đếm thực tế (đ)
+                <label className="text-sm font-semibold text-on-surface-variant flex items-center gap-1">
+                   Tiền mặt đếm thực tế (đ)
                 </label>
                 <input
                   type="number"
                   min="0"
                   value={closingCashInput || ''}
                   onChange={(e) => setClosingCashInput(Math.max(0, parseInt(e.target.value) || 0))}
-                  className="w-full px-3 py-2.5 border border-outline-variant rounded-xl text-sm font-bold font-mono"
+                  className="m3-input font-mono"
                   required
                 />
               </div>
-              <div className={`p-2.5 rounded-xl text-center text-xs font-bold ${
-                closingCashInput - expectedCash === 0
-                  ? 'bg-secondary-container text-on-secondary-container border border-secondary-container'
-                  : 'bg-error-container text-on-error-container border border-error-container'
+              <div className={`p-3 rounded-xl text-center text-sm font-bold ${
+                closingCashInput - expectedCash === 0 ? 'm3-badge-success' : 'm3-badge-error'
               }`}>
                 Chênh lệch: {closingCashInput - expectedCash >= 0 ? '+' : ''}{(closingCashInput - expectedCash).toLocaleString('vi-VN')} đ
               </div>
               <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setCloseStep(false)}
-                  className="flex-1 py-2.5 bg-surface-container hover:bg-surface-container-high text-on-surface-variant rounded-xl font-bold text-xs transition-colors cursor-pointer"
-                >
+                <button type="button" onClick={() => setCloseStep(false)} className="m3-btn-tonal flex-1 !min-h-11">
                   Hủy
                 </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2.5 bg-error hover:brightness-110 text-white rounded-xl font-bold text-xs shadow transition-all cursor-pointer"
-                >
+                <button type="submit" className="m3-btn-danger flex-1 !min-h-11">
                   Xác nhận đóng ca
                 </button>
               </div>
@@ -202,40 +207,31 @@ export default function ShiftSection({
       )}
 
       {pastShifts.length > 0 && (
-        <div className="bg-surface-container-lowest border border-outline-variant rounded-3xl p-6 shadow-sm space-y-3">
-          <h3 className="text-xs font-black uppercase text-on-surface flex items-center gap-1.5">
-            <History className="w-4 h-4 text-on-surface-variant" /> Lịch sử ca đã đóng
+        <div className="space-y-2">
+          <h3 className="text-base font-bold text-on-surface flex items-center gap-1.5">
+             Lịch sử ca đã đóng
           </h3>
-          <div className="overflow-x-auto rounded-xl border border-outline-variant">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-surface-container text-on-surface-variant font-bold uppercase border-b border-outline-variant">
-                  <th className="p-3">Nhân viên</th>
-                  <th className="p-3">Mở ca</th>
-                  <th className="p-3">Đóng ca</th>
-                  <th className="p-3 text-right">Kỳ vọng</th>
-                  <th className="p-3 text-right">Thực tế</th>
-                  <th className="p-3 text-right">Chênh lệch</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-on-surface font-medium">
-                {pastShifts.map(s => {
-                  const diff = (s.closingCashActual || 0) - (s.closingCashExpected || 0);
-                  return (
-                    <tr key={s.id}>
-                      <td className="p-3 font-bold">{s.staffName}</td>
-                      <td className="p-3 text-on-surface-variant">{new Date(s.openedAt).toLocaleString('vi-VN')}</td>
-                      <td className="p-3 text-on-surface-variant">{s.closedAt ? new Date(s.closedAt).toLocaleString('vi-VN') : '—'}</td>
-                      <td className="p-3 text-right font-mono">{(s.closingCashExpected || 0).toLocaleString('vi-VN')}đ</td>
-                      <td className="p-3 text-right font-mono">{(s.closingCashActual || 0).toLocaleString('vi-VN')}đ</td>
-                      <td className={`p-3 text-right font-mono font-bold ${diff === 0 ? 'text-secondary' : 'text-error'}`}>
-                        {diff >= 0 ? '+' : ''}{diff.toLocaleString('vi-VN')}đ
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="space-y-2">
+            {pastShifts.map(s => {
+              const diff = (s.closingCashActual || 0) - (s.closingCashExpected || 0);
+              return (
+                <div key={s.id} className={`m3-card p-3.5 border-l-4 ${diff === 0 ? 'border-l-secondary' : 'border-l-error'}`}>
+                  <div className="flex justify-between items-center">
+                    <span className="text-base font-bold text-on-surface">{s.staffName}</span>
+                    <span className={`text-sm font-bold ${diff === 0 ? 'text-secondary' : 'text-error'}`}>
+                      {diff >= 0 ? '+' : ''}{diff.toLocaleString('vi-VN')} đ
+                    </span>
+                  </div>
+                  <p className="text-sm text-on-surface-variant">
+                    {new Date(s.openedAt).toLocaleString('vi-VN')} → {s.closedAt ? new Date(s.closedAt).toLocaleString('vi-VN') : '—'}
+                  </p>
+                  <div className="flex justify-between text-sm text-on-surface-variant pt-1">
+                    <span>Kỳ vọng: {(s.closingCashExpected || 0).toLocaleString('vi-VN')}đ</span>
+                    <span>Thực tế: {(s.closingCashActual || 0).toLocaleString('vi-VN')}đ</span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

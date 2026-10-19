@@ -4,9 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import {
-  Layers, Plus, Trash2, Edit3, Grid, Users, Square, Check, RefreshCw, Hand, Lock, Eye, Calendar, X
-} from 'lucide-react';
+import { Calendar, Eye, Grid, Hand, Lock, Trash2, Users, X } from 'lucide-react';
 import { DiningTable, Zone, TableStatus } from '../types';
 import { logOperation } from '../utils/logger';
 
@@ -231,7 +229,7 @@ export default function TableMap({
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-outline-variant pb-4">
         <div className="space-y-1">
           <h3 className="text-sm font-extrabold text-on-surface uppercase tracking-tight flex items-center gap-2">
-            <Grid className="w-4 h-4 text-primary" /> Sơ đồ bàn F&B Trực quan
+             <Grid className="w-4 h-4 text-primary" /> Sơ đồ bàn F&B Trực quan
           </h3>
           <p className="text-xs text-on-surface-variant">Đặt bàn trực tiếp, xem trạng thái phòng bàn thời gian thực</p>
         </div>
@@ -248,11 +246,11 @@ export default function TableMap({
           >
             {isDesignMode ? (
               <>
-                <Hand className="w-3.5 h-3.5 animate-bounce" /> Chế độ Thiết kế (Bật kéo thả)
+                 <Hand className="w-3.5 h-3.5 animate-bounce" /> Chế độ Thiết kế (Bật kéo thả)
               </>
             ) : (
               <>
-                <Lock className="w-3.5 h-3.5" /> Chế độ Khóa sơ đồ (An toàn)
+                 <Lock className="w-3.5 h-3.5" /> Chế độ Khóa sơ đồ (An toàn)
               </>
             )}
           </button>
@@ -340,7 +338,7 @@ export default function TableMap({
                     </button>
                   ) : (
                     <span className="text-[10px] text-on-surface-variant font-bold flex items-center gap-0.5">
-                      <Users className="w-2.5 h-2.5" /> {t.capacity}
+                       <Users className="w-2.5 h-2.5" /> {t.capacity}
                     </span>
                   )}
                 </div>
@@ -352,7 +350,7 @@ export default function TableMap({
                     className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-tertiary-container text-on-tertiary-container border border-tertiary-container flex items-center gap-1 self-start"
                     title="Xem / sửa thông tin đặt bàn trước"
                   >
-                    <Calendar className="w-2.5 h-2.5" /> Đã đặt: {t.reservationName}
+                     <Calendar className="w-2.5 h-2.5" /> Đã đặt: {t.reservationName}
                   </button>
                 )}
 
@@ -463,7 +461,7 @@ export default function TableMap({
           <div className="bg-surface-container-lowest rounded-3xl border border-outline-variant max-w-sm w-full p-6 shadow-xl space-y-4">
             <div className="flex justify-between items-center pb-3 border-b border-outline-variant">
               <h3 className="text-sm font-black text-on-surface uppercase flex items-center gap-1.5">
-                <Calendar className="w-4 h-4 text-tertiary" /> Đặt bàn trước
+                 <Calendar className="w-4 h-4 text-tertiary" /> Đặt bàn trước
               </h3>
               <button
                 onClick={() => setReservationTableId(null)}

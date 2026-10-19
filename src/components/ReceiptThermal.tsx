@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Printer, X, Check, ShieldAlert } from 'lucide-react';
+import { X, Check } from 'lucide-react';
 import { Order } from '../types';
 
 interface ReceiptThermalProps {
@@ -219,7 +219,7 @@ export default function ReceiptThermal({
             onClick={handleNativePrint}
             className="flex-1 py-3 px-4 bg-primary hover:brightness-110 text-white rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-lg shadow-emerald-500/10"
           >
-            <Printer className="w-4 h-4" /> IN HÓA ĐƠN NHIỆT (80mm)
+             IN HÓA ĐƠN NHIỆT (80mm)
           </button>
           
           <button

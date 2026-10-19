@@ -251,6 +251,9 @@ export const COLLECTIONS: Record<CollectionKey, CollectionSpec> = {
       reservation_phone: str(t.reservationPhone),
       reservation_time: str(t.reservationTime),
       reservation_note: str(t.reservationNote),
+      merged_into_id: str(t.mergedIntoId),
+      opened_at: str(t.openedAt),
+      guest_count: num(t.guestCount, 0),
       created_at: str(t.createdAt, nowIso()),
     }),
     fromRow: (r) => ({
@@ -267,6 +270,9 @@ export const COLLECTIONS: Record<CollectionKey, CollectionSpec> = {
       reservationPhone: r.reservation_phone || undefined,
       reservationTime: r.reservation_time || undefined,
       reservationNote: r.reservation_note || undefined,
+      mergedIntoId: r.merged_into_id || undefined,
+      openedAt: r.opened_at || undefined,
+      guestCount: num(r.guest_count, 0) || undefined,
       createdAt: r.created_at,
     }),
   },
@@ -477,6 +483,7 @@ export const COLLECTIONS: Record<CollectionKey, CollectionSpec> = {
     orderBy: 'created_at ASC',
     toRow: (u, storeId) => ({
       uid: u.uid,
+      username: str(u.username),
       email: str(u.email),
       store_id: storeId,
       role: str(u.role, 'staff'),
@@ -488,6 +495,7 @@ export const COLLECTIONS: Record<CollectionKey, CollectionSpec> = {
     }),
     fromRow: (r) => ({
       uid: r.uid,
+      username: r.username || r.email,
       email: r.email,
       storeId: r.store_id,
       role: r.role,

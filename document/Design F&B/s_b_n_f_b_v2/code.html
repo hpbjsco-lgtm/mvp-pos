@@ -1,0 +1,102 @@
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "tertiary-fixed": "#ffdcc3", "secondary-fixed": "#7efba4", "primary-fixed": "#cee5ff", "surface": "#f8f9fa", "on-background": "#191c1d", "outline-variant": "#c0c7d1", "on-surface": "#191c1d", "on-surface-variant": "#404750", "on-secondary-fixed-variant": "#005228", "primary": "#005889", "secondary": "#006d37", "secondary-fixed-dim": "#61de8a", "surface-container-lowest": "#ffffff", "background": "#f8f9fa", "primary-fixed-dim": "#96ccff", "surface-container-high": "#e7e8e9", "inverse-primary": "#96ccff", "tertiary": "#804400", "on-error-container": "#93000a", "primary-container": "#0071af", "on-tertiary-fixed-variant": "#6e3900", "on-secondary-fixed": "#00210c", "tertiary-fixed-dim": "#ffb77d", "outline": "#707881", "on-secondary-container": "#007239", "error": "#ba1a1a", "on-tertiary-fixed": "#2f1500", "surface-dim": "#d9dadb", "on-secondary": "#ffffff", "error-container": "#ffdad6", "inverse-on-surface": "#f0f1f2", "on-primary-fixed-variant": "#004a75", "surface-bright": "#f8f9fa", "on-tertiary-container": "#ffeadc", "on-primary": "#ffffff", "on-error": "#ffffff", "on-primary-container": "#e3efff", "surface-tint": "#00639a", "inverse-surface": "#2e3132", "surface-container": "#edeeef", "on-primary-fixed": "#001d32", "surface-container-low": "#f3f4f5", "tertiary-container": "#a25909", "on-tertiary": "#ffffff", "secondary-container": "#7bf8a1", "surface-variant": "#e1e3e4", "surface-container-highest": "#e1e3e4" }, "borderRadius": { "DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem" }, "spacing": { "stack-sm": "8px", "stack-lg": "24px", "stack-md": "16px", "margin-mobile": "16px", "gutter": "16px", "touch-target-min": "48px" }, "fontFamily": { "button-text": ["Inter"], "headline-lg": ["Inter"], "label-bold": ["Inter"], "body-md": ["Inter"], "headline-md": ["Inter"], "body-lg": ["Inter"] }, "fontSize": { "button-text": ["18px", { "lineHeight": "24px", "fontWeight": "600" }], "headline-lg": ["24px", { "lineHeight": "32px", "fontWeight": "700" }], "label-bold": ["14px", { "lineHeight": "20px", "letterSpacing": "0.02em", "fontWeight": "600" }], "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }], "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }], "body-lg": ["18px", { "lineHeight": "26px", "fontWeight": "400" }] } } } };</script><style>@layer base { body { overscroll-behavior: none; } .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); } .pt-safe { padding-top: env(safe-area-inset-top, 0px); } } .no-scrollbar::-webkit-scrollbar { display: none; } .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }</style><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head><body class="bg-background font-body-md text-on-surface"><header class="fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-xl pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-16 px-margin-mobile flex items-center justify-between gap-gutter"><div class="flex items-center gap-stack-sm"><img alt="POS Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1XS-bLWx6W3qZZ3SQdOM6M_GmAJJ7zWsfIAJaIBrBrXcVFlIB3FSEkm7rM3fE0mBKzSZDRbW-yUbBmRbSra_UqXLyFncssBY_Wya5ZKQSpBqlIC-eYSef2aeaDNtLLNhLaSVFd7siq2ImedSNIOD3oS772nEYR09gSuAjWLlv65fYGtilUemaB7wdYIsFkfvI5wzIcONAa6LppwJegFRdvFIHHZzi1azR0CG-s37ZCaD10r8zCz1_GS0Sw"/><span class="font-headline-md text-headline-md text-primary tracking-tight">Tables</span></div><div class="flex items-center gap-stack-md"><button class="w-touch-target-min h-touch-target-min flex items-center justify-center text-on-surface-variant"><span class="material-symbols-outlined">search</span></button><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="relative w-full pt-16 bg-surface min-h-screen pb-32"><div class="flex flex-col w-full h-full pb-32">
+<!-- Top Control Bar -->
+<div class="flex items-center justify-between px-margin-mobile py-stack-md bg-surface z-10 sticky top-16 shadow-[0_4px_16px_rgba(0,0,0,0.03)]">
+<div class="flex gap-stack-sm overflow-x-auto no-scrollbar pb-1">
+<button class="px-4 py-2 rounded-full bg-primary text-on-primary font-label-bold whitespace-nowrap shadow-sm">
+        Trong nhà (Tầng 1)
+      </button>
+<button class="px-4 py-2 rounded-full bg-surface-container text-on-surface-variant font-label-bold whitespace-nowrap transition-colors hover:bg-surface-variant">
+        Sân thượng
+      </button>
+<button class="px-4 py-2 rounded-full bg-surface-container text-on-surface-variant font-label-bold whitespace-nowrap transition-colors hover:bg-surface-variant">
+        Phòng VIP
+      </button>
+</div>
+</div>
+<!-- Status Legend -->
+<div class="px-margin-mobile py-stack-sm flex items-center justify-center gap-4 bg-surface-container-low text-xs font-label-bold text-on-surface-variant">
+<div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded-full bg-surface-container-high shadow-inner"></div>Trống</div>
+<div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded-full bg-primary shadow-sm"></div>Đang dùng</div>
+<div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded-full bg-tertiary shadow-sm"></div>Đã đặt</div>
+</div>
+<!-- Table Map Area -->
+<div class="relative flex-1 p-margin-mobile bg-surface-container-low overflow-hidden min-h-[600px]" id="table-map-container">
+<!-- Table Grid (Indoor Zone) -->
+<div class="grid grid-cols-2 gap-gutter relative h-full">
+<!-- Table 1: Occupied -->
+<button class="relative aspect-square rounded-2xl bg-primary text-on-primary shadow-md flex flex-col items-center justify-center transition-transform active:scale-95 group">
+<span class="font-headline-lg-mobile">Bàn 01</span>
+<div class="mt-2 text-center opacity-90">
+<span class="font-label-bold block text-[12px]">2 Khách</span>
+<span class="font-label-bold block text-[13px]">450,000đ</span>
+</div>
+<div class="absolute -top-2 -right-2 w-8 h-8 bg-surface rounded-full flex items-center justify-center shadow-sm text-primary font-bold text-xs group-active:scale-90 transition-transform">
+           35'
+        </div>
+</button>
+<!-- Table 2: Empty -->
+<button class="relative aspect-square rounded-2xl bg-surface-container-lowest text-on-surface shadow-sm border border-surface-container-highest flex flex-col items-center justify-center transition-transform active:scale-95">
+<span class="font-headline-lg-mobile text-on-surface-variant">Bàn 02</span>
+<span class="mt-1 font-label-bold text-[12px] text-outline">Trống (4 ghế)</span>
+</button>
+<!-- Table 3: Reserved -->
+<button class="relative aspect-square rounded-2xl bg-tertiary-fixed text-on-tertiary-fixed shadow-sm flex flex-col items-center justify-center transition-transform active:scale-95 group">
+<span class="material-symbols-outlined mb-1 text-[28px] opacity-80">event_available</span>
+<span class="font-headline-lg-mobile">Bàn 03</span>
+<div class="mt-1 text-center opacity-90">
+<span class="font-label-bold block text-[12px]">19:00 - Anh Tuấn</span>
+</div>
+</button>
+<!-- Table 4: Occupied -->
+<button class="relative aspect-square rounded-2xl bg-primary text-on-primary shadow-md flex flex-col items-center justify-center transition-transform active:scale-95 group">
+<span class="font-headline-lg-mobile">Bàn 04</span>
+<div class="mt-2 text-center opacity-90">
+<span class="font-label-bold block text-[12px]">4 Khách</span>
+<span class="font-label-bold block text-[13px]">1,250,000đ</span>
+</div>
+<div class="absolute -top-2 -right-2 w-8 h-8 bg-surface rounded-full flex items-center justify-center shadow-sm text-primary font-bold text-xs group-active:scale-90 transition-transform">
+           1h
+        </div>
+</button>
+<!-- Table 5: Empty -->
+<button class="relative aspect-[2/1] col-span-2 rounded-2xl bg-surface-container-lowest text-on-surface shadow-sm border border-surface-container-highest flex flex-col items-center justify-center transition-transform active:scale-95">
+<span class="font-headline-lg-mobile text-on-surface-variant">Bàn Dài 01 (VIP)</span>
+<span class="mt-1 font-label-bold text-[12px] text-outline">Trống (8 ghế)</span>
+</button>
+</div>
+</div>
+<!-- Design Mode Toggle (Floating) -->
+<div class="fixed bottom-24 right-margin-mobile z-40 flex items-center gap-3 bg-surface-container-highest px-4 py-3 rounded-full shadow-lg">
+<span class="font-label-bold text-on-surface text-[13px]">Chế độ sửa</span>
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" id="design-mode-toggle" type="checkbox"/>
+<div class="w-11 h-6 bg-outline-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-secondary"></div>
+</label>
+</div>
+</div>
+<script>
+  document.getElementById('design-mode-toggle').addEventListener('change', function(e) {
+    const container = document.getElementById('table-map-container');
+    const tables = container.querySelectorAll('button');
+    
+    if(e.target.checked) {
+      container.classList.add('bg-[linear-gradient(rgba(0,0,0,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,0.05)_1px,transparent_1px)]', 'bg-[size:20px_20px]');
+      tables.forEach(table => {
+        table.classList.add('animate-pulse', 'border-dashed', 'border-2', 'border-primary');
+        table.classList.remove('active:scale-95');
+      });
+    } else {
+      container.classList.remove('bg-[linear-gradient(rgba(0,0,0,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,0.05)_1px,transparent_1px)]', 'bg-[size:20px_20px]');
+      tables.forEach(table => {
+        table.classList.remove('animate-pulse', 'border-dashed', 'border-2', 'border-primary');
+        table.classList.add('active:scale-95');
+      });
+    }
+  });
+</script></main><nav class="fixed bottom-0 w-full z-50 pb-safe bg-surface/80 backdrop-blur-xl shadow-[0_-1px_8px_rgba(0,0,0,0.04)]" data-active-classes="text-primary font-bold"><div class="flex items-center justify-around h-16 px-gutter"><a class="flex flex-col items-center justify-center gap-1 min-w-[64px] text-on-surface-variant transition-colors" data-path="sales" href="#"><span class="material-symbols-outlined">point_of_sale</span><span class="text-[11px] font-medium">Bán hàng</span></a><a class="flex flex-col items-center justify-center gap-1 min-w-[64px] text-primary font-bold transition-colors" data-path="inventory" href="#"><span class="material-symbols-outlined">grid_view</span><span class="text-[11px] font-medium">Sơ đồ/Kho</span></a><a class="flex flex-col items-center justify-center gap-1 min-w-[64px] text-on-surface-variant transition-colors" data-path="invoices" href="#"><span class="material-symbols-outlined">receipt_long</span><span class="text-[11px] font-medium">Hóa đơn</span></a><a class="flex flex-col items-center justify-center gap-1 min-w-[64px] text-on-surface-variant transition-colors" data-path="reports" href="#"><span class="material-symbols-outlined">analytics</span><span class="text-[11px] font-medium">Báo cáo</span></a></div></nav></body></html>

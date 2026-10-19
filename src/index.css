@@ -5,45 +5,46 @@
 @import "@fontsource-variable/inter";
 
 /* ------------------------------------------------------------------ */
-/* Design tokens — Material Design 3 (bảng màu "Blue")                 */
+/* Design tokens — Material Design 3 (bảng màu cam đất, nền ấm)       */
 /* Dùng dần cho từng màn hình khi làm lại giao diện, bắt đầu từ POS.    */
 /* Sinh tự động thành utility: bg-primary, text-on-surface, v.v.        */
 /* ------------------------------------------------------------------ */
 @theme {
   --font-sans: 'Inter Variable', 'Inter', system-ui, -apple-system, sans-serif;
 
-  --color-primary: #0d5cab;
-  --color-primary-container: #d5e6ff;
+  /* Màu chủ đạo: cam đất (tham khảo tông cam của Claude) trên nền trung tính ấm */
+  --color-primary: #c15f3c;
+  --color-primary-container: #f8e3d8;
   --color-on-primary: #ffffff;
-  --color-on-primary-container: #001c3b;
+  --color-on-primary-container: #3a1507;
 
-  --color-secondary: #2e8b3d;
-  --color-secondary-container: #c8f0c9;
+  /* Xanh lá: trạng thái "đang dùng" / thành công */
+  --color-secondary: #3f7d4e;
+  --color-secondary-container: #dcebd8;
   --color-on-secondary: #ffffff;
-  --color-on-secondary-container: #072b0c;
+  --color-on-secondary-container: #10281a;
 
-  --color-surface: #f7faff;
+  --color-surface: #faf9f5;
   --color-surface-container-lowest: #ffffff;
-  --color-surface-container-low: #eef4fc;
-  --color-surface-container: #e6eefb;
-  --color-surface-container-high: #dde8f7;
-  --color-surface-container-highest: #d3e1f3;
-  /* Đậm hơn bản MD3 gốc một chút để tăng độ tương phản, dễ đọc hơn cho người lớn tuổi */
-  --color-on-surface: #10161f;
-  --color-on-surface-variant: #38424f;
-  --color-outline: #6b7a8f;
-  --color-outline-variant: #c6d2e0;
+  --color-surface-container-low: #f4f2ec;
+  --color-surface-container: #ece9e0;
+  --color-surface-container-high: #e5e1d6;
+  --color-surface-container-highest: #ddd8cb;
+  --color-on-surface: #1f1e1d;
+  --color-on-surface-variant: #55524b;
+  --color-outline: #8a867c;
+  --color-outline-variant: #dad6ca;
 
   --color-error: #ba1a1a;
   --color-error-container: #ffdad6;
   --color-on-error: #ffffff;
   --color-on-error-container: #410002;
 
-  /* Vai trò thứ 3: cảnh báo / trạng thái chờ (hạn dùng cận kề, đang xử lý...) */
-  --color-tertiary: #8a5100;
-  --color-tertiary-container: #ffddb1;
+  /* Vàng nghệ: cảnh báo / bàn gộp / trạng thái chờ */
+  --color-tertiary: #8a6a00;
+  --color-tertiary-container: #f6e7b4;
   --color-on-tertiary: #ffffff;
-  --color-on-tertiary-container: #2b1700;
+  --color-on-tertiary-container: #2b2000;
 }
 
 /* ------------------------------------------------------------------ */
@@ -64,7 +65,7 @@
     @apply bg-primary text-on-primary hover:brightness-110 shadow-sm;
   }
   .m3-btn-tonal {
-    @apply bg-secondary-container text-on-secondary-container hover:brightness-95;
+    @apply bg-primary-container text-on-primary-container hover:brightness-95;
   }
   .m3-btn-outlined {
     @apply border border-outline text-primary bg-transparent hover:bg-primary-container/40;
@@ -93,7 +94,7 @@
       transition-colors cursor-pointer select-none;
   }
   .m3-chip-selected {
-    @apply bg-secondary-container border-secondary-container text-on-secondary-container;
+    @apply bg-primary-container border-primary-container text-on-primary-container;
   }
 
   /* Badge trạng thái (còn hàng/hết hàng, hoạt động/đã hủy, cận hạn...) */
@@ -143,6 +144,11 @@
   --safe-right: env(safe-area-inset-right, 0px);
 }
 
+html {
+  /* Chữ và nút lớn hơn một chút (17px) để dễ thao tác trên máy tính bảng / điện thoại */
+  font-size: 17px;
+}
+
 html,
 body,
 #root {
@@ -156,7 +162,8 @@ body {
   overscroll-behavior: none;
   -webkit-tap-highlight-color: transparent;
   -webkit-font-smoothing: antialiased;
-  background-color: #f8fafc;
+  background-color: #f4f2ec;
+  color: #1f1e1d;
 }
 
 /* Không cho người dùng bôi đen chữ khi bấm nhanh trên máy bán hàng */
@@ -198,20 +205,86 @@ textarea {
 }
 
 @media print {
-  /* Khi in hoá đơn nhiệt chỉ hiện phần hoá đơn */
+  /* Khi in hoá đơn nhiệt chỉ hiện phần hoá đơn (#print-area trong ReceiptThermal) */
   body * {
     visibility: hidden;
   }
 
-  #thermal-receipt-printable,
-  #thermal-receipt-printable * {
+  /* Gỡ các ràng buộc của khung modal (fixed / overflow / blur) để hoá đơn không bị cắt hoặc lệch */
+  #receipt-thermal-modal,
+  #receipt-thermal-modal * {
+    overflow: visible !important;
+    max-height: none !important;
+    backdrop-filter: none !important;
+  }
+
+  #receipt-thermal-modal {
+    position: static !important;
+    background: none !important;
+  }
+
+  #print-area,
+  #print-area * {
     visibility: visible;
   }
 
-  #thermal-receipt-printable {
+  /* Không ép khổ giấy (size) vì một số driver máy in nhiệt từ chối khổ tùy chỉnh và treo hàng đợi;
+     khổ giấy do cài đặt máy in quyết định, ở đây chỉ bỏ lề. */
+  @page {
+    margin: 0;
+  }
+
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  #print-area {
     position: absolute;
     left: 0;
     top: 0;
-    width: 80mm;
+    width: 76mm;
+    padding: 2mm 3mm !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: #fff !important;
+    color: #000 !important;
+    /* Font sans-serif hệ thống có đủ dấu tiếng Việt (Courier New thường thiếu glyph) */
+    font-family: Arial, 'Helvetica Neue', Roboto, sans-serif !important;
+    font-size: 12px !important;
+    line-height: 1.35 !important;
+  }
+
+  /* Đồng nhất font + màu đen cho mọi phần tử, bỏ cỡ chữ tí hon (9-11px) của bản xem trên màn hình */
+  #print-area * {
+    font-family: inherit !important;
+    color: #000 !important;
+    font-size: 12px !important;
+    letter-spacing: normal !important;
+  }
+
+  #print-area h4 {
+    font-size: 16px !important;
+    font-weight: 800 !important;
+  }
+
+  #print-area h5,
+  #print-area .text-xs {
+    font-size: 14px !important;
+    font-weight: 700 !important;
+  }
+
+  /* Tên món dài được xuống dòng thay vì bị cắt */
+  #print-area .truncate {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+  }
+
+  /* Bỏ họa tiết răng cưa trang trí và nền xám khi in */
+  #print-area > div[class*="absolute"] {
+    display: none !important;
   }
 }

@@ -1,0 +1,204 @@
+<!DOCTYPE html><html lang="vi"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "surface-container-lowest": "#ffffff", "surface-container-highest": "#e1e3e4", "surface-dim": "#d9dadb", "inverse-surface": "#2e3132", "on-tertiary-container": "#ffeadc", "surface-tint": "#00639a", "surface-container-low": "#f3f4f5", "on-error": "#ffffff", "error": "#ba1a1a", "on-tertiary": "#ffffff", "background": "#f8f9fa", "on-tertiary-fixed": "#2f1500", "on-primary-fixed": "#001d32", "secondary-fixed-dim": "#61de8a", "on-secondary-fixed": "#00210c", "on-secondary": "#ffffff", "inverse-primary": "#96ccff", "inverse-on-surface": "#f0f1f2", "on-primary": "#ffffff", "secondary-container": "#7bf8a1", "on-secondary-container": "#007239", "on-background": "#191c1d", "on-surface": "#191c1d", "on-tertiary-fixed-variant": "#6e3900", "primary-container": "#0071af", "tertiary-container": "#a25909", "tertiary-fixed-dim": "#ffb77d", "tertiary": "#804400", "on-secondary-fixed-variant": "#005228", "outline-variant": "#c0c7d1", "on-primary-fixed-variant": "#004a75", "on-surface-variant": "#404750", "primary-fixed-dim": "#96ccff", "surface-container": "#edeeef", "on-error-container": "#93000a", "surface-bright": "#f8f9fa", "on-primary-container": "#e3efff", "error-container": "#ffdad6", "secondary-fixed": "#7efba4", "surface-container-high": "#e7e8e9", "surface-variant": "#e1e3e4", "secondary": "#006d37", "outline": "#707881", "primary-fixed": "#cee5ff", "tertiary-fixed": "#ffdcc3", "primary": "#005889", "surface": "#f8f9fa" }, "borderRadius": { "DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem" }, "spacing": { "margin-mobile": "16px", "touch-target-min": "48px", "stack-sm": "8px", "gutter": "16px", "stack-lg": "24px", "stack-md": "16px" }, "fontFamily": { "label-bold": ["Inter"], "body-lg": ["Inter"], "headline-md": ["Inter"], "headline-lg": ["Inter"], "button-text": ["Inter"], "body-md": ["Inter"] } } } }</script><style>@layer base { body { -webkit-tap-highlight-color: transparent; } .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); } .pt-safe { padding-top: env(safe-area-inset-top, 0px); } } .no-scrollbar::-webkit-scrollbar { display: none; } </style><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head><body class="bg-background font-body-md text-on-background min-h-screen"><header class="fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-xl pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-16 flex items-center justify-between px-margin-mobile"><div class="flex items-center gap-stack-sm"><img alt="Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1XS-bLWx6W3qZZ3SQdOM6M_GmAJJ7zWsfIAJaIBrBrXcVFlIB3FSEkm7rM3fE0mBKzSZDRbW-yUbBmRbSra_UqXLyFncssBY_Wya5ZKQSpBqlIC-eYSef2aeaDNtLLNhLaSVFd7siq2ImedSNIOD3oS772nEYR09gSuAjWLlv65fYGtilUemaB7wdYIsFkfvI5wzIcONAa6LppwJegFRdvFIHHZzi1azR0CG-s37ZCaD10r8zCz1_GS0Sw"><h1 class="font-headline-md text-headline-md text-primary">Khách hàng</h1></div><div class="flex items-center gap-stack-md"><button class="w-touch-target-min h-touch-target-min flex items-center justify-center"><span class="material-symbols-outlined text-on-surface-variant">search</span></button><img alt="Profile" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida/AEtjO1WQie872-uYTbMUNe0x0gFghcA-eRWRRklmT2ME4KAO-30T3s87j9MleIhj-CUoTb-K6vHdcHhGnaYymYbD870aPgt0F9FtEEQeagf0K_BjgwxuFn_HQ-jlx6tJud9SMOBFZ7aG8Rf-LFlztaNRQodP746Jbu97BBmUw8bUaeGM-ByTx9TAZWbwG71AUh6Bn5aCbjujhzSAX6PkNOvXJPBWce8wDTl-aH__lLYrZCptYbTxr8ETDCOkhT4"></div></div></header><main class="pt-16 pb-24 bg-background min-h-screen"><div class="flex flex-col w-full gap-gutter px-margin-mobile">
+<!-- Search and Action Bar -->
+<div class="flex flex-col gap-stack-md mt-margin-mobile">
+<div class="flex items-center gap-stack-sm bg-surface-container rounded-full px-4 py-2 w-full shadow-sm">
+<span class="material-symbols-outlined text-on-surface-variant">search</span>
+<input class="bg-transparent outline-none border-none text-body-md text-on-surface placeholder:text-on-surface-variant w-full" id="searchInput" placeholder="Tìm theo Tên hoặc Số điện thoại..." type="text">
+<button class="hidden items-center justify-center w-8 h-8 rounded-full bg-surface text-on-surface-variant hover:bg-surface-variant transition-colors" id="clearSearch">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+<div class="flex items-center justify-between">
+<!-- Filter Chips -->
+<div class="flex gap-stack-sm overflow-x-auto no-scrollbar pb-1">
+<button class="whitespace-nowrap px-4 py-1.5 rounded-full bg-primary text-on-primary font-label-bold text-label-bold transition-colors shadow-sm active-chip">
+                    Tất cả
+                </button>
+<button class="whitespace-nowrap px-4 py-1.5 rounded-full bg-surface-container text-on-surface-variant font-label-bold text-label-bold transition-colors chip">
+                    Kim cương
+                </button>
+<button class="whitespace-nowrap px-4 py-1.5 rounded-full bg-surface-container text-on-surface-variant font-label-bold text-label-bold transition-colors chip">
+                    Vàng
+                </button>
+<button class="whitespace-nowrap px-4 py-1.5 rounded-full bg-surface-container text-on-surface-variant font-label-bold text-label-bold transition-colors chip">
+                    Bạc
+                </button>
+</div>
+<!-- Add Customer Button -->
+<button class="flex items-center gap-1 bg-secondary text-on-secondary px-3 py-2 rounded-lg font-label-bold text-label-bold shadow-md active:scale-95 transition-transform shrink-0 ml-2">
+<span class="material-symbols-outlined text-[20px]">person_add</span>
+<span class="hidden sm:inline">Thêm mới</span>
+</button>
+</div>
+</div>
+<!-- Customer List -->
+<div class="flex flex-col gap-stack-md mt-stack-sm pb-safe">
+<!-- Customer Card: Diamond -->
+<div class="bg-surface rounded-xl p-4 shadow-sm flex flex-col gap-3 relative overflow-hidden group active:bg-surface-container-low transition-colors">
+<!-- Decorative accent for tier -->
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-primary to-primary-container"></div>
+<div class="flex justify-between items-start pl-2">
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 rounded-full bg-primary-container/20 flex items-center justify-center text-primary font-headline-md text-headline-md">
+                        NT
+                    </div>
+<div>
+<h3 class="font-headline-md text-headline-md text-on-surface">Nguyễn Thị Thanh</h3>
+<p class="text-body-md text-on-surface-variant">0901 234 567</p>
+</div>
+</div>
+<div class="bg-primary/10 text-primary px-2 py-1 rounded-md flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-primary" style="font-variation-settings: 'FILL' 1;">diamond</span>
+<span class="font-label-bold text-[12px] uppercase">Kim cương</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 mt-2 pl-2">
+<div>
+<p class="text-[12px] text-on-surface-variant mb-1">Tổng chi tiêu</p>
+<p class="font-label-bold text-on-surface">45.500.000 ₫</p>
+</div>
+<div>
+<p class="text-[12px] text-on-surface-variant mb-1">Điểm tích lũy</p>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-tertiary">stars</span>
+<p class="font-label-bold text-on-surface">1,250 pt</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Customer Card: Gold -->
+<div class="bg-surface rounded-xl p-4 shadow-sm flex flex-col gap-3 relative overflow-hidden active:bg-surface-container-low transition-colors">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-tertiary-container"></div>
+<div class="flex justify-between items-start pl-2">
+<div class="flex items-center gap-3">
+<img class="w-12 h-12 rounded-full object-cover shadow-sm" data-alt="A professional headshot portrait of a middle-aged Asian man with glasses, smiling warmly. Soft studio lighting, neutral background, high resolution, corporate style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAUjzKrvQ802fBrFuoKSsjoJrErexAa-MEGECsICDYGzAcZD-Oznn7h1umwFlQ0hAOPII0-tlGUdY047aLdWUuBR1xJjZGZ2sXy9yD-TUxE77PXXyM_Z3izJQJtTiGzlFHbXi9J-ZCeXINlihoBzNzfuh3J1KCKggFwnXkk6GWgKQngBp1l6QFa-SpD8jBNC2nRcLW91QvShcRM1zyBVikib6Q-TpCieNSwP3D3nmJb077W_3scaRbFcA">
+<div>
+<h3 class="font-headline-md text-headline-md text-on-surface">Trần Văn Hùng</h3>
+<p class="text-body-md text-on-surface-variant">0987 654 321</p>
+</div>
+</div>
+<div class="bg-tertiary-container/10 text-tertiary-container px-2 py-1 rounded-md flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-tertiary-container">military_tech</span>
+<span class="font-label-bold text-[12px] uppercase">Vàng</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 mt-2 pl-2">
+<div>
+<p class="text-[12px] text-on-surface-variant mb-1">Tổng chi tiêu</p>
+<p class="font-label-bold text-on-surface">12.800.000 ₫</p>
+</div>
+<div>
+<p class="text-[12px] text-on-surface-variant mb-1">Điểm tích lũy</p>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-tertiary">stars</span>
+<p class="font-label-bold text-on-surface">450 pt</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Customer Card: Silver -->
+<div class="bg-surface rounded-xl p-4 shadow-sm flex flex-col gap-3 relative overflow-hidden active:bg-surface-container-low transition-colors">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-outline"></div>
+<div class="flex justify-between items-start pl-2">
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface font-headline-md text-headline-md">
+                        LM
+                    </div>
+<div>
+<h3 class="font-headline-md text-headline-md text-on-surface">Lê Hoàng Minh</h3>
+<p class="text-body-md text-on-surface-variant">0933 445 566</p>
+</div>
+</div>
+<div class="bg-surface-container text-on-surface-variant px-2 py-1 rounded-md flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">workspace_premium</span>
+<span class="font-label-bold text-[12px] uppercase">Bạc</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 mt-2 pl-2">
+<div>
+<p class="text-[12px] text-on-surface-variant mb-1">Tổng chi tiêu</p>
+<p class="font-label-bold text-on-surface">4.200.000 ₫</p>
+</div>
+<div>
+<p class="text-[12px] text-on-surface-variant mb-1">Điểm tích lũy</p>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-tertiary">stars</span>
+<p class="font-label-bold text-on-surface">120 pt</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Customer Card: Standard/New -->
+<div class="bg-surface rounded-xl p-4 shadow-sm flex flex-col gap-3 relative overflow-hidden active:bg-surface-container-low transition-colors">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant font-headline-md text-headline-md">
+                        PA
+                    </div>
+<div>
+<h3 class="font-headline-md text-headline-md text-on-surface">Phạm Thị Lan Anh</h3>
+<p class="text-body-md text-on-surface-variant">0912 987 654</p>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 mt-2">
+<div>
+<p class="text-[12px] text-on-surface-variant mb-1">Tổng chi tiêu</p>
+<p class="font-label-bold text-on-surface">850.000 ₫</p>
+</div>
+<div>
+<p class="text-[12px] text-on-surface-variant mb-1">Điểm tích lũy</p>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant">stars</span>
+<p class="font-label-bold text-on-surface">25 pt</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<script>
+    // Search input clear logic
+    const searchInput = document.getElementById('searchInput');
+    const clearSearch = document.getElementById('clearSearch');
+
+    searchInput.addEventListener('input', (e) => {
+        if(e.target.value.length > 0) {
+            clearSearch.classList.remove('hidden');
+            clearSearch.classList.add('flex');
+        } else {
+            clearSearch.classList.add('hidden');
+            clearSearch.classList.remove('flex');
+        }
+    });
+
+    clearSearch.addEventListener('click', () => {
+        searchInput.value = '';
+        clearSearch.classList.add('hidden');
+        clearSearch.classList.remove('flex');
+        searchInput.focus();
+    });
+
+    // Chip selection logic
+    const chips = document.querySelectorAll('.chip, .active-chip');
+    chips.forEach(chip => {
+        chip.addEventListener('click', function() {
+            // Remove active classes from all
+            chips.forEach(c => {
+                c.classList.remove('bg-primary', 'text-on-primary', 'active-chip');
+                c.classList.add('bg-surface-container', 'text-on-surface-variant', 'chip');
+            });
+            // Add active classes to clicked
+            this.classList.remove('bg-surface-container', 'text-on-surface-variant', 'chip');
+            this.classList.add('bg-primary', 'text-on-primary', 'active-chip');
+        });
+    });
+</script></main><nav class="fixed bottom-0 w-full z-50 bg-surface/80 backdrop-blur-xl pb-safe shadow-[0_-1px_8px_rgba(0,0,0,0.04)]" data-active-classes="text-primary"><div class="flex justify-around items-center h-16 px-2"><a class="flex flex-col items-center justify-center min-w-[64px] h-full text-on-surface-variant gap-1" data-path="ban-hang" href="#"><span class="material-symbols-outlined">point_of_sale</span><span class="font-label-bold text-[10px] uppercase">Bán hàng</span></a><a aria-current="page" class="flex flex-col items-center justify-center min-w-[64px] h-full gap-1 text-primary" data-path="don-hang" href="#"><span class="material-symbols-outlined">receipt_long</span><span class="font-label-bold text-[10px] uppercase">Đơn hàng</span></a><a class="flex flex-col items-center justify-center min-w-[64px] h-full text-on-surface-variant gap-1" data-path="san-pham" href="#"><span class="material-symbols-outlined">inventory_2</span><span class="font-label-bold text-[10px] uppercase">Sản phẩm</span></a><a class="flex flex-col items-center justify-center min-w-[64px] h-full text-on-surface-variant gap-1" data-path="so-quy" href="#"><span class="material-symbols-outlined">account_balance_wallet</span><span class="font-label-bold text-[10px] uppercase">Sổ quỹ</span></a><a class="flex flex-col items-center justify-center min-w-[64px] h-full text-on-surface-variant gap-1" data-path="bao-cao" href="#"><span class="material-symbols-outlined">leaderboard</span><span class="font-label-bold text-[10px] uppercase">Báo cáo</span></a></div></nav>
+
+</body></html>

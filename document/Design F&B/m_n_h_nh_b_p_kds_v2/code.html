@@ -1,0 +1,200 @@
+<html lang="vi"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "surface-container-lowest": "#ffffff", "surface-container-highest": "#e1e3e4", "surface-dim": "#d9dadb", "inverse-surface": "#2e3132", "on-tertiary-container": "#ffeadc", "surface-tint": "#00639a", "surface-container-low": "#f3f4f5", "on-error": "#ffffff", "error": "#ba1a1a", "on-tertiary": "#ffffff", "background": "#f8f9fa", "on-tertiary-fixed": "#2f1500", "on-primary-fixed": "#001d32", "secondary-fixed-dim": "#61de8a", "on-secondary-fixed": "#00210c", "on-secondary": "#ffffff", "inverse-primary": "#96ccff", "inverse-on-surface": "#f0f1f2", "on-primary": "#ffffff", "secondary-container": "#7bf8a1", "on-secondary-container": "#007239", "on-background": "#191c1d", "on-surface": "#191c1d", "on-tertiary-fixed-variant": "#6e3900", "primary-container": "#0071af", "tertiary-container": "#a25909", "tertiary-fixed-dim": "#ffb77d", "tertiary": "#804400", "on-secondary-fixed-variant": "#005228", "outline-variant": "#c0c7d1", "on-primary-fixed-variant": "#004a75", "on-surface-variant": "#404750", "primary-fixed-dim": "#96ccff", "surface-container": "#edeeef", "on-error-container": "#93000a", "surface-bright": "#f8f9fa", "on-primary-container": "#e3efff", "error-container": "#ffdad6", "secondary-fixed": "#7efba4", "surface-container-high": "#e7e8e9", "surface-variant": "#e1e3e4", "secondary": "#006d37", "outline": "#707881", "primary-fixed": "#cee5ff", "tertiary-fixed": "#ffdcc3", "primary": "#005889", "surface": "#f8f9fa" }, "borderRadius": { "DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem" }, "spacing": { "margin-mobile": "16px", "touch-target-min": "48px", "stack-sm": "8px", "gutter": "16px", "stack-lg": "24px", "stack-md": "16px" }, "fontFamily": { "label-bold": ["Inter"], "body-lg": ["Inter"], "headline-md": ["Inter"], "headline-lg": ["Inter"], "button-text": ["Inter"], "body-md": ["Inter"] } } } }</script><style>@layer base { body { -webkit-tap-highlight-color: transparent; } .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); } .pt-safe { padding-top: env(safe-area-inset-top, 0px); } } .no-scrollbar::-webkit-scrollbar { display: none; } </style><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head><body class="bg-background font-body-md text-on-background min-h-screen"><header class="fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-xl pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-16 flex items-center justify-between px-margin-mobile"><div class="flex items-center gap-stack-sm"><img alt="Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1XS-bLWx6W3qZZ3SQdOM6M_GmAJJ7zWsfIAJaIBrBrXcVFlIB3FSEkm7rM3fE0mBKzSZDRbW-yUbBmRbSra_UqXLyFncssBY_Wya5ZKQSpBqlIC-eYSef2aeaDNtLLNhLaSVFd7siq2ImedSNIOD3oS772nEYR09gSuAjWLlv65fYGtilUemaB7wdYIsFkfvI5wzIcONAa6LppwJegFRdvFIHHZzi1azR0CG-s37ZCaD10r8zCz1_GS0Sw"/><h1 class="font-headline-md text-headline-md text-primary">Bán hàng</h1></div><div class="flex items-center gap-stack-md"><button class="w-touch-target-min h-touch-target-min flex items-center justify-center"><span class="material-symbols-outlined text-on-surface-variant">search</span></button><img alt="Profile" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida/AEtjO1WQie872-uYTbMUNe0x0gFghcA-eRWRRklmT2ME4KAO-30T3s87j9MleIhj-CUoTb-K6vHdcHhGnaYymYbD870aPgt0F9FtEEQeagf0K_BjgwxuFn_HQ-jlx6tJud9SMOBFZ7aG8Rf-LFlztaNRQodP746Jbu97BBmUw8bUaeGM-ByTx9TAZWbwG71AUh6Bn5aCbjujhzSAX6PkNOvXJPBWce8wDTl-aH__lLYrZCptYbTxr8ETDCOkhT4"/></div></div></header><main class="pt-16 pb-24 bg-background min-h-screen"><div class="flex flex-col w-full h-full gap-stack-md px-margin-mobile">
+<!-- Header Controls -->
+<div class="flex items-center justify-between mt-stack-md pb-stack-sm border-b border-surface-container-high shrink-0">
+<div class="flex items-center gap-stack-sm">
+<span class="material-symbols-outlined text-primary text-[28px]">local_cafe</span>
+<h2 class="font-headline-md text-on-surface">Khu vực pha chế</h2>
+</div>
+<div class="flex items-center gap-stack-sm">
+<div class="flex gap-2 bg-surface-container rounded-lg p-1">
+<button class="px-4 py-2 bg-surface rounded-md shadow-sm text-primary font-label-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-[18px]">receipt_long</span> Chờ làm (12)
+                </button>
+<button class="px-4 py-2 text-on-surface-variant font-label-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-[18px]">check_circle</span> Đã xong
+                </button>
+</div>
+<button class="w-touch-target-min h-touch-target-min flex items-center justify-center bg-surface-container rounded-lg text-on-surface hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined">filter_list</span>
+</button>
+</div>
+</div>
+<!-- Ticket Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-gutter pb-stack-lg overflow-y-auto" id="kds-grid">
+<!-- Ticket: Urgent (Red) -->
+<div class="bg-surface rounded-xl shadow-md overflow-hidden border-t-4 border-error flex flex-col min-w-0" data-ticket-id="1">
+<div class="p-4 bg-error-container text-on-error-container flex justify-between items-start">
+<div>
+<h3 class="font-headline-lg font-bold">Bàn 06</h3>
+<p class="font-label-bold flex items-center gap-1 mt-1">
+<span class="material-symbols-outlined text-[16px]">schedule</span> 12 phút trước
+                    </p>
+</div>
+<div class="bg-error text-on-error px-2 py-1 rounded-md font-label-bold text-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">warning</span> Quá giờ
+                </div>
+</div>
+<div class="p-4 flex-1 flex flex-col gap-3">
+<!-- Item 1 -->
+<div class="flex gap-3 pb-3 border-b border-surface-container-high">
+<div class="font-headline-md font-bold text-error w-8 text-center shrink-0">x2</div>
+<div class="flex-1">
+<h4 class="font-body-lg font-bold text-on-surface">Classic Latte</h4>
+<div class="text-on-surface-variant font-body-md mt-1">• Kích cỡ M<br/>• Ít sữa đặc</div>
+</div>
+</div>
+<!-- Item 2 -->
+<div class="flex gap-3">
+<div class="font-headline-md font-bold text-primary w-8 text-center shrink-0">x1</div>
+<div class="flex-1">
+<h4 class="font-body-lg font-bold text-on-surface">Bạc Xỉu</h4>
+<div class="text-on-surface-variant font-body-md mt-1">• Kích cỡ M<br/>• Ít sữa đặc</div>
+<div class="mt-2 bg-tertiary-container/10 p-2 rounded-md border border-tertiary-container/30">
+<span class="font-label-bold text-tertiary">Ghi chú:</span> <span class="text-on-surface-variant text-sm">Khách mang thai, pha loãng xíu nhé</span>
+</div>
+</div>
+</div>
+</div>
+<div class="p-4 bg-surface-container-lowest border-t border-surface-container-high mt-auto grid grid-cols-2 gap-2">
+<button class="btn-processing h-12 bg-secondary-container text-on-secondary-container font-button-text rounded-lg flex items-center justify-center gap-2 hover:bg-secondary-fixed transition-colors active:scale-95 shadow-sm">
+<span class="material-symbols-outlined">blender</span> Đang làm
+                </button>
+<button class="btn-done h-12 bg-primary text-on-primary font-button-text rounded-lg flex items-center justify-center gap-2 hover:bg-primary-container hover:text-on-primary-container transition-colors active:scale-95 shadow-sm">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">check_circle</span> Xong
+                </button>
+</div>
+</div>
+<!-- Ticket: Normal (Blue) -->
+<div class="bg-surface rounded-xl shadow-md overflow-hidden border-t-4 border-primary flex flex-col min-w-0" data-ticket-id="2">
+<div class="p-4 bg-primary-container/10 text-on-surface flex justify-between items-start">
+<div>
+<h3 class="font-headline-lg font-bold text-primary">Mang đi #102</h3>
+<p class="font-label-bold flex items-center gap-1 mt-1 text-on-surface-variant">• Kích cỡ M</p>
+</div>
+<div class="bg-primary/10 text-primary px-2 py-1 rounded-md font-label-bold text-sm">
+                    Mới
+                </div>
+</div>
+<div class="p-4 flex-1 flex flex-col gap-3">
+<!-- Item 1 -->
+<div class="flex gap-3 pb-3 border-b border-surface-container-high">
+<div class="font-headline-md font-bold text-primary w-8 text-center shrink-0">x1</div>
+<div class="flex-1">
+<h4 class="font-body-lg font-bold text-on-surface">Cà phê sữa đá</h4>
+<div class="text-on-surface-variant font-body-md mt-1">• Kích cỡ L</div>
+</div>
+</div>
+<!-- Item 2 -->
+<div class="flex gap-3">
+<div class="font-headline-md font-bold text-primary w-8 text-center shrink-0">x3</div>
+<div class="flex-1">
+<h4 class="font-body-lg font-bold text-on-surface">Trà đào cam sả</h4>
+<div class="text-on-surface-variant font-body-md mt-1">• Kích cỡ L</div>
+</div>
+</div>
+</div>
+<div class="p-4 bg-surface-container-lowest border-t border-surface-container-high mt-auto grid grid-cols-2 gap-2">
+<button class="btn-processing h-12 bg-secondary-container text-on-secondary-container font-button-text rounded-lg flex items-center justify-center gap-2 hover:bg-secondary-fixed transition-colors active:scale-95 shadow-sm">
+<span class="material-symbols-outlined">blender</span> Đang làm
+                </button>
+<button class="btn-done h-12 bg-primary text-on-primary font-button-text rounded-lg flex items-center justify-center gap-2 hover:bg-primary-container hover:text-on-primary-container transition-colors active:scale-95 shadow-sm">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">check_circle</span> Xong
+                </button>
+</div>
+</div>
+<!-- Ticket: Warning (Orange/Amber) -->
+<div class="bg-surface rounded-xl shadow-md overflow-hidden border-t-4 border-tertiary flex flex-col min-w-0" data-ticket-id="3">
+<div class="p-4 bg-tertiary-container/10 flex justify-between items-start">
+<div>
+<h3 class="font-headline-lg font-bold text-tertiary">Bàn 12</h3>
+<p class="font-label-bold flex items-center gap-1 mt-1 text-tertiary/80">
+<span class="material-symbols-outlined text-[16px]">schedule</span> 08 phút trước
+                    </p>
+</div>
+<div class="bg-tertiary-container/20 text-tertiary px-2 py-1 rounded-md font-label-bold text-sm">
+                    Chờ vừa
+                </div>
+</div>
+<div class="p-4 flex-1 flex flex-col gap-3">
+<div class="flex gap-3">
+<div class="font-headline-md font-bold text-primary w-8 text-center shrink-0">x1</div>
+<div class="flex-1">
+<h4 class="font-body-lg font-bold text-on-surface">Matcha Đá Xay</h4>
+<div class="text-on-surface-variant font-body-md mt-1">• Kích cỡ L<br/>• Thêm thạch dừa</div>
+</div>
+</div>
+</div>
+<div class="p-4 bg-surface-container-lowest border-t border-surface-container-high mt-auto">
+<!-- Currently Processing State -->
+<div class="w-full flex gap-2">
+<div class="h-12 flex-1 bg-surface-variant text-on-surface-variant font-label-bold rounded-lg flex items-center justify-center gap-2 border border-surface-dim">• Kích cỡ L<br/>• Thêm thạch dừa</div>
+<button class="btn-done h-12 w-24 bg-primary text-on-primary font-button-text rounded-lg flex items-center justify-center hover:bg-primary-container hover:text-on-primary-container transition-colors active:scale-95 shadow-sm">
+                        Xong
+                    </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const grid = document.getElementById('kds-grid');
+        
+        grid.addEventListener('click', (e) => {
+            const btnDone = e.target.closest('.btn-done');
+            if (btnDone) {
+                const ticket = btnDone.closest('.bg-surface');
+                if (ticket) {
+                    // Add a nice exit animation
+                    ticket.style.transition = 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
+                    ticket.style.transform = 'scale(0.95) translateY(10px)';
+                    ticket.style.opacity = '0';
+                    
+                    setTimeout(() => {
+                        ticket.remove();
+                        // Check empty state
+                        if (grid.children.length === 0) {
+                            grid.innerHTML = `
+                                <div class="col-span-full flex flex-col items-center justify-center py-20 text-on-surface-variant opacity-80 animate-fade-in">
+                                    <span class="material-symbols-outlined text-[64px] mb-4 text-surface-dim">check_circle</span>
+                                    <h3 class="font-headline-md font-bold">Thật tuyệt vời!</h3>
+                                    <p class="font-body-md mt-2 text-center max-w-sm">Tất cả các món đã được hoàn thành. Bếp hiện đang trống.</p>
+                                </div>
+                            `;
+                        }
+                    }, 400);
+                }
+            }
+
+            const btnProcessing = e.target.closest('.btn-processing');
+            if (btnProcessing) {
+                 const container = btnProcessing.parentElement;
+                 container.innerHTML = `
+                    <div class="w-full flex gap-2 animate-fade-in">
+                        <div class="h-12 flex-1 bg-surface-variant text-on-surface-variant font-label-bold rounded-lg flex items-center justify-center gap-2 border border-surface-dim">
+                            <span class="material-symbols-outlined animate-spin">refresh</span> Đang làm...
+                        </div>
+                        <button class="btn-done h-12 w-24 bg-primary text-on-primary font-button-text rounded-lg flex items-center justify-center hover:bg-primary-container hover:text-on-primary-container transition-colors active:scale-95 shadow-sm">
+                            Xong
+                        </button>
+                    </div>
+                 `;
+            }
+        });
+    });
+</script>
+<style>
+    @keyframes fade-in {
+        from { opacity: 0; transform: translateY(5px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in {
+        animation: fade-in 0.3s ease-out forwards;
+    }
+</style></main><nav class="fixed bottom-0 w-full z-50 bg-surface/80 backdrop-blur-xl pb-safe shadow-[0_-1px_8px_rgba(0,0,0,0.04)]" data-active-classes="text-primary"><div class="flex justify-around items-center h-16 px-2"><a aria-current="page" class="flex flex-col items-center justify-center min-w-[64px] h-full gap-1 text-primary" data-path="ban-hang" href="#"><span class="material-symbols-outlined">point_of_sale</span><span class="font-label-bold text-[10px] uppercase">Bán hàng</span></a><a class="flex flex-col items-center justify-center min-w-[64px] h-full text-on-surface-variant gap-1" data-path="don-hang" href="#"><span class="material-symbols-outlined">receipt_long</span><span class="font-label-bold text-[10px] uppercase">Đơn hàng</span></a><a class="flex flex-col items-center justify-center min-w-[64px] h-full text-on-surface-variant gap-1" data-path="san-pham" href="#"><span class="material-symbols-outlined">inventory_2</span><span class="font-label-bold text-[10px] uppercase">Sản phẩm</span></a><a class="flex flex-col items-center justify-center min-w-[64px] h-full text-on-surface-variant gap-1" data-path="so-quy" href="#"><span class="material-symbols-outlined">account_balance_wallet</span><span class="font-label-bold text-[10px] uppercase">Sổ quỹ</span></a><a class="flex flex-col items-center justify-center min-w-[64px] h-full text-on-surface-variant gap-1" data-path="bao-cao" href="#"><span class="material-symbols-outlined">leaderboard</span><span class="font-label-bold text-[10px] uppercase">Báo cáo</span></a></div></nav></body></html>

@@ -18,7 +18,7 @@
  *     không mất order đang gọi (lỗi "không lưu được" của bản cũ).
  */
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 5;
 
 /** Các câu lệnh DDL, chạy tuần tự khi khởi tạo / nâng cấp DB. */
 export const MIGRATIONS: { version: number; statements: string[] }[] = [
@@ -451,6 +451,26 @@ export const MIGRATIONS: { version: number; statements: string[] }[] = [
         rev                    INTEGER NOT NULL DEFAULT 1
       );`,
       `CREATE INDEX IF NOT EXISTS idx_shifts_store_status ON shifts(store_id, status);`,
+    ],
+  },
+  {
+    version: 4,
+    statements: [
+      /* Gộp bàn / thời gian ngồi / số khách (F&B): lưu trên dining_tables.
+         merged_into_id = id bàn chính khi bàn này đang gộp chung (rỗng = không gộp). */
+      `ALTER TABLE dining_tables ADD COLUMN merged_into_id TEXT NOT NULL DEFAULT '';`,
+      `ALTER TABLE dining_tables ADD COLUMN opened_at TEXT NOT NULL DEFAULT '';`,
+      `ALTER TABLE dining_tables ADD COLUMN guest_count INTEGER NOT NULL DEFAULT 0;`,
+    ],
+  },
+  {
+    version: 5,
+    statements: [
+      /* Đăng nhập bằng tên tài khoản (username) thay cho email; email chỉ còn là email liên hệ / khôi phục mật khẩu.
+         Tài khoản cũ được gán username = email để vẫn đăng nhập được như trước. */
+      `ALTER TABLE users ADD COLUMN username TEXT NOT NULL DEFAULT '';`,
+      `UPDATE users SET username = lower(email) WHERE username = '';`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username) WHERE username <> '';`,
     ],
   },
 ];

@@ -4,15 +4,16 @@
  */
 
 export enum UserRole {
-  SYSADMIN = 'sysadmin',
-  OWNER = 'owner',
-  MANAGER = 'manager',
-  STAFF = 'staff'
+  OWNER = 'owner', // Chủ cửa hàng
+  MANAGER = 'manager', // Quản lý cửa hàng
+  STAFF = 'staff', // Nhân viên phục vụ / thu ngân
+  KITCHEN = 'kitchen' // Nhân viên bếp
 }
 
 export interface UserProfile {
   uid: string;
-  email: string;
+  username?: string; // Tên tài khoản dùng để đăng nhập
+  email: string; // Email liên hệ / nhận thư khôi phục mật khẩu
   storeId: string;
   role: UserRole;
   name: string;
@@ -129,6 +130,9 @@ export interface DiningTable {
   reservationPhone?: string; // SĐT khách đặt bàn
   reservationTime?: string; // Giờ hẹn (ISO string hoặc HH:mm tự do)
   reservationNote?: string; // Ghi chú đặt bàn (số lượng khách, yêu cầu đặc biệt...)
+  mergedIntoId?: string; // Bàn này đang gộp vào bàn chính có id này (rỗng = bàn độc lập hoặc là bàn chính)
+  openedAt?: string; // Thời điểm bắt đầu phục vụ (ISO) - dùng hiển thị thời gian ngồi
+  guestCount?: number; // Số khách đang ngồi
   createdAt: string;
 }
 

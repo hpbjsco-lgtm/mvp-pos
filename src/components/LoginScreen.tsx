@@ -15,9 +15,9 @@ interface LoginScreenProps {
   fbStoreProfile: any;
   authLoading: boolean;
   authError: string;
-  isDemoOfflineMode: boolean;
-  setIsDemoOfflineMode: (val: boolean) => void;
-  onLogin: (e: React.FormEvent, email: string, pass: string) => Promise<void>;
+  isDemoOfflineMode?: boolean;
+  setIsDemoOfflineMode?: (val: boolean) => void;
+  onLogin: (e: React.FormEvent, username: string, pass: string) => Promise<void>;
   onRegister: (
     e: React.FormEvent, 
     email: string, 
@@ -26,7 +26,8 @@ interface LoginScreenProps {
     storeName: string, 
     storeType: 'fnb' | 'retail', 
     phone: string, 
-    address: string
+    address: string,
+    username: string
   ) => Promise<void>;
   onLogout: () => Promise<void>;
   onDemoLogin: (userName: string, storeId: string, storeType: 'fnb' | 'retail', storeName: string) => void;
@@ -47,9 +48,11 @@ export default function LoginScreen({
   onDemoLogin,
   triggerBeep
 }: LoginScreenProps) {
-  const [authMode, setAuthMode] = useState<'demo' | 'login' | 'register'>('demo');
+  const [authMode, setAuthMode] = useState<'demo' | 'login' | 'register'>('login');
   
   // Cloud Auth state
+  const [username, setUsername] = useState('');
+  const [regUsername, setRegUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -68,9 +71,9 @@ export default function LoginScreen({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (authMode === 'login') {
-      await onLogin(e, email, password);
+      await onLogin(e, username, password);
     } else if (authMode === 'register') {
-      await onRegister(e, email, password, name, storeName, storeType, storePhone, storeAddress);
+      await onRegister(e, email, password, name, storeName, storeType, storePhone, storeAddress, regUsername);
     } else {
       // Demo session local activation
       onDemoLogin(demoUser, demoStoreId, demoStoreType, demoStoreName);
@@ -107,7 +110,7 @@ export default function LoginScreen({
             </div>
             <div>
               <h4 className="text-base font-bold text-slate-200">Giao diện chuyên F&amp;B (Nhà hàng)</h4>
-              <p className="text-sm text-slate-400 leading-normal">Quản lý sơ đồ bàn trực quan kéo thả, thanh toán tại bàn, và màn hình bếp KDS chuyên biệt.</p>
+              <p className="text-sm text-slate-400 leading-normal">Quản lý sơ đồ bàn trực quan, gộp/tách đơn, thanh toán tại bàn và màn hình bếp KDS chuyên biệt.</p>
             </div>
           </div>
 
@@ -203,7 +206,7 @@ export default function LoginScreen({
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="text-sm font-semibold text-on-surface-variant flex items-center gap-1">
-                      <UserCheck className="w-4 h-4" /> Tên nhân viên
+                       <UserCheck className="w-4 h-4" /> Tên nhân viên
                     </label>
                     <input
                       type="text"
@@ -216,7 +219,7 @@ export default function LoginScreen({
                   </div>
                   <div className="space-y-1">
                     <label className="text-sm font-semibold text-on-surface-variant flex items-center gap-1">
-                      <Key className="w-4 h-4" /> Mật khẩu demo
+                       <Key className="w-4 h-4" /> Mật khẩu demo
                     </label>
                     <input
                       type="password"
@@ -232,7 +235,7 @@ export default function LoginScreen({
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="text-sm font-semibold text-on-surface-variant flex items-center gap-1">
-                      <Store className="w-4 h-4" /> Mã cửa hàng (ID)
+                       <Store className="w-4 h-4" /> Mã cửa hàng (ID)
                     </label>
                     <input
                       type="text"
@@ -275,13 +278,16 @@ export default function LoginScreen({
               <div className="space-y-3">
                 <div className="space-y-1">
                   <label className="text-sm font-semibold text-on-surface-variant flex items-center gap-1">
-                    <Mail className="w-4 h-4" /> Email quản trị viên
+                     <User className="w-4 h-4" /> Tài khoản
                   </label>
                   <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="quanly@cuahang.com"
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="Tên tài khoản"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    autoComplete="username"
                     className="m3-input"
                     required
                   />
@@ -289,7 +295,7 @@ export default function LoginScreen({
 
                 <div className="space-y-1">
                   <label className="text-sm font-semibold text-on-surface-variant flex items-center gap-1">
-                    <Lock className="w-4 h-4" /> Mật khẩu truy cập
+                     <Lock className="w-4 h-4" /> Mật khẩu truy cập
                   </label>
                   <input
                     type="password"
@@ -308,7 +314,7 @@ export default function LoginScreen({
               <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
                 <div className="space-y-1">
                   <label className="text-sm font-semibold text-on-surface-variant flex items-center gap-1">
-                    <User className="w-4 h-4" /> Họ và tên quản trị viên
+                     <User className="w-4 h-4" /> Họ và tên quản trị viên
                   </label>
                   <input
                     type="text"
@@ -322,7 +328,7 @@ export default function LoginScreen({
 
                 <div className="space-y-1">
                   <label className="text-sm font-semibold text-on-surface-variant flex items-center gap-1">
-                    <Store className="w-4 h-4" /> Tên cửa hàng
+                     <Store className="w-4 h-4" /> Tên cửa hàng
                   </label>
                   <input
                     type="text"
@@ -349,7 +355,7 @@ export default function LoginScreen({
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="text-sm font-semibold text-on-surface-variant flex items-center gap-1">
-                      <Phone className="w-4 h-4" /> Điện thoại liên hệ
+                       <Phone className="w-4 h-4" /> Điện thoại liên hệ
                     </label>
                     <input
                       type="text"
@@ -362,7 +368,7 @@ export default function LoginScreen({
                   </div>
                   <div className="space-y-1">
                     <label className="text-sm font-semibold text-on-surface-variant flex items-center gap-1">
-                      <MapPin className="w-4 h-4" /> Địa chỉ chi nhánh
+                       <MapPin className="w-4 h-4" /> Địa chỉ chi nhánh
                     </label>
                     <input
                       type="text"
@@ -377,13 +383,15 @@ export default function LoginScreen({
 
                 <div className="space-y-1">
                   <label className="text-sm font-semibold text-on-surface-variant flex items-center gap-1">
-                    <Mail className="w-4 h-4" /> Email đăng nhập
+                     <User className="w-4 h-4" /> Tên tài khoản (dùng để đăng nhập)
                   </label>
                   <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="quanly@cuahang.com"
+                    type="text"
+                    value={regUsername}
+                    onChange={(e) => setRegUsername(e.target.value)}
+                    placeholder="vd: chuquan01"
+                    autoCapitalize="none"
+                    autoCorrect="off"
                     className="m3-input"
                     required
                   />
@@ -391,7 +399,21 @@ export default function LoginScreen({
 
                 <div className="space-y-1">
                   <label className="text-sm font-semibold text-on-surface-variant flex items-center gap-1">
-                    <Lock className="w-4 h-4" /> Mật khẩu truy cập
+                     <Mail className="w-4 h-4" /> Email (nhận thư khôi phục mật khẩu)
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="chuquan@gmail.com"
+                    className="m3-input"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-sm font-semibold text-on-surface-variant flex items-center gap-1">
+                     <Lock className="w-4 h-4" /> Mật khẩu truy cập
                   </label>
                   <input
                     type="password"

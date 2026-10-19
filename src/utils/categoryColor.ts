@@ -5,12 +5,12 @@
 
 // Bảng màu badge/placeholder gán ổn định theo tên danh mục (không phụ thuộc thứ tự),
 // dùng chung cho Quản lý sản phẩm/Menu và lưới sản phẩm màn hình bán hàng (POS).
+// Giữ trong bảng màu chủ đạo (cam đất + trung tính ấm) để giao diện tối giản, đồng nhất.
 const CATEGORY_COLORS = [
-  { badge: 'bg-sky-50 text-sky-600', placeholder: 'bg-sky-100 text-sky-600' },
-  { badge: 'bg-tertiary-container text-tertiary', placeholder: 'bg-tertiary-container text-tertiary' },
-  { badge: 'bg-purple-50 text-purple-600', placeholder: 'bg-purple-100 text-purple-600' },
-  { badge: 'bg-emerald-50 text-emerald-600', placeholder: 'bg-emerald-100 text-emerald-600' },
-  { badge: 'bg-amber-50 text-amber-600', placeholder: 'bg-amber-100 text-amber-600' }
+  { badge: 'bg-primary-container text-on-primary-container', placeholder: 'bg-primary-container text-on-primary-container' },
+  { badge: 'bg-surface-container-high text-on-surface-variant', placeholder: 'bg-surface-container-high text-on-surface-variant' },
+  { badge: 'bg-secondary-container text-on-secondary-container', placeholder: 'bg-secondary-container text-on-secondary-container' },
+  { badge: 'bg-tertiary-container text-on-tertiary-container', placeholder: 'bg-tertiary-container text-on-tertiary-container' }
 ];
 
 function hashCategory(category: string): number {

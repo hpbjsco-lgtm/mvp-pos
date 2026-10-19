@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { History, Search, Printer, Ban } from 'lucide-react';
+import { Ban, History, Printer, Receipt, Search } from 'lucide-react';
 import { Order, InventoryBatch, Customer } from '../types';
 import ReceiptThermal from './ReceiptThermal';
 import { logOperation } from '../utils/logger';
@@ -85,106 +85,116 @@ export default function OrderHistorySection({
     triggerBeep(true);
   };
 
+  const statusFilters: { id: 'all' | 'completed' | 'void'; label: string }[] = [
+    { id: 'all', label: 'Tất cả' },
+    { id: 'completed', label: 'Hoàn tất' },
+    { id: 'void', label: 'Đã hủy' }
+  ];
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-surface-container-lowest border border-outline-variant rounded-3xl p-6 shadow-sm gap-4">
-        <div>
-          <h2 className="text-xl font-black text-on-surface tracking-tight uppercase flex items-center gap-2">
-            <History className="w-6 h-6 text-secondary" />
-            Lịch sử hóa đơn
-          </h2>
-          <p className="text-xs text-on-surface-variant mt-1">
-            Tra cứu, in lại hóa đơn cũ{canVoid ? ', hoặc hủy đơn hàng bị nhập sai' : ''}.
-          </p>
-        </div>
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <History className="w-5 h-5 text-primary" />
+        <h2 className="text-lg font-bold text-on-surface">Hóa đơn</h2>
       </div>
 
-      <div className="bg-surface-container-lowest border border-outline-variant rounded-3xl p-5 shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 text-on-surface-variant absolute left-3.5 top-3.5" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm theo số hóa đơn, tên khách, thu ngân, số bàn..."
-              className="w-full pl-10 pr-4 py-3 border border-outline-variant rounded-xl text-xs focus:ring-1 focus:ring-primary font-semibold"
-            />
-          </div>
-          <div className="flex bg-surface-container-high p-1 rounded-xl border border-outline-variant text-[10px] font-bold">
-            {(['all', 'completed', 'void'] as const).map(s => (
-              <button
-                key={s}
-                onClick={() => setStatusFilter(s)}
-                className={`px-3 py-2 rounded-lg transition-all ${statusFilter === s ? 'bg-surface-container-lowest text-on-surface shadow-sm' : 'text-on-surface-variant'}`}
+      <div className="relative">
+        <Search className="w-4 h-4 text-on-surface-variant absolute left-3.5 top-1/2 -translate-y-1/2" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Tìm số hóa đơn, khách, thu ngân, số bàn..."
+          className="m3-input !rounded-full pl-10"
+        />
+      </div>
+
+      <div className="flex overflow-x-auto gap-2 pb-1 scrollbar-none">
+        {statusFilters.map(s => (
+          <button
+            key={s.id}
+            onClick={() => setStatusFilter(s.id)}
+            className={`m3-chip !rounded-full whitespace-nowrap ${statusFilter === s.id ? 'm3-chip-selected' : ''}`}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      {filteredOrders.length === 0 ? (
+        <div className="py-16 text-center text-on-surface-variant flex flex-col items-center justify-center gap-2">
+          <History className="w-8 h-8 text-outline-variant" />
+          <p className="text-base font-bold">Không tìm thấy hóa đơn nào</p>
+          <p className="text-sm">Thử đổi từ khóa hoặc bộ lọc trạng thái.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          {filteredOrders.map((o) => {
+            const status = o.status || 'completed';
+            const isVoid = status === 'void';
+            return (
+              <div
+                key={o.id}
+                className={`m3-card p-4 flex gap-3 border-l-4 ${
+                  isVoid ? 'border-l-error opacity-60' : 'border-l-secondary'
+                }`}
               >
-                {s === 'all' ? 'Tất cả' : s === 'completed' ? 'Hoàn tất' : 'Đã hủy'}
-              </button>
-            ))}
-          </div>
-        </div>
+                <div className="flex-1 min-w-0 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <h4 className={`text-base font-bold text-on-surface font-mono truncate ${isVoid ? 'line-through' : ''}`}>
+                        #{o.orderNumber}
+                      </h4>
+                      <p className="text-sm text-on-surface-variant flex items-center gap-1">
+                         {new Date(o.createdAt).toLocaleString('vi-VN')}
+                      </p>
+                    </div>
+                    <span className={`m3-badge shrink-0 ${isVoid ? 'm3-badge-error' : 'm3-badge-success'}`}>
+                      {isVoid ? 'Đã hủy' : 'Hoàn thành'}
+                    </span>
+                  </div>
 
-        {filteredOrders.length === 0 ? (
-          <div className="py-16 text-center text-on-surface-variant text-xs border border-dashed border-outline-variant rounded-2xl">
-            🧾 Không tìm thấy hóa đơn nào phù hợp bộ lọc.
-          </div>
-        ) : (
-          <div className="overflow-x-auto rounded-xl border border-outline-variant">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-surface-container text-on-surface-variant font-bold uppercase border-b border-outline-variant">
-                  <th className="p-4">Số hóa đơn</th>
-                  <th className="p-4">Thời gian</th>
-                  <th className="p-4">Khách / Bàn</th>
-                  <th className="p-4">Thu ngân</th>
-                  <th className="p-4 text-right">Tổng tiền</th>
-                  <th className="p-4 text-center">Trạng thái</th>
-                  <th className="p-4 text-right">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-medium text-on-surface">
-                {filteredOrders.map((o) => {
-                  const isVoid = (o.status || 'completed') === 'void';
-                  return (
-                    <tr key={o.id} className={`hover:bg-surface-container/50 transition-colors ${isVoid ? 'opacity-50' : ''}`}>
-                      <td className="p-4 font-mono font-bold text-on-surface">{o.orderNumber}</td>
-                      <td className="p-4 text-on-surface-variant">{new Date(o.createdAt).toLocaleString('vi-VN')}</td>
-                      <td className="p-4 text-on-surface-variant">{o.tableNumber || o.customerName || 'Khách vãng lai'}</td>
-                      <td className="p-4 text-on-surface-variant">{o.staffName || '—'}</td>
-                      <td className="p-4 text-right font-black text-on-surface">{o.totalAmount.toLocaleString('vi-VN')} đ</td>
-                      <td className="p-4 text-center">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${isVoid ? 'bg-error-container text-error border border-error-container' : 'bg-secondary-container text-secondary border border-secondary-container'}`}>
-                          {isVoid ? 'Đã hủy' : 'Hoàn tất'}
-                        </span>
-                      </td>
-                      <td className="p-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            onClick={() => setReprintOrder(o)}
-                            className="p-1.5 hover:bg-surface-container-high rounded-lg text-on-surface-variant hover:text-primary transition-all cursor-pointer"
-                            title="In lại hóa đơn"
-                          >
-                            <Printer className="w-3.5 h-3.5" />
-                          </button>
-                          {canVoid && !isVoid && (
-                            <button
-                              onClick={() => handleVoidOrder(o)}
-                              className="p-1.5 hover:bg-error-container rounded-lg text-on-surface-variant hover:text-error transition-all cursor-pointer"
-                              title="Hủy hóa đơn"
-                            >
-                              <Ban className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center shrink-0">
+                        <Receipt className="w-4 h-4 text-on-surface-variant" />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-on-surface truncate">
+                          {o.tableNumber || o.customerName || 'Khách vãng lai'}
+                        </p>
+                        <p className="text-sm text-on-surface-variant truncate">{o.staffName || '—'}</p>
+                      </div>
+                    </div>
+                    <span className={`text-lg font-bold shrink-0 ${isVoid ? 'text-on-surface-variant' : 'text-primary'}`}>
+                      {o.totalAmount.toLocaleString('vi-VN')} đ
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-center justify-center gap-1.5 border-l border-outline-variant pl-3 shrink-0">
+                  <button
+                    onClick={() => setReprintOrder(o)}
+                    className="m3-icon-btn"
+                    title="In lại hóa đơn"
+                  >
+                    <Printer className="w-4 h-4" />
+                  </button>
+                  {canVoid && !isVoid && (
+                    <button
+                      onClick={() => handleVoidOrder(o)}
+                      className="m3-icon-btn hover:text-error"
+                      title="Hủy hóa đơn"
+                    >
+                      <Ban className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {reprintOrder && (
         <ReceiptThermal

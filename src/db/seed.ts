@@ -149,6 +149,7 @@ export async function seedStore(storeId: string, storeType: 'fnb' | 'retail'): P
       const salt = randomSalt();
       push('users', {
         uid: newId('user'),
+        username: `${e.email}.${storeId.toLowerCase()}`,
         email: `${e.email}@${storeId.toLowerCase()}.local`,
         password_hash: await hashPassword(EMPLOYEE_DEFAULT_PASSWORD, salt),
         password_salt: salt,

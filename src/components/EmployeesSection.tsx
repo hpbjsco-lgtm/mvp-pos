@@ -4,12 +4,10 @@
  */
 
 import React, { useState } from 'react';
-import {
-  Users, Search, Plus, Edit2, Briefcase, DollarSign, Calendar, Clock,
-  CheckCircle2, X, Play, LogOut, ChevronLeft, ChevronRight, Award, Grid, List
-} from 'lucide-react';
+import { Briefcase, ChevronLeft, ChevronRight, Edit2, KeyRound, Search, X } from 'lucide-react';
 import { UserProfile, Attendance, UserRole } from '../types';
 import { logOperation } from '../utils/logger';
+import { ROLE_LABELS, normalizeRole } from '../utils/permissions';
 
 interface EmployeesSectionProps {
   isOffline: boolean;
@@ -17,18 +15,39 @@ interface EmployeesSectionProps {
   triggerBeep: (success: boolean) => void;
   simEmployees: UserProfile[];
   setSimEmployees: React.Dispatch<React.SetStateAction<UserProfile[]>>;
+  storeType?: 'fnb' | 'retail';
+  /** Đặt lại mật khẩu cho một tài khoản trong cửa hàng (chủ / quản lý). */
+  onResetPassword?: (uid: string, newPassword: string) => Promise<void>;
+  currentRole?: string | null;
+  currentUid?: string;
+  /** Tạo tài khoản nhân viên mới (tên tài khoản + email + mật khẩu) trong cửa hàng hiện tại. */
+  onCreateEmployee?: (params: { username: string; email: string; password: string; name: string; role: UserRole; hourlyRate: number }) => Promise<void>;
   simAttendance: Attendance[];
   setSimAttendance: React.Dispatch<React.SetStateAction<Attendance[]>>;
 }
 
+const roleLabel = (role: UserRole | string) => {
+  const r = normalizeRole(role);
+  return r ? ROLE_LABELS[r] : 'Nhân viên';
+};
+
+const roleBadgeClass = (role: UserRole | string) => (
+  role === 'owner' ? 'm3-badge-warning'
+    : role === 'manager' ? 'm3-badge-success'
+      : role === 'kitchen' ? 'bg-tertiary-container text-on-tertiary-container'
+        : 'bg-primary-container text-on-primary-container'
+);
+
 export default function EmployeesSection({
-  isOffline,
-  storeId,
   triggerBeep,
   simEmployees,
   setSimEmployees,
   simAttendance,
-  setSimAttendance
+  storeType = 'fnb',
+  onCreateEmployee,
+  onResetPassword,
+  currentRole,
+  currentUid
 }: EmployeesSectionProps) {
   const employees = simEmployees;
   const attendanceLogs = simAttendance;
@@ -40,9 +59,66 @@ export default function EmployeesSection({
   const [editingEmployee, setEditingEmployee] = useState<UserProfile | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [formName, setFormName] = useState('');
-  const [formEmail, setFormEmail] = useState('');
   const [formRole, setFormRole] = useState<UserRole>(UserRole.STAFF);
   const [formHourlyRate, setFormHourlyRate] = useState<number>(25000);
+
+  // Đặt lại mật khẩu (chủ: mọi tài khoản; quản lý: trừ chủ cửa hàng)
+  const [pwTarget, setPwTarget] = useState<UserProfile | null>(null);
+  const [pwValue, setPwValue] = useState('');
+  const [pwError, setPwError] = useState('');
+  const canResetPassword = (emp: UserProfile) =>
+    !!onResetPassword && (currentRole === 'owner' || (currentRole === 'manager' && emp.role !== 'owner') || emp.uid === currentUid);
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pwTarget || !onResetPassword) return;
+    try {
+      logOperation('Quản lý nhân viên', 'Đặt lại mật khẩu', { uid: pwTarget.uid });
+      await onResetPassword(pwTarget.uid, pwValue);
+      setPwTarget(null);
+      setPwValue('');
+      triggerBeep(true);
+      alert('Đã đặt lại mật khẩu. Hãy báo mật khẩu mới cho nhân viên.');
+    } catch (err: any) {
+      setPwError(err?.message || 'Không đặt lại được mật khẩu.');
+      triggerBeep(false);
+    }
+  };
+
+  // Tạo nhân viên mới
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createError, setCreateError] = useState('');
+  const [newName, setNewName] = useState('');
+  const [newUsername, setNewUsername] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [newRole, setNewRole] = useState<UserRole>(UserRole.STAFF);
+  const [newHourlyRate, setNewHourlyRate] = useState<number>(25000);
+
+  const openCreate = () => {
+    setNewName(''); setNewUsername(''); setNewEmail(''); setNewPassword(''); setNewRole(UserRole.STAFF); setNewHourlyRate(25000);
+    setCreateError('');
+    setCreateOpen(true);
+    triggerBeep(true);
+  };
+
+  const handleCreateEmployee = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!onCreateEmployee) return;
+    if (newPassword.length < 6) {
+      setCreateError('Mật khẩu cần tối thiểu 6 ký tự.');
+      return;
+    }
+    try {
+      logOperation('Quản lý nhân viên', 'Thêm nhân viên', { name: newName, username: newUsername, email: newEmail, role: newRole });
+      await onCreateEmployee({ username: newUsername, email: newEmail, password: newPassword, name: newName, role: newRole, hourlyRate: Number(newHourlyRate) || 0 });
+      setCreateOpen(false);
+      triggerBeep(true);
+    } catch (err: any) {
+      setCreateError(err?.message || 'Không tạo được tài khoản.');
+      triggerBeep(false);
+    }
+  };
 
   // Weekly calendar selection (starting from Monday of current week)
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => {
@@ -58,7 +134,6 @@ export default function EmployeesSection({
   const handleOpenEdit = (emp: UserProfile) => {
     setEditingEmployee(emp);
     setFormName(emp.name);
-    setFormEmail(emp.email);
     setFormRole(emp.role);
     setFormHourlyRate(emp.hourlyRate || 25000);
     setModalOpen(true);
@@ -73,8 +148,6 @@ export default function EmployeesSection({
     try {
       const updatedProfile: UserProfile = {
         ...editingEmployee,
-        name: formName.trim(),
-        email: formEmail.trim(),
         role: formRole,
         hourlyRate: Number(formHourlyRate) || 0
       };
@@ -102,7 +175,7 @@ export default function EmployeesSection({
   // Filter employees
   const filteredEmployees = employees.filter(emp => {
     const q = searchQuery.toLowerCase().trim();
-    return emp.name.toLowerCase().includes(q) || emp.email.toLowerCase().includes(q);
+    return emp.name.toLowerCase().includes(q) || (emp.username || '').toLowerCase().includes(q) || emp.email.toLowerCase().includes(q);
   });
 
   const changeWeek = (direction: 'prev' | 'next') => {
@@ -113,248 +186,175 @@ export default function EmployeesSection({
   };
 
   return (
-    <div className="space-y-6">
-      
-      {/* Header section */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-surface-container-lowest border border-outline-variant rounded-3xl p-6 shadow-sm gap-4">
-        <div>
-          <h2 className="text-xl font-black text-on-surface tracking-tight uppercase flex items-center gap-2">
-            <Briefcase className="w-6 h-6 text-secondary" />
-            Hệ thống Quản lý Nhân sự & Chấm công
-          </h2>
-          <p className="text-xs text-on-surface-variant mt-1">
-            Thiết lập bảng lương, cấu hình mức lương theo giờ, và hiển thị bảng chấm công tuần (Schedule Board).
-          </p>
-        </div>
+    <div className="space-y-4">
 
-        {/* View tab switches */}
-        <div className="flex bg-surface-container-high p-1 rounded-xl border border-outline-variant text-xs font-bold">
-          <button
-            onClick={() => { setActiveTab('list'); triggerBeep(true); }}
-            className={`px-4.5 py-2 rounded-lg flex items-center gap-1.5 transition-all ${
-              activeTab === 'list' ? 'bg-slate-900 text-white shadow-sm' : 'text-on-surface-variant hover:text-on-surface'
-            }`}
-          >
-            <List className="w-4 h-4" /> Danh sách nhân viên
+      <div className="flex items-center gap-2">
+        <Briefcase className="w-5 h-5 text-primary" />
+        <h2 className="text-lg font-bold text-on-surface flex-1">Nhân viên</h2>
+        {onCreateEmployee && (
+          <button onClick={openCreate} className="m3-btn-filled !min-h-11">
+             Thêm nhân viên
           </button>
-          <button
-            onClick={() => { setActiveTab('schedule'); triggerBeep(true); }}
-            className={`px-4.5 py-2 rounded-lg flex items-center gap-1.5 transition-all ${
-              activeTab === 'schedule' ? 'bg-slate-900 text-white shadow-sm' : 'text-on-surface-variant hover:text-on-surface'
-            }`}
-          >
-            <Calendar className="w-4 h-4" /> Bảng chấm công tuần
-          </button>
-        </div>
+        )}
+      </div>
+
+      <div className="flex bg-surface-container-high p-1 rounded-2xl border border-outline-variant gap-1">
+        <button
+          onClick={() => { setActiveTab('list'); triggerBeep(true); }}
+          className={`flex-1 flex items-center justify-center gap-1.5 min-h-10 rounded-xl text-sm font-bold transition-colors cursor-pointer ${
+            activeTab === 'list' ? 'bg-surface-container-lowest text-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'
+          }`}
+        >
+           Danh sách
+        </button>
+        <button
+          onClick={() => { setActiveTab('schedule'); triggerBeep(true); }}
+          className={`flex-1 flex items-center justify-center gap-1.5 min-h-10 rounded-xl text-sm font-bold transition-colors cursor-pointer ${
+            activeTab === 'schedule' ? 'bg-surface-container-lowest text-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'
+          }`}
+        >
+           Chấm công tuần
+        </button>
       </div>
 
       {activeTab === 'list' && (
-        <div className="bg-surface-container-lowest border border-outline-variant rounded-3xl p-5 shadow-sm space-y-4">
-          <div className="flex items-center relative">
-            <Search className="w-4 h-4 text-on-surface-variant absolute left-3.5 top-3.5" />
+        <div className="space-y-3">
+          <div className="relative">
+            <Search className="w-4 h-4 text-on-surface-variant absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm kiếm nhân viên theo Tên, Email hoặc Vai trò..."
-              className="w-full pl-10 pr-4 py-3 border border-outline-variant rounded-xl text-xs focus:ring-1 focus:ring-primary font-semibold"
+              placeholder="Tìm nhân viên theo tên, tài khoản hoặc email..."
+              className="m3-input !rounded-full pl-10"
             />
           </div>
 
-          <div className="overflow-x-auto rounded-xl border border-outline-variant">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-surface-container text-on-surface-variant font-bold uppercase border-b border-outline-variant">
-                  <th className="p-4">Họ và tên</th>
-                  <th className="p-4">Email đăng nhập</th>
-                  <th className="p-4">Vai trò chức vụ</th>
-                  <th className="p-4 text-right">Lương theo giờ (đ/giờ)</th>
-                  <th className="p-4 text-right">Hành động</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-medium text-on-surface">
-                {filteredEmployees.map((emp) => {
-                  return (
-                    <tr key={emp.uid} className="hover:bg-surface-container/50 transition-colors">
-                      <td className="p-4">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-full bg-surface-container-high text-on-surface flex items-center justify-center font-bold text-xs uppercase border border-outline-variant">
-                            {emp.name.slice(0, 2)}
-                          </div>
-                          <div>
-                            <p className="font-extrabold text-on-surface">{emp.name}</p>
-                            <p className="text-[10px] text-on-surface-variant font-mono mt-0.5">UID: {emp.uid.slice(0, 8)}...</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="p-4 text-on-surface-variant">{emp.email}</td>
-                      <td className="p-4">
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                          emp.role === 'owner'
-                            ? 'bg-tertiary-container text-on-tertiary-container border border-tertiary-container/50'
-                            : emp.role === 'manager'
-                              ? 'bg-purple-50 text-purple-700 border border-purple-200/50'
-                              : emp.role === 'sysadmin'
-                                ? 'bg-error-container text-on-error-container border border-error-container/50'
-                                : 'bg-primary-container text-primary border border-primary-container/50'
-                        }`}>
-                          {emp.role === 'owner'
-                            ? 'Chủ cửa hàng'
-                            : emp.role === 'manager'
-                              ? 'Quản lý cửa hàng'
-                              : emp.role === 'sysadmin'
-                                ? 'System Admin'
-                                : 'Nhân viên'}
-                        </span>
-                      </td>
-                      <td className="p-4 text-right font-bold text-on-surface font-mono">
-                        {(emp.hourlyRate || 25000).toLocaleString('vi-VN')} đ/h
-                      </td>
-                      <td className="p-4 text-right">
-                        <button
-                          onClick={() => handleOpenEdit(emp)}
-                          className="px-3 py-1.5 bg-surface-container hover:bg-surface-container-high text-on-surface-variant border border-outline-variant rounded-lg font-bold inline-flex items-center gap-1 transition-colors cursor-pointer"
-                        >
-                          <Edit2 className="w-3 h-3 text-on-surface-variant" /> Thiết lập lương
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            {filteredEmployees.map((emp) => (
+              <div key={emp.uid} className="m3-card p-4 flex items-center gap-3">
+                <div className="w-11 h-11 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold text-sm uppercase shrink-0">
+                  {emp.name.slice(0, 2)}
+                </div>
+                <div className="flex-1 min-w-0 space-y-1">
+                  <h4 className="text-base font-bold text-on-surface truncate">{emp.name}</h4>
+                  <p className="text-sm text-on-surface-variant truncate">@{emp.username || emp.email}</p>
+                  <div className="flex items-center gap-2">
+                    <span className={`m3-badge ${roleBadgeClass(emp.role)}`}>{roleLabel(emp.role)}</span>
+                    <span className="text-sm font-bold text-on-surface font-mono">{(emp.hourlyRate || 25000).toLocaleString('vi-VN')} đ/h</span>
+                  </div>
+                </div>
+                {canResetPassword(emp) && (
+                  <button onClick={() => { setPwTarget(emp); setPwValue(''); setPwError(''); triggerBeep(true); }} className="m3-icon-btn shrink-0" title="Đặt lại mật khẩu" aria-label="Đặt lại mật khẩu">
+                    <KeyRound className="w-4 h-4" />
+                  </button>
+                )}
+                <button onClick={() => handleOpenEdit(emp)} className="m3-icon-btn shrink-0" title="Thiết lập lương & vai trò">
+                  <Edit2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
           </div>
         </div>
       )}
 
       {activeTab === 'schedule' && (
-        <div className="space-y-4">
-          
+        <div className="space-y-3">
+
           {/* Week controller */}
-          <div className="bg-surface-container-lowest border border-outline-variant rounded-3xl p-5 shadow-sm flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div className="space-y-1 text-center sm:text-left">
-              <span className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Thời gian chấm công</span>
-              <h3 className="text-sm font-extrabold text-on-surface">
-                Tuần: {weekDays[0].rawDate.toLocaleDateString('vi-VN')} – {weekDays[6].rawDate.toLocaleDateString('vi-VN')}
+          <div className="m3-card p-4 flex flex-col sm:flex-row justify-between items-center gap-3">
+            <div className="text-center sm:text-left">
+              <span className="text-sm font-semibold text-on-surface-variant block">Thời gian chấm công</span>
+              <h3 className="text-base font-bold text-on-surface">
+                {weekDays[0].rawDate.toLocaleDateString('vi-VN')} – {weekDays[6].rawDate.toLocaleDateString('vi-VN')}
               </h3>
             </div>
-            
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => changeWeek('prev')}
-                className="p-2 border border-outline-variant hover:bg-surface-container-high rounded-xl transition-colors cursor-pointer"
-              >
-                <ChevronLeft className="w-4 h-4 text-on-surface-variant" />
+
+            <div className="flex items-center gap-1.5">
+              <button onClick={() => changeWeek('prev')} className="m3-icon-btn">
+                <ChevronLeft className="w-4 h-4" />
               </button>
               <button
                 onClick={() => { setCurrentWeekStart(new Date()); triggerBeep(true); }}
-                className="px-3.5 py-1.5 border border-outline-variant hover:bg-surface-container-high rounded-xl text-xs font-bold text-on-surface-variant transition-colors cursor-pointer"
+                className="m3-chip !rounded-full"
               >
                 Tuần này
               </button>
-              <button
-                onClick={() => changeWeek('next')}
-                className="p-2 border border-outline-variant hover:bg-surface-container-high rounded-xl transition-colors cursor-pointer"
-              >
-                <ChevronRight className="w-4 h-4 text-on-surface-variant" />
+              <button onClick={() => changeWeek('next')} className="m3-icon-btn">
+                <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           </div>
 
           {/* Schedule board grid */}
-          <div className="bg-surface-container-lowest border border-outline-variant rounded-3xl p-5 shadow-sm overflow-x-auto">
-            <div className="min-w-[1000px] space-y-4">
-              
+          <div className="m3-card p-4 overflow-x-auto">
+            <div className="min-w-[1000px] space-y-3">
+
               {/* Grid headers */}
-              <div className="grid grid-cols-8 gap-2 bg-surface-container border border-outline-variant rounded-2xl p-2.5 font-extrabold text-on-surface-variant uppercase tracking-wide text-center">
-                <div className="text-left pl-3 self-center">Nhân viên</div>
+              <div className="grid grid-cols-8 gap-2 bg-surface-container border border-outline-variant rounded-2xl p-2.5 font-bold text-on-surface-variant text-center">
+                <div className="text-left pl-3 self-center text-sm">Nhân viên</div>
                 {weekDays.map(day => {
                   const isToday = day.dateStr === new Date().toLocaleDateString('sv-SE');
                   return (
-                    <div key={day.dateStr} className={`p-1.5 rounded-xl ${isToday ? 'bg-primary text-white font-black shadow-sm' : ''}`}>
-                      <p className="text-[10px]">{day.dayLabel}</p>
-                      <p className="text-[9px] font-mono opacity-80 mt-0.5">{day.dateStr.slice(5)}</p>
+                    <div key={day.dateStr} className={`p-1.5 rounded-xl ${isToday ? 'bg-primary text-on-primary shadow-sm' : ''}`}>
+                      <p className="text-sm font-bold">{day.dayLabel}</p>
+                      <p className="text-sm font-mono opacity-80">{day.dateStr.slice(5)}</p>
                     </div>
                   );
                 })}
               </div>
 
               {/* Grid content rows */}
-              <div className="space-y-3">
-                {employees.map(emp => {
-                  let totalHours = 0;
-                  let totalEarnings = 0;
-
-                  return (
-                    <div key={emp.uid} className="grid grid-cols-8 gap-2 border border-outline-variant rounded-2xl p-2.5 items-center hover:bg-surface-container/20 transition-all">
-                      {/* Name / Wage summary left card */}
-                      <div className="text-left pl-2">
-                        <p className="font-extrabold text-on-surface">{emp.name}</p>
-                        <p className="text-[10px] text-on-surface-variant font-mono mt-0.5">
-                          {emp.role === 'owner'
-                            ? 'Chủ cửa hàng'
-                            : emp.role === 'manager'
-                              ? 'Quản lý'
-                              : emp.role === 'sysadmin'
-                                ? 'System Admin'
-                                : 'Nhân viên'}
-                        </p>
-                        <p className="text-[10px] text-secondary font-extrabold font-mono mt-1">
-                          Rate: {(emp.hourlyRate || 25000).toLocaleString('vi-VN')}đ/h
-                        </p>
-                      </div>
-
-                      {/* Daily slots */}
-                      {weekDays.map(day => {
-                        const dayLog = attendanceLogs.find(l => l.userId === emp.uid && l.date === day.dateStr);
-                        
-                        if (dayLog) {
-                          totalHours += dayLog.hoursWorked;
-                          totalEarnings += dayLog.dailyWage;
-                        }
-
-                        return (
-                          <div key={day.dateStr} className={`p-2.5 rounded-xl border text-center transition-all min-h-[90px] flex flex-col justify-center gap-1 ${
-                            dayLog?.status === 'working'
-                              ? 'bg-tertiary-container border-tertiary-container text-on-tertiary-container animate-pulse'
-                              : dayLog?.status === 'completed'
-                                ? 'bg-secondary-container/60 border-secondary-container text-on-surface'
-                                : 'bg-surface-container/30 border-transparent text-outline border-dashed border-outline-variant'
-                          }`}>
-                            {dayLog ? (
-                              <>
-                                <div className="text-[10px] font-bold font-mono">
-                                  {new Date(dayLog.checkIn).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-                                  {dayLog.checkOut ? ` - ${new Date(dayLog.checkOut).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}` : ' - ...'}
-                                </div>
-                                <div className="text-[9px] font-extrabold px-1 py-0.5 rounded uppercase font-sans mt-0.5 w-fit mx-auto bg-surface-container-lowest border shadow-sm">
-                                  {dayLog.status === 'working' ? 'ON Shift' : `${dayLog.hoursWorked.toFixed(1)}h`}
-                                </div>
-                                <div className="text-[10px] font-mono font-black text-on-surface mt-1">
-                                  {dayLog.status === 'working' ? 'Đang trực' : `+${dayLog.dailyWage.toLocaleString('vi-VN')}đ`}
-                                </div>
-                              </>
-                            ) : (
-                              <span className="text-[10px] font-semibold text-outline">Vắng mặt</span>
-                            )}
-                          </div>
-                        );
-                      })}
+              <div className="space-y-2.5">
+                {employees.map(emp => (
+                  <div key={emp.uid} className="grid grid-cols-8 gap-2 border border-outline-variant rounded-2xl p-2.5 items-center">
+                    <div className="text-left pl-2">
+                      <p className="text-sm font-bold text-on-surface">{emp.name}</p>
+                      <p className="text-sm text-on-surface-variant">{roleLabel(emp.role)}</p>
+                      <p className="text-sm text-secondary font-bold font-mono">{(emp.hourlyRate || 25000).toLocaleString('vi-VN')}đ/h</p>
                     </div>
-                  );
-                })}
+
+                    {weekDays.map(day => {
+                      const dayLog = attendanceLogs.find(l => l.userId === emp.uid && l.date === day.dateStr);
+
+                      return (
+                        <div key={day.dateStr} className={`p-2.5 rounded-xl border text-center min-h-[86px] flex flex-col justify-center gap-1 ${
+                          dayLog?.status === 'working'
+                            ? 'bg-tertiary-container border-tertiary-container text-on-tertiary-container'
+                            : dayLog?.status === 'completed'
+                              ? 'bg-secondary-container/60 border-secondary-container text-on-surface'
+                              : 'bg-surface-container/30 border-dashed border-outline-variant text-outline'
+                        }`}>
+                          {dayLog ? (
+                            <>
+                              <div className="text-sm font-bold font-mono">
+                                {new Date(dayLog.checkIn).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                                {dayLog.checkOut ? ` - ${new Date(dayLog.checkOut).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}` : ' - ...'}
+                              </div>
+                              <div className="text-sm font-bold">
+                                {dayLog.status === 'working' ? 'Đang trực' : `+${dayLog.dailyWage.toLocaleString('vi-VN')}đ`}
+                              </div>
+                            </>
+                          ) : (
+                            <span className="text-sm font-semibold text-outline">Vắng mặt</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
 
               {/* Attendance legend */}
-              <div className="pt-4 border-t border-outline-variant flex items-center gap-6 text-[10px] text-on-surface-variant font-semibold pl-4">
+              <div className="pt-3 border-t border-outline-variant flex flex-wrap items-center gap-4 text-sm text-on-surface-variant font-semibold pl-2">
                 <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded bg-secondary-container border border-secondary-container block" /> Đã chấm công & Tính lương xong
+                  <span className="w-2.5 h-2.5 rounded bg-secondary-container block" /> Đã chấm công xong
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded bg-tertiary-container border border-tertiary-container animate-pulse block" /> Đang trong ca làm (Working)
+                  <span className="w-2.5 h-2.5 rounded bg-tertiary-container block" /> Đang trong ca
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded bg-surface-container-high border border-transparent block" /> Nghỉ làm / Vắng mặt
+                  <span className="w-2.5 h-2.5 rounded bg-surface-container-high block" /> Vắng mặt
                 </span>
               </div>
 
@@ -366,74 +366,134 @@ export default function EmployeesSection({
 
       {/* Modal to configure Employee wage / hourlyRate */}
       {modalOpen && editingEmployee && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-surface-container-lowest rounded-3xl border border-outline-variant max-w-sm w-full p-6 shadow-xl space-y-4">
-            
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="m3-card !bg-surface-container-lowest max-w-sm w-full p-6 shadow-xl space-y-4">
+
             <div className="flex justify-between items-center pb-3 border-b border-outline-variant">
-              <h3 className="text-sm font-black text-on-surface uppercase flex items-center gap-1.5">
-                <DollarSign className="w-4 h-4 text-tertiary" /> Thiết lập lương & vai trò
+              <h3 className="text-base font-bold text-on-surface flex items-center gap-1.5">
+                 Thiết lập lương & vai trò
               </h3>
-              <button 
-                onClick={() => setModalOpen(false)}
-                className="p-1 hover:bg-surface-container-high rounded-lg text-on-surface-variant hover:text-on-surface-variant transition-colors"
-              >
-                <X className="w-4 h-4" />
+              <button onClick={() => setModalOpen(false)} className="m3-icon-btn">
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveEmployee} className="space-y-4">
+            <form onSubmit={handleSaveEmployee} className="space-y-3">
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-on-surface-variant uppercase">Tên nhân viên</label>
-                <input
-                  type="text"
-                  value={formName}
-                  disabled
-                  className="w-full px-3 py-2 border border-outline-variant bg-surface-container rounded-xl text-xs font-semibold text-on-surface-variant cursor-not-allowed"
-                />
+                <label className="text-sm font-semibold text-on-surface-variant">Tên nhân viên</label>
+                <input type="text" value={formName} disabled className="m3-input !bg-surface-container opacity-70 cursor-not-allowed" />
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-on-surface-variant uppercase">Chức danh / Vai trò</label>
-                <select
-                  value={formRole}
-                  onChange={(e) => setFormRole(e.target.value as any)}
-                  className="w-full px-3 py-2 border border-outline-variant bg-surface-container-lowest rounded-xl text-xs font-semibold text-on-surface"
-                >
-                  <option value={UserRole.STAFF}>Nhân viên (Staff)</option>
-                  <option value={UserRole.MANAGER}>Quản lý (Store Manager)</option>
-                  <option value={UserRole.OWNER}>Chủ cửa hàng (Store Admin)</option>
+                <label className="text-sm font-semibold text-on-surface-variant">Chức danh / Vai trò</label>
+                <select value={formRole} onChange={(e) => setFormRole(e.target.value as any)} className="m3-input">
+                  <option value={UserRole.STAFF}>{ROLE_LABELS.staff}</option>
+                  {storeType === 'fnb' && <option value={UserRole.KITCHEN}>{ROLE_LABELS.kitchen}</option>}
+                  <option value={UserRole.MANAGER}>{ROLE_LABELS.manager}</option>
+                  <option value={UserRole.OWNER}>{ROLE_LABELS.owner}</option>
                 </select>
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-on-surface-variant uppercase">Mức lương mỗi giờ (đ/giờ)</label>
+                <label className="text-sm font-semibold text-on-surface-variant">Mức lương mỗi giờ (đ/giờ)</label>
                 <input
                   type="number"
                   value={formHourlyRate}
                   onChange={(e) => setFormHourlyRate(Math.max(0, parseInt(e.target.value) || 0))}
                   placeholder="25000"
-                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-mono font-bold focus:ring-1 focus:ring-primary"
+                  className="m3-input font-mono"
                   required
                 />
-                <span className="text-[9px] text-on-surface-variant font-semibold block mt-1">
-                  * Hệ thống sẽ tự động tính: Lương ngày = Tổng giờ công × Mức lương giờ.
+                <span className="text-sm text-on-surface-variant block mt-1">
+                  Hệ thống sẽ tự động tính: Lương ngày = Tổng giờ công × Mức lương giờ.
                 </span>
               </div>
 
-              <div className="pt-4 border-t border-outline-variant flex justify-end gap-2 text-xs">
-                <button
-                  type="button"
-                  onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 bg-surface-container hover:bg-surface-container-high text-on-surface-variant rounded-xl font-bold transition-colors cursor-pointer"
-                >
+              <div className="pt-3 border-t border-outline-variant flex justify-end gap-2">
+                <button type="button" onClick={() => setModalOpen(false)} className="m3-btn-tonal !min-h-10 text-sm">
                   Hủy bỏ
                 </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 bg-primary hover:brightness-110 text-white rounded-xl font-bold shadow transition-all cursor-pointer"
-                >
+                <button type="submit" className="m3-btn-filled !min-h-10 text-sm">
                   Cập nhật cấu hình
                 </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal đặt lại mật khẩu */}
+      {pwTarget && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/50" onClick={() => setPwTarget(null)}>
+          <div className="bg-surface w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center pb-3 border-b border-outline-variant">
+              <h3 className="text-base font-bold text-on-surface flex items-center gap-1.5">
+                 Đặt lại mật khẩu - {pwTarget.name}
+              </h3>
+              <button onClick={() => setPwTarget(null)} className="m3-icon-btn"><X className="w-5 h-5" /></button>
+            </div>
+            <form onSubmit={handleResetPassword} className="space-y-3">
+              {pwError && <div className="p-3 bg-error-container text-on-error-container text-sm font-semibold rounded-xl">{pwError}</div>}
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-on-surface-variant">Mật khẩu mới (tối thiểu 6 ký tự)</label>
+                <input type="password" value={pwValue} onChange={(e) => setPwValue(e.target.value)} className="m3-input" autoFocus required />
+              </div>
+              <div className="pt-3 border-t border-outline-variant flex justify-end gap-2">
+                <button type="button" onClick={() => setPwTarget(null)} className="m3-btn-tonal !min-h-11">Hủy</button>
+                <button type="submit" className="m3-btn-filled !min-h-11">Đặt mật khẩu</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal tạo nhân viên mới */}
+      {createOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/50" onClick={() => setCreateOpen(false)}>
+          <div className="bg-surface w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center pb-3 border-b border-outline-variant">
+              <h3 className="text-base font-bold text-on-surface flex items-center gap-1.5">
+                 Thêm nhân viên
+              </h3>
+              <button onClick={() => setCreateOpen(false)} className="m3-icon-btn"><X className="w-5 h-5" /></button>
+            </div>
+
+            <form onSubmit={handleCreateEmployee} className="space-y-3">
+              {createError && <div className="p-3 bg-error-container text-on-error-container text-sm font-semibold rounded-xl">{createError}</div>}
+
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-on-surface-variant">Họ và tên</label>
+                <input value={newName} onChange={(e) => setNewName(e.target.value)} className="m3-input" required />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-on-surface-variant">Tên tài khoản (dùng để đăng nhập)</label>
+                <input value={newUsername} onChange={(e) => setNewUsername(e.target.value)} placeholder="vd: thungan01" autoCapitalize="none" autoCorrect="off" className="m3-input" required />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-on-surface-variant">Email (nhận thư khôi phục mật khẩu)</label>
+                <input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="nhanvien@gmail.com" className="m3-input" required />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-on-surface-variant">Mật khẩu (tối thiểu 6 ký tự)</label>
+                <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="m3-input" required />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-on-surface-variant">Vai trò</label>
+                <select value={newRole} onChange={(e) => setNewRole(e.target.value as UserRole)} className="m3-input">
+                  <option value={UserRole.STAFF}>{ROLE_LABELS.staff}</option>
+                  {storeType === 'fnb' && <option value={UserRole.KITCHEN}>{ROLE_LABELS.kitchen}</option>}
+                  <option value={UserRole.MANAGER}>{ROLE_LABELS.manager}</option>
+                  <option value={UserRole.OWNER}>{ROLE_LABELS.owner}</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-on-surface-variant">Mức lương mỗi giờ (đ/giờ)</label>
+                <input type="number" value={newHourlyRate} onChange={(e) => setNewHourlyRate(Math.max(0, parseInt(e.target.value) || 0))} className="m3-input font-mono" required />
+              </div>
+
+              <div className="pt-3 border-t border-outline-variant flex justify-end gap-2">
+                <button type="button" onClick={() => setCreateOpen(false)} className="m3-btn-tonal !min-h-11">Hủy</button>
+                <button type="submit" className="m3-btn-filled !min-h-11">Tạo tài khoản</button>
               </div>
             </form>
           </div>

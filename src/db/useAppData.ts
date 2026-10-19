@@ -21,16 +21,18 @@ import {
   type CartMap,
   type CollectionKey,
 } from './collections';
-import { batch, flush, initDatabase, run, setMeta } from './index';
+import { batch, flush, initDatabase, queryOne, run, setMeta } from './index';
 import {
+  changePassword,
+  createEmployee as authCreateEmployee,
   ensureDemoStore,
-  ensureSysAdmin,
   registerOwner,
   restoreSession,
   signIn as authSignIn,
   signOut as authSignOut,
   type AuthStore,
   type AuthUser,
+  type StoreRole,
   type RegisterInput,
 } from './auth';
 
@@ -52,7 +54,6 @@ export interface AppDataApi {
   store: AuthStore | null;
   storeId: string;
   storeType: 'fnb' | 'retail';
-  isSysAdmin: boolean;
   isDemoSession: boolean;
 
   data: CollectionState;
@@ -64,7 +65,11 @@ export interface AppDataApi {
   register: (input: RegisterInput) => Promise<void>;
   demoLogin: (userName: string, storeId: string, storeType: 'fnb' | 'retail', storeName: string) => Promise<void>;
   signOut: () => Promise<void>;
-  /** Nạp lại toàn bộ dữ liệu từ SQLite (dùng sau khi tải dữ liệu từ Cloud về). */
+  /** Tạo tài khoản nhân viên (có mật khẩu) trong cửa hàng hiện tại rồi nạp lại danh sách nhân viên. */
+  createEmployee: (params: { username: string; email: string; password: string; name: string; role: StoreRole; hourlyRate: number }) => Promise<void>;
+  /** Đặt lại mật khẩu cho một tài khoản trong cửa hàng hiện tại (chủ / quản lý thực hiện). */
+  resetPassword: (uid: string, newPassword: string) => Promise<void>;
+  /** Nạp lại toàn bộ dữ liệu từ SQLite (dùng khi cần làm mới dữ liệu từ ổ lưu trữ). */
   reload: () => Promise<void>;
   setStoreType: (type: 'fnb' | 'retail') => void;
 }
@@ -118,7 +123,6 @@ export function useAppData(): AppDataApi {
     (async () => {
       try {
         await initDatabase();
-        await ensureSysAdmin();
         const session = await restoreSession();
         if (cancelled) return;
         if (session) {
@@ -205,6 +209,35 @@ export function useAppData(): AppDataApi {
     [applyStore],
   );
 
+  const createEmployee = useCallback(
+    async (params: { username: string; email: string; password: string; name: string; role: StoreRole; hourlyRate: number }) => {
+      const sid = storeIdRef.current;
+      if (!sid) throw new Error('Chưa chọn cửa hàng.');
+      await writeChain.current;
+      await authCreateEmployee({ storeId: sid, ...params });
+      const [collections, loadedCarts] = await Promise.all([loadAllCollections(sid), loadCarts(sid)]);
+      dataRef.current = collections;
+      cartsRef.current = loadedCarts;
+      setData(collections);
+      setCartsState(loadedCarts);
+    },
+    [],
+  );
+
+  const resetPassword = useCallback(
+    async (uid: string, newPassword: string) => {
+      const sid = storeIdRef.current;
+      if (!sid) throw new Error('Chưa chọn cửa hàng.');
+      if (newPassword.length < 6) throw new Error('Mật khẩu cần tối thiểu 6 ký tự.');
+      const target = await queryOne('SELECT store_id, role FROM users WHERE uid = ? AND deleted_at IS NULL', [uid]);
+      if (!target || target.store_id !== sid) throw new Error('Không tìm thấy tài khoản trong cửa hàng này.');
+      // Quản lý không được đặt lại mật khẩu của chủ cửa hàng
+      if (user?.role !== 'owner' && target.role === 'owner') throw new Error('Chỉ chủ cửa hàng mới đặt lại được mật khẩu của chủ cửa hàng.');
+      await changePassword(uid, newPassword);
+    },
+    [user],
+  );
+
   const signOutCb = useCallback(async () => {
     await flush();
     await authSignOut();
@@ -251,8 +284,6 @@ export function useAppData(): AppDataApi {
     };
   }, []);
 
-  const isSysAdmin = user?.role === 'sysadmin';
-
   return {
     ready,
     initError,
@@ -260,7 +291,6 @@ export function useAppData(): AppDataApi {
     store,
     storeId: store?.id ?? '',
     storeType: storeTypeState,
-    isSysAdmin,
     isDemoSession: !!user?.uid?.startsWith('demo-'),
     data,
     carts,
@@ -270,6 +300,8 @@ export function useAppData(): AppDataApi {
     register,
     demoLogin,
     signOut: signOutCb,
+    createEmployee,
+    resetPassword,
     reload,
     setStoreType,
   };

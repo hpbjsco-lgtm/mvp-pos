@@ -4,10 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import {
-  Users, Search, Plus, Edit2, Trash2, Award,
-  Phone, Mail, Check, AlertCircle, X, ShieldAlert
-} from 'lucide-react';
+import { Edit2, Plus, Search, Trash2, Users, X } from 'lucide-react';
 import { Customer } from '../types';
 import { logOperation } from '../utils/logger';
 
@@ -19,15 +16,23 @@ interface CustomersSectionProps {
   setSimCustomers: React.Dispatch<React.SetStateAction<Customer[]>>;
 }
 
+type Tier = 'bronze' | 'silver' | 'gold' | 'diamond';
+
+const getTier = (points: number): { id: Tier; name: string; badgeClass: string; barClass: string } => {
+  if (points >= 500) return { id: 'diamond', name: 'Kim cương', badgeClass: 'bg-primary-container text-on-primary-container', barClass: 'border-l-primary' };
+  if (points >= 200) return { id: 'gold', name: 'Vàng', badgeClass: 'm3-badge-warning', barClass: 'border-l-tertiary' };
+  if (points >= 50) return { id: 'silver', name: 'Bạc', badgeClass: 'm3-badge-neutral', barClass: 'border-l-outline' };
+  return { id: 'bronze', name: 'Đồng', badgeClass: 'm3-badge-neutral', barClass: 'border-l-outline-variant' };
+};
+
 export default function CustomersSection({
-  isOffline,
-  storeId,
   triggerBeep,
   simCustomers,
   setSimCustomers
 }: CustomersSectionProps) {
   const customers = simCustomers;
   const [searchQuery, setSearchQuery] = useState('');
+  const [tierFilter, setTierFilter] = useState<'all' | Tier>('all');
 
   // Form Modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -133,238 +138,183 @@ export default function CustomersSection({
   // Filtered list
   const filteredCustomers = customers.filter(c => {
     const term = searchQuery.toLowerCase().trim();
-    return c.name.toLowerCase().includes(term) || c.phone.includes(term) || c.email.toLowerCase().includes(term);
+    const matchesSearch = c.name.toLowerCase().includes(term) || c.phone.includes(term) || c.email.toLowerCase().includes(term);
+    const matchesTier = tierFilter === 'all' || getTier(c.points).id === tierFilter;
+    return matchesSearch && matchesTier;
   });
 
+  const tierFilters: { id: 'all' | Tier; label: string }[] = [
+    { id: 'all', label: 'Tất cả' },
+    { id: 'diamond', label: 'Kim cương' },
+    { id: 'gold', label: 'Vàng' },
+    { id: 'silver', label: 'Bạc' },
+    { id: 'bronze', label: 'Đồng' }
+  ];
+
   return (
-    <div className="space-y-6">
-      
-      {/* Header section */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-surface-container-lowest border border-outline-variant rounded-3xl p-6 shadow-sm gap-4">
-        <div>
-          <h2 className="text-xl font-black text-on-surface tracking-tight uppercase flex items-center gap-2">
-            <Users className="w-6 h-6 text-secondary" />
-            Quản lý cơ sở dữ liệu Khách hàng
-          </h2>
-          <p className="text-xs text-on-surface-variant mt-1">
-            Tra cứu thông tin khách hàng, tích điểm thành viên hội viên và quản lý lịch sử liên hệ.
-          </p>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Users className="w-5 h-5 text-primary" />
+          <h2 className="text-lg font-bold text-on-surface">Khách hàng</h2>
         </div>
-        <button
-          onClick={handleOpenAdd}
-          className="px-4.5 py-2.5 bg-primary hover:brightness-110 text-white rounded-xl text-xs font-bold transition-all shadow-md active:scale-95 flex items-center gap-2 cursor-pointer"
-        >
-          <Plus className="w-4 h-4" /> Thêm khách hàng mới
+        <button onClick={handleOpenAdd} className="m3-btn-filled !bg-secondary !text-on-secondary !min-h-10 !px-4 text-sm">
+          <Plus className="w-4 h-4" /> Thêm mới
         </button>
       </div>
 
-      {/* Main Grid table */}
-      <div className="bg-surface-container-lowest border border-outline-variant rounded-3xl p-5 shadow-sm space-y-4">
-        {/* Controls */}
-        <div className="flex items-center relative">
-          <Search className="w-4 h-4 text-on-surface-variant absolute left-3.5 top-3.5" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Tìm kiếm khách hàng theo Tên, Số điện thoại hoặc Email..."
-            className="w-full pl-10 pr-4 py-3 border border-outline-variant rounded-xl text-xs focus:ring-1 focus:ring-primary font-semibold"
-          />
-        </div>
-
-        {/* List Content */}
-        {filteredCustomers.length === 0 ? (
-          <div className="py-16 text-center text-on-surface-variant text-xs border border-dashed border-outline-variant rounded-2xl">
-            🔍 Không tìm thấy hồ sơ khách hàng nào phù hợp bộ lọc tìm kiếm.
-          </div>
-        ) : (
-          <div className="overflow-x-auto rounded-xl border border-outline-variant">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-surface-container text-on-surface-variant font-bold uppercase border-b border-outline-variant">
-                  <th className="p-4">Tên khách hàng</th>
-                  <th className="p-4">Số điện thoại</th>
-                  <th className="p-4">Địa chỉ Email</th>
-                  <th className="p-4 text-center">Điểm tích lũy</th>
-                  <th className="p-4 text-center">Hạng thẻ</th>
-                  <th className="p-4 text-right">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-medium text-on-surface">
-                {filteredCustomers.map((c) => {
-                  const isWalkin = c.id === 'khach-vang-lai';
-                  // Calculate tier
-                  let tierName = 'Đồng (Bronze)';
-                  let tierColor = 'bg-surface-container-high text-on-surface-variant border border-outline-variant';
-                  if (c.points >= 500) {
-                    tierName = 'Kim Cương (Diamond)';
-                    tierColor = 'bg-cyan-50 text-cyan-700 border border-cyan-200';
-                  } else if (c.points >= 200) {
-                    tierName = 'Vàng (Gold)';
-                    tierColor = 'bg-tertiary-container text-on-tertiary-container border border-tertiary-container';
-                  } else if (c.points >= 50) {
-                    tierName = 'Bạc (Silver)';
-                    tierColor = 'bg-primary-container text-primary border border-primary-container';
-                  }
-
-                  return (
-                    <tr key={c.id} className={`hover:bg-surface-container/50 transition-colors ${isWalkin ? 'bg-surface-container/30' : ''}`}>
-                      <td className="p-4">
-                        <div className="flex items-center gap-2.5">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs uppercase ${
-                            isWalkin ? 'bg-slate-200 text-on-surface-variant' : 'bg-secondary-container text-secondary'
-                          }`}>
-                            {c.name.slice(0, 2)}
-                          </div>
-                          <div>
-                            <p className="font-extrabold text-on-surface">{c.name}</p>
-                            <p className="text-[10px] text-on-surface-variant font-mono mt-0.5">{c.id}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="p-4 font-mono text-on-surface-variant">
-                        {c.phone || <span className="text-outline">Chưa cập nhật</span>}
-                      </td>
-                      <td className="p-4 text-on-surface-variant">
-                        {c.email || <span className="text-outline">Chưa cập nhật</span>}
-                      </td>
-                      <td className="p-4 text-center">
-                        <span className="font-black text-on-surface font-mono text-sm">
-                          {c.points}
-                        </span>
-                      </td>
-                      <td className="p-4 text-center">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${tierColor}`}>
-                          {tierName}
-                        </span>
-                      </td>
-                      <td className="p-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            onClick={() => handleOpenEdit(c)}
-                            disabled={isWalkin}
-                            className={`p-1.5 hover:bg-surface-container-high rounded-lg text-on-surface-variant hover:text-primary transition-all cursor-pointer ${
-                              isWalkin ? 'opacity-30 cursor-not-allowed' : ''
-                            }`}
-                            title="Chỉnh sửa thông tin"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(c)}
-                            disabled={isWalkin}
-                            className={`p-1.5 hover:bg-surface-container-high rounded-lg text-on-surface-variant hover:text-error transition-all cursor-pointer ${
-                              isWalkin ? 'opacity-30 cursor-not-allowed' : ''
-                            }`}
-                            title="Xóa khách hàng"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+      <div className="relative">
+        <Search className="w-4 h-4 text-on-surface-variant absolute left-3.5 top-1/2 -translate-y-1/2" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Tìm theo Tên hoặc Số điện thoại..."
+          className="m3-input !rounded-full pl-10"
+        />
       </div>
 
-      {/* Detail card displaying Premium Loyalty Program Rules */}
-      <div className="bg-gradient-to-r from-emerald-600 to-teal-500 rounded-3xl p-6 text-white shadow-md relative overflow-hidden flex flex-col md:flex-row justify-between items-center gap-6">
-        <div className="absolute top-0 right-0 w-36 h-36 bg-surface-container-lowest/5 rounded-full blur-2xl" />
-        <div className="space-y-2">
-          <span className="bg-surface-container-lowest/10 text-white border border-white/20 px-2 py-0.5 rounded-full text-[9px] font-black tracking-wider uppercase">Chương trình Loyalty VIP</span>
-          <h3 className="text-base font-extrabold tracking-tight">Cơ chế tích điểm thành viên tự động</h3>
-          <p className="text-xs text-white/80 max-w-xl">
-            Khi thanh toán hóa đơn, cứ mỗi <strong>10,000 đ</strong> chi tiêu, thành viên sẽ tự động tích lũy được <strong>1 điểm</strong>. Điểm tích lũy dùng để xếp hạng hội viên (Đồng, Bạc, Vàng, Kim Cương) và trừ trực tiếp vào hóa đơn tiếp theo.
-          </p>
-        </div>
-        <div className="flex items-center gap-3.5 bg-surface-container-lowest/10 border border-white/20 rounded-2xl px-5 py-4 backdrop-blur-sm">
-          <Award className="w-8 h-8 text-yellow-300 animate-pulse flex-shrink-0" />
-          <div className="text-left">
-            <p className="text-xs font-extrabold uppercase">Thống kê hội viên</p>
-            <p className="text-xs text-white/80 mt-0.5">Thành viên: <strong>{customers.filter(c => c.id !== 'khach-vang-lai').length} người</strong></p>
-          </div>
-        </div>
+      <div className="flex overflow-x-auto gap-2 pb-1 scrollbar-none">
+        {tierFilters.map(t => (
+          <button
+            key={t.id}
+            onClick={() => setTierFilter(t.id)}
+            className={`m3-chip !rounded-full whitespace-nowrap ${tierFilter === t.id ? 'm3-chip-selected' : ''}`}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
+
+      {/* Danh sách khách hàng */}
+      {filteredCustomers.length === 0 ? (
+        <div className="py-16 text-center text-on-surface-variant flex flex-col items-center justify-center gap-2">
+          <Users className="w-8 h-8 text-outline-variant" />
+          <p className="text-base font-bold">Không tìm thấy khách hàng nào</p>
+          <p className="text-sm">Thử đổi từ khóa tìm kiếm hoặc bộ lọc hạng thẻ.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          {filteredCustomers.map((c) => {
+            const isWalkin = c.id === 'khach-vang-lai';
+            const tier = getTier(c.points);
+
+            return (
+              <div key={c.id} className={`m3-card p-4 border-l-4 ${tier.barClass} ${isWalkin ? 'opacity-70' : ''}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-10 h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold text-sm uppercase shrink-0">
+                      {c.name.slice(0, 2)}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-base font-bold text-on-surface truncate">{c.name}</p>
+                      <p className="text-sm text-on-surface-variant font-mono truncate">{c.phone || 'Chưa cập nhật SĐT'}</p>
+                    </div>
+                  </div>
+                  {!isWalkin && (
+                    <span className={`m3-badge shrink-0 ${tier.badgeClass}`}>
+                       {tier.name}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between pt-3 mt-3 border-t border-outline-variant">
+                  <div>
+                    <p className="text-sm text-on-surface-variant">Điểm tích lũy</p>
+                    <p className="text-lg font-bold text-on-surface flex items-center gap-1">
+                       {c.points}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => handleOpenEdit(c)}
+                      disabled={isWalkin}
+                      className={`m3-icon-btn ${isWalkin ? 'opacity-30 cursor-not-allowed' : ''}`}
+                      title="Chỉnh sửa thông tin"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(c)}
+                      disabled={isWalkin}
+                      className={`m3-icon-btn hover:text-error ${isWalkin ? 'opacity-30 cursor-not-allowed' : ''}`}
+                      title="Xóa khách hàng"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Modal Dialog Form */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-surface-container-lowest rounded-3xl border border-outline-variant max-w-md w-full p-6 shadow-xl space-y-4">
-            
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="m3-card !bg-surface-container-lowest max-w-md w-full p-6 shadow-xl space-y-4">
+
             <div className="flex justify-between items-center pb-3 border-b border-outline-variant">
-              <h3 className="text-sm font-black text-on-surface uppercase">
-                {editingCustomer ? 'Cập nhật thông tin khách hàng' : 'Thêm hồ sơ khách hàng mới'}
+              <h3 className="text-base font-bold text-on-surface">
+                {editingCustomer ? 'Cập nhật thông tin khách hàng' : 'Thêm khách hàng mới'}
               </h3>
-              <button 
-                onClick={() => setModalOpen(false)}
-                className="p-1 hover:bg-surface-container-high rounded-lg text-on-surface-variant hover:text-on-surface-variant transition-colors"
-              >
-                <X className="w-4 h-4" />
+              <button onClick={() => setModalOpen(false)} className="m3-icon-btn">
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="space-y-4">
+            <form onSubmit={handleSave} className="space-y-3">
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-on-surface-variant uppercase">Họ và tên khách hàng</label>
+                <label className="text-sm font-semibold text-on-surface-variant">Họ và tên khách hàng</label>
                 <input
                   type="text"
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
                   placeholder="Ví dụ: Nguyễn Văn Hải"
-                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-semibold focus:ring-1 focus:ring-primary"
+                  className="m3-input"
                   required
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-on-surface-variant uppercase">Số điện thoại</label>
+                <label className="text-sm font-semibold text-on-surface-variant">Số điện thoại</label>
                 <input
                   type="text"
                   value={formPhone}
                   onChange={(e) => setFormPhone(e.target.value)}
                   placeholder="Ví dụ: 0912345678"
-                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-mono font-bold focus:ring-1 focus:ring-primary"
+                  className="m3-input font-mono"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-on-surface-variant uppercase">Địa chỉ Email</label>
+                <label className="text-sm font-semibold text-on-surface-variant">Địa chỉ Email</label>
                 <input
                   type="email"
                   value={formEmail}
                   onChange={(e) => setFormEmail(e.target.value)}
                   placeholder="username@domain.com"
-                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs focus:ring-1 focus:ring-primary"
+                  className="m3-input"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-on-surface-variant uppercase">Điểm tích lũy thành viên</label>
+                <label className="text-sm font-semibold text-on-surface-variant">Điểm tích lũy thành viên</label>
                 <input
                   type="number"
                   value={formPoints}
                   onChange={(e) => setFormPoints(Math.max(0, parseInt(e.target.value) || 0))}
                   placeholder="0"
-                  className="w-full px-3 py-2 border border-outline-variant rounded-xl text-xs font-mono font-bold focus:ring-1 focus:ring-primary"
+                  className="m3-input font-mono"
                 />
               </div>
 
-              <div className="pt-4 border-t border-outline-variant flex justify-end gap-2 text-xs">
-                <button
-                  type="button"
-                  onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 bg-surface-container hover:bg-surface-container-high text-on-surface-variant rounded-xl font-bold transition-colors cursor-pointer"
-                >
+              <div className="pt-3 border-t border-outline-variant flex justify-end gap-2">
+                <button type="button" onClick={() => setModalOpen(false)} className="m3-btn-tonal !min-h-10 text-sm">
                   Hủy bỏ
                 </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 bg-primary hover:brightness-110 text-white rounded-xl font-bold shadow transition-all cursor-pointer"
-                >
+                <button type="submit" className="m3-btn-filled !min-h-10 text-sm">
                   Lưu hồ sơ
                 </button>
               </div>

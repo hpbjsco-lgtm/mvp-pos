@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { ChefHat, Clock, CheckCircle, RefreshCw, AlertTriangle, Coffee, Filter } from 'lucide-react';
+import { ChefHat, Trash2 } from 'lucide-react';
 import { KitchenItem, KitchenStatus } from '../types';
 
 interface KitchenDisplayProps {
@@ -15,14 +15,19 @@ interface KitchenDisplayProps {
   storeId?: string;
 }
 
+const STATUS_STYLES: Record<KitchenStatus, { bar: string; badge: string; label: string }> = {
+  [KitchenStatus.PENDING]: { bar: 'border-l-error', badge: 'm3-badge-error', label: 'Chờ làm' },
+  [KitchenStatus.PREPARING]: { bar: 'border-l-tertiary', badge: 'm3-badge-warning', label: 'Đang nấu' },
+  [KitchenStatus.COMPLETED]: { bar: 'border-l-primary', badge: 'bg-primary-container text-on-primary-container', label: 'Xong, chờ bưng' },
+  [KitchenStatus.SERVED]: { bar: 'border-l-outline-variant', badge: 'm3-badge-success', label: 'Đã lên bàn' }
+};
+
 export default function KitchenDisplay({
   simKitchenItems,
   setSimKitchenItems,
-  triggerBeep,
-  isOffline = true,
-  storeId = 'Sandbox'
+  triggerBeep
 }: KitchenDisplayProps) {
-  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>('active');
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
 
   // Real-time ticking clock for calculating cooking duration since order creation
@@ -70,177 +75,100 @@ export default function KitchenDisplay({
     return item.status === filterStatus;
   });
 
+  const statusFilters: { id: string; label: string }[] = [
+    { id: 'active', label: `Đang hoạt động (${simKitchenItems.filter(i => i.status !== KitchenStatus.SERVED).length})` },
+    { id: KitchenStatus.PENDING, label: `Chờ làm (${simKitchenItems.filter(i => i.status === KitchenStatus.PENDING).length})` },
+    { id: KitchenStatus.PREPARING, label: `Đang làm (${simKitchenItems.filter(i => i.status === KitchenStatus.PREPARING).length})` },
+    { id: KitchenStatus.COMPLETED, label: `Chờ phục vụ (${simKitchenItems.filter(i => i.status === KitchenStatus.COMPLETED).length})` },
+    { id: 'all', label: `Tất cả (${simKitchenItems.length})` }
+  ];
+
   return (
-    <div id="kitchen-display-system" className="bg-surface-container-lowest text-on-surface rounded-3xl p-6 border border-outline-variant shadow-sm space-y-5">
+    <div id="kitchen-display-system" className="space-y-4">
 
-      {/* KDS Header Controls */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-outline-variant pb-4">
-        <div className="flex items-center gap-3">
-          <div className="p-3 bg-orange-50 text-orange-600 rounded-2xl border border-orange-200/50">
-            <ChefHat className="w-7 h-7 animate-pulse" />
-          </div>
-          <div>
-            <h3 className="text-xl font-extrabold text-on-surface uppercase tracking-tight">Màn hình điều phối chế biến (KDS)</h3>
-            <p className="text-sm text-on-surface-variant font-medium">Báo nhận món, đang làm, và bưng ra bàn cho thực khách theo thời gian thực</p>
-          </div>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <ChefHat className="w-5 h-5 text-primary" />
+          <h2 className="text-lg font-bold text-on-surface">Màn hình bếp</h2>
         </div>
-
-        <button
-          onClick={handleClearServed}
-          className="min-h-12 py-2.5 px-5 bg-surface-container hover:bg-surface-container-high text-on-surface hover:text-on-surface rounded-xl text-base font-bold border border-outline-variant transition-colors cursor-pointer flex items-center gap-2 active:scale-98"
-        >
-          🧹 Dọn món đã phục vụ xong
-        </button>
-      </div>
-
-      {/* Filter Segment Tabs */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-surface-container p-2.5 rounded-2xl border border-outline-variant/60">
-        <div className="flex flex-wrap gap-2 items-center">
-          <span className="text-sm text-on-surface-variant font-black uppercase tracking-wider mr-1 flex items-center gap-1.5">
-            <Filter className="w-4 h-4" /> Lọc món:
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-sm text-on-surface-variant font-mono font-bold flex items-center gap-1.5">
+             {currentTime.toLocaleTimeString('vi-VN')}
           </span>
-
-          <button
-            onClick={() => { setFilterStatus('all'); triggerBeep(true); }}
-            className={`min-h-11 py-2 px-4 rounded-xl text-base font-bold transition-all cursor-pointer ${
-              filterStatus === 'all' ? 'bg-slate-900 text-white shadow-xs' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'
-            }`}
-          >
-            Tất cả ({simKitchenItems.length})
+          <button onClick={handleClearServed} className="m3-icon-btn" title="Dọn món đã phục vụ xong">
+            <Trash2 className="w-4 h-4" />
           </button>
-
-          <button
-            onClick={() => { setFilterStatus('active'); triggerBeep(true); }}
-            className={`min-h-11 py-2 px-4 rounded-xl text-base font-bold transition-all cursor-pointer ${
-              filterStatus === 'active' ? 'bg-tertiary text-white shadow-xs' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'
-            }`}
-          >
-            Đang hoạt động ({simKitchenItems.filter(item => item.status !== KitchenStatus.SERVED).length})
-          </button>
-
-          <button
-            onClick={() => { setFilterStatus(KitchenStatus.PENDING); triggerBeep(true); }}
-            className={`min-h-11 py-2 px-4 rounded-xl text-base font-bold transition-all cursor-pointer ${
-              filterStatus === KitchenStatus.PENDING ? 'bg-error-container text-on-error-container border border-error-container' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'
-            }`}
-          >
-            Chờ chế biến ({simKitchenItems.filter(item => item.status === KitchenStatus.PENDING).length})
-          </button>
-
-          <button
-            onClick={() => { setFilterStatus(KitchenStatus.PREPARING); triggerBeep(true); }}
-            className={`min-h-11 py-2 px-4 rounded-xl text-base font-bold transition-all cursor-pointer ${
-              filterStatus === KitchenStatus.PREPARING ? 'bg-tertiary-container text-on-tertiary-container border border-tertiary-container' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'
-            }`}
-          >
-            Đang làm ({simKitchenItems.filter(item => item.status === KitchenStatus.PREPARING).length})
-          </button>
-
-          <button
-            onClick={() => { setFilterStatus(KitchenStatus.COMPLETED); triggerBeep(true); }}
-            className={`min-h-11 py-2 px-4 rounded-xl text-base font-bold transition-all cursor-pointer ${
-              filterStatus === KitchenStatus.COMPLETED ? 'bg-primary-container text-on-primary-container border border-primary-container' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'
-            }`}
-          >
-            Chờ phục vụ ({simKitchenItems.filter(item => item.status === KitchenStatus.COMPLETED).length})
-          </button>
-        </div>
-
-        <div className="text-sm text-on-surface-variant font-mono font-bold flex items-center gap-2 bg-surface-container-lowest px-3 py-2 rounded-xl border border-outline-variant shadow-xs">
-          <Clock className="w-4.5 h-4.5 text-primary animate-pulse" /> {currentTime.toLocaleTimeString('vi-VN')}
         </div>
       </div>
 
-      {/* Main Grid display of order items */}
+      <div className="flex overflow-x-auto gap-2 pb-1 scrollbar-none">
+        {statusFilters.map(f => (
+          <button
+            key={f.id}
+            onClick={() => { setFilterStatus(f.id); triggerBeep(true); }}
+            className={`m3-chip !rounded-full whitespace-nowrap ${filterStatus === f.id ? 'm3-chip-selected' : ''}`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
       {filteredItems.length === 0 ? (
-        <div className="py-12 text-center text-on-surface-variant text-base border border-dashed border-outline-variant bg-surface-container rounded-2xl">
-          🍳 Không tìm thấy món ăn hay yêu cầu chế biến nào tương thích bộ lọc.
+        <div className="py-16 text-center text-on-surface-variant flex flex-col items-center justify-center gap-2">
+          <ChefHat className="w-8 h-8 text-outline-variant" />
+          <p className="text-base font-bold">Không có món nào phù hợp bộ lọc</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           {filteredItems.map(item => {
             const mins = getElapsedMinutes(item.createdAt);
             const isLate = mins >= 10 && item.status !== KitchenStatus.SERVED;
+            const style = STATUS_STYLES[item.status];
 
             return (
-              <div
-                key={item.id}
-                className={`p-5 rounded-2xl border flex flex-col justify-between gap-4 transition-all ${
-                  item.status === KitchenStatus.PENDING
-                    ? 'bg-error-container/70 border-error-container text-on-surface shadow-xs'
-                    : item.status === KitchenStatus.PREPARING
-                      ? 'bg-tertiary-container/70 border-tertiary-container text-on-surface shadow-xs'
-                      : item.status === KitchenStatus.COMPLETED
-                        ? 'bg-primary-container/70 border-primary-container text-on-surface shadow-xs'
-                        : 'bg-surface-container border-outline-variant text-on-surface-variant'
-                }`}
-              >
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-base font-black text-on-tertiary-container font-mono bg-tertiary-container px-3 py-1 rounded-lg border border-tertiary-container">
-                      📍 {item.tableNumber || 'Mang đi'}
-                    </span>
-                    <div className="flex items-center gap-1.5 text-sm text-on-surface-variant font-mono">
-                      <span>Ref: {item.orderId}</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <h4 className={`text-lg font-extrabold truncate ${item.status === KitchenStatus.SERVED ? 'line-through text-on-surface-variant' : 'text-on-surface'}`}>
-                      {item.productName}
-                    </h4>
-                    <p className="text-base text-on-surface-variant font-bold">
-                      Số lượng: <span className="text-base font-black text-on-surface px-2.5 py-0.5 bg-surface-container-lowest border border-outline-variant rounded">{item.quantity}</span>
-                    </p>
-                    {(item.size || item.sugarLevel || item.iceLevel) && (
-                      <div className="flex flex-wrap gap-1.5">
-                        {item.size && <span className="text-sm font-bold px-2 py-0.5 rounded bg-primary-container text-primary border border-primary-container">Size {item.size}</span>}
-                        {item.sugarLevel && <span className="text-sm font-bold px-2 py-0.5 rounded bg-tertiary-container text-on-tertiary-container border border-tertiary-container">Đường {item.sugarLevel}</span>}
-                        {item.iceLevel && <span className="text-sm font-bold px-2 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-100">Đá {item.iceLevel}</span>}
-                      </div>
+              <div key={item.id} className={`m3-card p-4 border-l-4 ${style.bar} space-y-3`}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-base font-bold text-on-surface">
+                    {item.tableNumber || 'Mang đi'}
+                  </span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {isLate && (
+                      <span className="m3-badge m3-badge-error">
+                         Quá giờ
+                      </span>
                     )}
+                    <span className="text-sm text-on-surface-variant font-mono">{mins} phút trước</span>
                   </div>
+                </div>
 
-                  {item.note && (
-                    <div className="text-sm bg-error-container text-on-error-container border border-error-container/60 px-3 py-2 rounded-xl font-sans font-medium italic flex items-start gap-1.5">
-                      <span>⚠️ Ghi chú: {item.note}</span>
+                <div className="space-y-1">
+                  <h4 className={`text-base font-bold ${item.status === KitchenStatus.SERVED ? 'line-through text-on-surface-variant' : 'text-on-surface'}`}>
+                    x{item.quantity} {item.productName}
+                  </h4>
+                  {(item.size || item.sugarLevel || item.iceLevel) && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {item.size && <span className="text-sm text-on-surface-variant">· Kích cỡ {item.size}</span>}
+                      {item.sugarLevel && <span className="text-sm text-on-surface-variant">· Đường {item.sugarLevel}</span>}
+                      {item.iceLevel && <span className="text-sm text-on-surface-variant">· Đá {item.iceLevel}</span>}
                     </div>
                   )}
-
-                  {/* Warning label if order is in kitchen for too long */}
-                  {isLate && (
-                    <div className="text-sm font-bold text-on-error-container flex items-center gap-1.5 animate-pulse bg-error-container px-2.5 py-1.5 rounded border border-error-container">
-                      <AlertTriangle className="w-4.5 h-4.5 text-error" /> Chế biến quá hạn ({mins} phút trôi qua)
+                  {item.note && (
+                    <div className="text-sm bg-tertiary-container text-on-tertiary-container px-3 py-2 rounded-xl">
+                      Ghi chú: {item.note}
                     </div>
                   )}
                 </div>
 
-                <div className="flex items-center justify-between pt-3 border-t border-outline-variant">
-                  {/* Status Badge */}
-                  <span className={`text-sm font-bold px-2.5 py-1 rounded-lg font-mono ${
-                    item.status === KitchenStatus.PENDING
-                      ? 'bg-error-container text-on-error-container border border-error-container'
-                      : item.status === KitchenStatus.PREPARING
-                        ? 'bg-tertiary-container text-on-tertiary-container border border-tertiary-container'
-                        : item.status === KitchenStatus.COMPLETED
-                          ? 'bg-primary-container text-on-primary-container border border-primary-container'
-                          : 'bg-surface-container-high text-on-surface-variant border border-outline-variant'
-                  }`}>
-                    {item.status === KitchenStatus.PENDING && '🔴 CHỜ LÀM'}
-                    {item.status === KitchenStatus.PREPARING && '🟡 ĐANG NẤU'}
-                    {item.status === KitchenStatus.COMPLETED && '🔵 XONG CHỜ BƯNG'}
-                    {item.status === KitchenStatus.SERVED && '🟢 ĐÃ LÊN BÀN'}
-                  </span>
-
-                  {/* Operational Controller */}
+                <div className="flex items-center justify-between pt-2 border-t border-outline-variant">
+                  <span className={`m3-badge ${style.badge}`}>{style.label}</span>
                   {item.status !== KitchenStatus.SERVED && (
                     <button
                       onClick={() => handleUpdateStatus(item.id, item.status)}
-                      className="min-h-12 py-2.5 px-5 bg-primary hover:brightness-110 text-white rounded-xl text-base font-bold flex items-center gap-1.5 cursor-pointer transition-all active:scale-[0.98] shadow-xs"
+                      className="m3-btn-filled !min-h-10 !px-4 text-sm"
                     >
-                      {item.status === KitchenStatus.PENDING && '👨‍🍳 Làm món'}
-                      {item.status === KitchenStatus.PREPARING && '✅ Báo xong'}
-                      {item.status === KitchenStatus.COMPLETED && '🚚 Đã bưng'}
+                      {item.status === KitchenStatus.PENDING && 'Làm món'}
+                      {item.status === KitchenStatus.PREPARING && 'Xong'}
+                      {item.status === KitchenStatus.COMPLETED && 'Đã bưng'}
                     </button>
                   )}
                 </div>
