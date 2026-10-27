@@ -5,7 +5,10 @@
 
 import React from 'react';
 import { ArrowLeft, Award, Banknote, QrCode, CreditCard } from 'lucide-react';
-import { Customer } from '../types';
+import { BankAccount, Customer } from '../types';
+import { buildVietQRPayload } from '../utils/vietqr';
+import { findBank } from '../utils/banks';
+import QrCodeImage from './QrCodeImage';
 
 interface CheckoutScreenProps {
   storeType: 'fnb' | 'retail';
@@ -41,6 +44,9 @@ interface CheckoutScreenProps {
   onBack: () => void;
   onComplete: (method: 'cash' | 'qr' | 'card') => void;
   playBeep: (success: boolean) => void;
+  /** Tài khoản ngân hàng nhận tiền (dùng tài khoản mặc định để hiện QR chuyển khoản). */
+  bankAccounts?: BankAccount[];
+  qrMemo?: string;
 }
 
 const paymentMethods: { id: 'cash' | 'qr' | 'card'; label: string; icon: typeof Banknote }[] = [
@@ -83,8 +89,13 @@ export default function CheckoutScreen({
   processing,
   onBack,
   onComplete,
-  playBeep
+  playBeep,
+  bankAccounts = [],
+  qrMemo = ''
 }: CheckoutScreenProps) {
+  const bank = bankAccounts.find(a => a.isDefault) || bankAccounts[0];
+  const bankBin = bank ? findBank(bank.bankCode)?.bin : undefined;
+  const qrPayload = bank && bankBin ? buildVietQRPayload({ bin: bankBin, accountNumber: bank.accountNumber, amount: grandTotal, memo: qrMemo }) : '';
 
   const [showDiscountVat, setShowDiscountVat] = React.useState(discountInput > 0 || vatPercent > 0);
   const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
@@ -342,10 +353,20 @@ export default function CheckoutScreen({
 
           {paymentMethod === 'qr' && (
             <div className="pt-2 border-t border-outline-variant text-center space-y-2">
-              <div className="w-40 h-40 mx-auto rounded-2xl bg-surface-container flex items-center justify-center">
-                <QrCode className="w-24 h-24 text-on-surface-variant" />
-              </div>
-              <p className="text-sm text-on-surface-variant">Khách quét mã để chuyển khoản {grandTotal.toLocaleString('vi-VN')} đ</p>
+              {qrPayload ? (
+                <>
+                  <QrCodeImage value={qrPayload} size={200} className="mx-auto rounded-xl bg-white p-1" />
+                  <p className="text-sm font-bold text-on-surface">{bank!.bankCode} · {bank!.accountNumber}</p>
+                  <p className="text-sm text-on-surface-variant">{bank!.holder}</p>
+                </>
+              ) : (
+                <div className="w-40 h-40 mx-auto rounded-2xl bg-surface-container flex items-center justify-center">
+                  <QrCode className="w-24 h-24 text-on-surface-variant" />
+                </div>
+              )}
+              <p className="text-sm text-on-surface-variant">
+                {qrPayload ? 'Khách quét mã để chuyển khoản' : 'Chưa có tài khoản ngân hàng — thêm ở Sổ quỹ & Dòng tiền để hiện mã QR.'} {grandTotal.toLocaleString('vi-VN')} đ
+              </p>
             </div>
           )}
 

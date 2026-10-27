@@ -157,6 +157,9 @@ export default function KitchenDisplay({
                       {item.iceLevel && <span className="text-sm text-on-surface-variant">· Đá {item.iceLevel}</span>}
                     </div>
                   )}
+                  {item.toppings && (
+                    <p className="text-base font-bold text-primary">+ {item.toppings}</p>
+                  )}
                   {item.note && (
                     <div className="text-sm bg-tertiary-container text-on-tertiary-container px-3 py-2 rounded-xl">
                       Ghi chú: {item.note}

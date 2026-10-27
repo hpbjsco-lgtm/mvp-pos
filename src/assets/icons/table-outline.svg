@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 84" fill="none" role="img" aria-label="Bàn">
+  <!-- Ghế (viền, nhìn từ trên xuống) -->
+  <rect x="24" y="3" width="28" height="7" rx="3.5" fill="currentColor" opacity="0.55"/>
+  <rect x="68" y="3" width="28" height="7" rx="3.5" fill="currentColor" opacity="0.55"/>
+  <rect x="24" y="74" width="28" height="7" rx="3.5" fill="currentColor" opacity="0.55"/>
+  <rect x="68" y="74" width="28" height="7" rx="3.5" fill="currentColor" opacity="0.55"/>
+  <rect x="3" y="26" width="7" height="32" rx="3.5" fill="currentColor" opacity="0.55"/>
+  <rect x="110" y="26" width="7" height="32" rx="3.5" fill="currentColor" opacity="0.55"/>
+  <!-- Mặt bàn -->
+  <rect x="14" y="13" width="92" height="58" rx="16" stroke="currentColor" stroke-width="3" style="fill: var(--table-fill, none)"/>
+</svg>

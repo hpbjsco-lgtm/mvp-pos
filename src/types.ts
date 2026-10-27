@@ -35,6 +35,12 @@ export interface Store {
   createdAt: string;
 }
 
+/** Một size / biến thể giá của món (tên tùy chỉnh, giá bán riêng). */
+export interface ProductSize {
+  name: string;
+  price: number;
+}
+
 export interface Product {
   id: string;
   sku: string; // Barcode or code (used for QR/Barcode scanner)
@@ -44,6 +50,12 @@ export interface Product {
   category: string;
   unit?: string; // Đơn vị tính (cái/kg/lốc/thùng...), chủ yếu dùng cho bán lẻ
   imageUrl?: string; // Ảnh sản phẩm hiển thị trên lưới bán hàng (POS)
+  /** Các size / biến thể giá tùy chỉnh của món (vd Nhỏ 29.000, Lớn 35.000). Size đầu tiên là mặc định; `price` = giá size mặc định. */
+  sizes?: ProductSize[];
+  /** Topping: bán kèm món chính (không hiện trên lưới món), cộng thêm vào giá của dòng món. */
+  isTopping?: boolean;
+  toppingKind?: 'prepared' | 'regular' | 'made'; // chế biến / thường / sản xuất
+  toppingFor?: string[]; // id các món được gắn topping này
   isAvailable: boolean; // Trạng thái món ăn / sản phẩm (còn hàng / hết hàng, đặc biệt hữu ích cho F&B)
   createdAt: string;
 }
@@ -72,12 +84,56 @@ export interface OrderItem {
   size?: string; // Size đồ uống (Nhỏ/Vừa/Lớn...)
   sugarLevel?: string; // Mức đường (0%/30%/50%/70%/100%)
   iceLevel?: string; // Mức đá (0%/30%/50%/70%/100%)
+  /** Topping đã chọn kèm món (giá `price` của dòng đã gồm tiền topping). */
+  toppings?: { name: string; price: number; quantity: number }[];
 }
 
 export enum PaymentMethod {
   CASH = 'cash',
   CARD = 'card',
-  QR = 'qr'
+  QR = 'qr',
+  MIXED = 'mixed' // Thanh toán kết hợp nhiều phương thức (chi tiết ở Order.payments)
+}
+
+/** Một khoản thanh toán trong đơn (dùng cho thanh toán kết hợp). */
+export interface PaymentPart {
+  method: 'cash' | 'qr' | 'card';
+  amount: number;
+  /** Tài khoản ngân hàng nhận tiền (chuyển khoản / thẻ) - để ghi sổ quỹ đúng tài khoản. */
+  bankAccountId?: string;
+}
+
+/** Tài khoản ngân hàng của cửa hàng: nhận tiền chuyển khoản, sinh mã QR trên màn thanh toán / phiếu tạm tính. */
+export interface BankAccount {
+  id: string;
+  accountName: string; // Tên gợi nhớ của tài khoản
+  accountNumber: string;
+  bankCode: string; // Mã ngân hàng viết tắt (VCB, TCB...)
+  bankName: string;
+  holder: string; // Chủ tài khoản
+  note?: string;
+  isDefault: boolean;
+  createdAt: string;
+}
+
+/** Loại quỹ: tiền mặt / ngân hàng / ví điện tử. */
+export type FundType = 'cash' | 'bank' | 'wallet';
+
+/** Phiếu thu / phiếu chi lập tay trong sổ quỹ (các khoản thu từ bán hàng được tính tự động từ hóa đơn). */
+export interface CashVoucher {
+  id: string;
+  code: string; // PT0001 / PC0001
+  type: 'receipt' | 'payment';
+  fund: FundType;
+  bankAccountId?: string;
+  amount: number;
+  category: string; // Loại thu chi
+  counterparty?: string; // Người nộp / người nhận
+  phone?: string;
+  note?: string;
+  status: 'paid' | 'cancelled';
+  createdBy?: string;
+  createdAt: string;
 }
 
 export interface Order {
@@ -90,6 +146,7 @@ export interface Order {
   totalAmount: number;
   totalCost?: number;
   paymentMethod: PaymentMethod;
+  payments?: PaymentPart[]; // Chi tiết các khoản thanh toán (có khi thanh toán kết hợp)
   paidAmount: number;
   changeAmount: number;
   staffId: string;
@@ -156,6 +213,7 @@ export interface KitchenItem {
   size?: string;
   sugarLevel?: string;
   iceLevel?: string;
+  toppings?: string; // Topping kèm món, dạng chữ (vd "Trân châu đen x1, Thạch dừa x2")
   createdAt: string;
 }
 

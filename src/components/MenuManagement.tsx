@@ -6,10 +6,12 @@
 import DragScrollRow from './DragScrollRow';
 import React, { useMemo, useState } from 'react';
 import { Coffee, Plus, Search, ShoppingBasket, Trash2, X } from 'lucide-react';
-import { Product } from '../types';
+import { Product, ProductSize } from '../types';
+import { cleanSizes, hasSizes } from '../utils/sizes';
 import { logOperation } from '../utils/logger';
 import { categoryBadgeColor } from '../utils/categoryColor';
 import { fileToResizedDataUrl } from '../utils/imageUpload';
+import ToppingDialog from './ToppingDialog';
 
 const CATEGORIES_BY_STORE_TYPE: Record<'fnb' | 'retail', string[]> = {
   fnb: ['Đồ uống', 'Món ăn', 'Khác'],
@@ -56,6 +58,19 @@ export default function MenuManagement({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<'all' | string>('all');
   const [addModalOpen, setAddModalOpen] = useState(false);
+  // Sửa món đang chọn (null = đang thêm mới) + size / biến thể giá tùy chỉnh
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [sizesOn, setSizesOn] = useState(false);
+  const [newItemSizes, setNewItemSizes] = useState<ProductSize[]>([]);
+  // Topping (chỉ F&B): hộp chọn loại cần thêm + hộp tạo / sửa topping
+  const [chooserOpen, setChooserOpen] = useState(false);
+  const [toppingDialog, setToppingDialog] = useState<{ topping?: Product } | null>(null);
+
+  const handleSaveTopping = (t: Product) => {
+    logOperation('Quản lý thực đơn', simProducts.some(p => p.id === t.id) ? 'Sửa topping' : 'Thêm topping', t);
+    setSimProducts(prev => (prev.some(p => p.id === t.id) ? prev.map(p => (p.id === t.id ? t : p)) : [t, ...prev]));
+    triggerBeep(true);
+  };
 
   // Form states to add new menu item
   const [newItemName, setNewItemName] = useState('');
@@ -94,32 +109,8 @@ export default function MenuManagement({
   };
 
   // Auto generate SKU if empty
-  const handleAddMenuItem = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newItemName.trim()) {
-      alert('Vui lòng nhập tên món ăn/thức uống!');
-      return;
-    }
-
-    const sku = newItemSku.trim() || `MN-${Date.now().toString().slice(-6)}`;
-
-    const newProduct: Product = {
-      id: `P-${Date.now()}`,
-      sku,
-      name: newItemName.trim(),
-      price: newItemPrice,
-      cost: newItemCost,
-      category: newItemCategory.trim() || 'Khác',
-      unit: newItemUnit.trim() || undefined,
-      imageUrl: newItemImageUrl || undefined,
-      isAvailable: true,
-      createdAt: new Date().toISOString()
-    };
-
-    logOperation('Quản lý thực đơn', 'Thêm món vào thực đơn', newProduct);
-    setSimProducts(prev => [newProduct, ...prev]);
-
-    // Reset fields
+  const resetForm = () => {
+    setEditingId(null);
     setNewItemName('');
     setNewItemCategory('');
     setNewItemSku('');
@@ -128,6 +119,70 @@ export default function MenuManagement({
     setImageError('');
     setNewItemPrice(30000);
     setNewItemCost(10000);
+    setSizesOn(false);
+    setNewItemSizes([]);
+  };
+
+  const openNewItem = () => { resetForm(); setAddModalOpen(true); };
+
+  const openEditItem = (p: Product) => {
+    setEditingId(p.id);
+    setNewItemName(p.name);
+    setNewItemCategory(p.category);
+    setNewItemSku(p.sku);
+    setNewItemUnit(p.unit || '');
+    setNewItemImageUrl(p.imageUrl || '');
+    setImageError('');
+    setNewItemPrice(p.price);
+    setNewItemCost(p.cost);
+    setSizesOn(hasSizes(p));
+    setNewItemSizes(hasSizes(p) ? p.sizes.map(s => ({ ...s })) : []);
+    setAddModalOpen(true);
+    triggerBeep(true);
+  };
+
+  // Bật "nhiều mức giá": tạo sẵn 2 size để chỉnh sửa
+  const toggleSizes = (on: boolean) => {
+    setSizesOn(on);
+    if (on && newItemSizes.length === 0) {
+      setNewItemSizes([{ name: 'Nhỏ', price: newItemPrice }, { name: 'Lớn', price: newItemPrice + 10000 }]);
+    }
+  };
+
+  const handleSubmitMenuItem = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newItemName.trim()) {
+      alert('Vui lòng nhập tên món ăn/thức uống!');
+      return;
+    }
+
+    const sizes = !isRetail && sizesOn ? cleanSizes(newItemSizes) : [];
+    if (!isRetail && sizesOn && sizes.length === 0) {
+      alert('Vui lòng nhập ít nhất một size (tên và giá).');
+      return;
+    }
+    // Giá gốc của món = giá của size mặc định (size đầu tiên)
+    const price = sizes.length > 0 ? sizes[0].price : newItemPrice;
+
+    const existing = editingId ? simProducts.find(p => p.id === editingId) : undefined;
+    const sku = newItemSku.trim() || existing?.sku || `MN-${Date.now().toString().slice(-6)}`;
+
+    const product: Product = {
+      ...(existing || { id: `P-${Date.now()}`, isAvailable: true, createdAt: new Date().toISOString() }),
+      sku,
+      name: newItemName.trim(),
+      price,
+      cost: newItemCost,
+      category: newItemCategory.trim() || 'Khác',
+      unit: newItemUnit.trim() || undefined,
+      imageUrl: newItemImageUrl || undefined,
+      sizes: sizes.length > 0 ? sizes : undefined,
+    };
+
+    logOperation('Quản lý thực đơn', existing ? 'Sửa món trong thực đơn' : 'Thêm món vào thực đơn', product);
+    setSimProducts(prev => (existing ? prev.map(p => (p.id === product.id ? product : p)) : [product, ...prev]));
+
+    resetForm();
     setAddModalOpen(false);
     triggerBeep(true);
   };
@@ -227,9 +282,21 @@ export default function MenuManagement({
               <div className="flex-1 min-w-0 space-y-1">
                 <h4 className={`text-base font-bold text-on-surface truncate ${!p.isAvailable ? 'line-through' : ''}`}>{p.name}</h4>
                 <p className="text-base font-bold text-primary">
-                  {p.price.toLocaleString('vi-VN')} đ{isRetail && p.unit ? ` / ${p.unit}` : ''}
+                  {hasSizes(p) ? `từ ${Math.min(...p.sizes.map(z => z.price)).toLocaleString('vi-VN')}` : p.price.toLocaleString('vi-VN')} đ{isRetail && p.unit ? ` / ${p.unit}` : ''}
                 </p>
                 <span className={`m3-badge ${categoryBadgeColor(p.category)}`}>{p.category}</span>
+                {hasSizes(p) && (
+                  <span className="block text-sm text-on-surface-variant mt-1">{p.sizes.map(z => `${z.name} ${z.price.toLocaleString('vi-VN')}`).join(' · ')}</span>
+                )}
+                {!p.isTopping && (
+                  <button onClick={() => openEditItem(p)} className="block text-sm font-bold text-primary underline underline-offset-2 cursor-pointer">Sửa món</button>
+                )}
+                {p.isTopping && (
+                  <>
+                    <span className="m3-badge m3-badge-warning ml-1.5">Topping · {(p.toppingFor || []).length} món</span>
+                    <button onClick={() => setToppingDialog({ topping: p })} className="block text-sm font-bold text-primary underline underline-offset-2 cursor-pointer">Sửa topping</button>
+                  </>
+                )}
               </div>
 
               <div className="flex flex-col items-end gap-2 shrink-0">
@@ -264,12 +331,31 @@ export default function MenuManagement({
 
       {/* Nút nổi thêm món / sản phẩm mới */}
       <button
-        onClick={() => { setAddModalOpen(true); triggerBeep(true); }}
+        onClick={() => { if (isRetail) openNewItem(); else setChooserOpen(true); triggerBeep(true); }}
         className="fixed right-5 bottom-[calc(5.5rem+var(--safe-bottom))] lg:bottom-8 z-30 w-14 h-14 rounded-2xl bg-primary text-on-primary shadow-xl flex items-center justify-center cursor-pointer active:scale-95 transition-transform"
         title={isRetail ? 'Thêm sản phẩm mới' : 'Thêm món mới'}
       >
         <Plus className="w-6 h-6" />
       </button>
+
+      {/* Chọn loại cần thêm (F&B): Món hoặc Topping */}
+      {chooserOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center sm:p-4" onClick={() => setChooserOpen(false)}>
+          <div className="bg-surface w-full sm:max-w-sm rounded-t-3xl sm:rounded-2xl shadow-2xl p-5 space-y-2" onClick={e => e.stopPropagation()}>
+            <p className="text-lg font-bold text-on-surface pb-1">Thêm mới</p>
+            <button onClick={() => { setChooserOpen(false); openNewItem(); }} className="w-full min-h-14 px-4 rounded-xl border border-outline-variant text-left text-base font-bold hover:bg-surface-container cursor-pointer">
+              + Món <span className="block text-sm font-normal text-on-surface-variant">Món ăn, đồ uống bán trên màn hình bán hàng</span>
+            </button>
+            <button onClick={() => { setChooserOpen(false); setToppingDialog({}); }} className="w-full min-h-14 px-4 rounded-xl border border-outline-variant text-left text-base font-bold hover:bg-surface-container cursor-pointer">
+              + Topping <span className="block text-sm font-normal text-on-surface-variant">Bán kèm món (trân châu, thạch, kem...)</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {toppingDialog && (
+        <ToppingDialog topping={toppingDialog.topping} products={simProducts} onSave={handleSaveTopping} onClose={() => setToppingDialog(null)} />
+      )}
 
       {/* Modal thêm món / sản phẩm mới */}
       {addModalOpen && (
@@ -277,14 +363,14 @@ export default function MenuManagement({
           <div className="m3-card !bg-surface-container-lowest max-w-md w-full p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center pb-3 border-b border-outline-variant">
               <h3 className="text-base font-bold text-on-surface">
-                {isRetail ? 'Thêm sản phẩm mới' : 'Thêm món mới'}
+                {editingId ? (isRetail ? 'Sửa sản phẩm' : 'Sửa món') : (isRetail ? 'Thêm sản phẩm mới' : 'Thêm món mới')}
               </h3>
-              <button onClick={() => setAddModalOpen(false)} className="m3-icon-btn">
+              <button onClick={() => { setAddModalOpen(false); resetForm(); }} className="m3-icon-btn">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleAddMenuItem} className="space-y-3">
+            <form onSubmit={handleSubmitMenuItem} className="space-y-3">
               <div className="space-y-1">
                 <label className="text-sm font-semibold text-on-surface-variant">Tên món / Sản phẩm</label>
                 <input
@@ -316,14 +402,15 @@ export default function MenuManagement({
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-sm font-semibold text-on-surface-variant">Giá bán (đ)</label>
+                  <label className="text-sm font-semibold text-on-surface-variant">{sizesOn ? 'Giá bán (theo size bên dưới)' : 'Giá bán (đ)'}</label>
                   <input
                     type="number"
-                    value={newItemPrice}
+                    value={sizesOn && newItemSizes[0] ? newItemSizes[0].price : newItemPrice}
                     onChange={(e) => setNewItemPrice(parseInt(e.target.value) || 0)}
                     className="m3-input font-mono"
                     min="0"
-                    required
+                    disabled={sizesOn}
+                    required={!sizesOn}
                   />
                 </div>
 
@@ -339,6 +426,61 @@ export default function MenuManagement({
                   />
                 </div>
               </div>
+
+              {!isRetail && (
+                <div className="rounded-xl border border-outline-variant p-3 space-y-3">
+                  <label className="flex items-start justify-between gap-3 cursor-pointer">
+                    <span>
+                      <span className="block text-sm font-bold text-on-surface">Nhiều mức giá / size</span>
+                      <span className="block text-sm text-on-surface-variant">Tự đặt tên size và giá bán riêng cho từng size của món này</span>
+                    </span>
+                    <input type="checkbox" checked={sizesOn} onChange={(e) => toggleSizes(e.target.checked)} className="w-6 h-6 accent-primary mt-0.5" />
+                  </label>
+
+                  {sizesOn && (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-[1fr_7.5rem_2.5rem] gap-2 text-xs font-bold uppercase text-on-surface-variant px-1">
+                        <span>Tên size</span><span className="text-right">Giá bán</span><span />
+                      </div>
+                      {newItemSizes.map((sz, i) => (
+                        <div key={i} className="grid grid-cols-[1fr_7.5rem_2.5rem] gap-2 items-center">
+                          <input
+                            value={sz.name}
+                            onChange={(e) => setNewItemSizes(list => list.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))}
+                            placeholder={i === 0 ? 'vd: Nhỏ (mặc định)' : 'vd: Lớn'}
+                            className="m3-input !min-h-11"
+                          />
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={sz.price ? sz.price.toLocaleString('vi-VN') : ''}
+                            placeholder="0"
+                            onChange={(e) => setNewItemSizes(list => list.map((x, j) => (j === i ? { ...x, price: parseInt(e.target.value.replace(/\D/g, '').slice(0, 9)) || 0 } : x)))}
+                            className="m3-input !min-h-11 text-right font-bold"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setNewItemSizes(list => list.filter((_, j) => j !== i))}
+                            disabled={newItemSizes.length <= 1}
+                            className="m3-icon-btn !w-10 !h-10 hover:text-error disabled:opacity-30"
+                            aria-label="Xóa size"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setNewItemSizes(list => [...list, { name: '', price: list[list.length - 1]?.price || newItemPrice }])}
+                        className="m3-btn-tonal !min-h-10 text-sm"
+                      >
+                        <Plus className="w-4 h-4" /> Thêm size
+                      </button>
+                      <p className="text-sm text-on-surface-variant">Size đầu tiên là mặc định khi thêm món vào đơn.</p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {isRetail && (
                 <div className="space-y-1">
@@ -388,7 +530,7 @@ export default function MenuManagement({
               </div>
 
               <button type="submit" className="m3-btn-filled w-full !min-h-12 mt-1">
-                {isRetail ? 'Tạo & Thêm sản phẩm mới' : 'Tạo & Thêm món vào Menu'}
+                {editingId ? 'Lưu thay đổi' : (isRetail ? 'Tạo & Thêm sản phẩm mới' : 'Tạo & Thêm món vào Menu')}
               </button>
             </form>
           </div>

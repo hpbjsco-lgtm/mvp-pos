@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import {
-  ShoppingBag, Layers, TrendingUp, LogOut, Store, ChevronRight, ChevronDown, Coffee, Check, X,
+  Banknote, FileText, ShoppingBag, Layers, TrendingUp, LogOut, Store, ChevronRight, ChevronDown, Coffee, Check, X,
   MapPin, Phone, Clock, UserCircle, ChefHat, ClipboardList, Users, Briefcase, Truck, History, Wallet, Menu
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -26,6 +26,9 @@ import SysAdminStores from './components/SysAdminStores';
 import SysAdminAccounts from './components/SysAdminAccounts';
 import SuppliersSection from './components/SuppliersSection';
 import MyAccountDialog from './components/MyAccountDialog';
+import TopNavBar from './components/TopNavBar';
+import CashbookSection from './components/CashbookSection';
+import EndOfDayReport from './components/EndOfDayReport';
 import { canAccess, defaultScreen, isAdminRole, normalizeRole, ROLE_LABELS, type ScreenId } from './utils/permissions';
 import { setLogContext, logOperation } from './utils/logger';
 import { useAppData } from './db/useAppData';
@@ -78,6 +81,10 @@ export default function App() {
   const simIngredientTransactions = data.ingredientTransactions;
   const setSimIngredientTransactions = setters.ingredientTransactions;
   const setSimStoreType = app.setStoreType;
+  const simBankAccounts = data.bankAccounts;
+  const setSimBankAccounts = setters.bankAccounts;
+  const simCashVouchers = data.cashVouchers;
+  const setSimCashVouchers = setters.cashVouchers;
   const simShifts = data.shifts;
   const setSimShifts = setters.shifts;
 
@@ -101,6 +108,17 @@ export default function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
   const [mobileNavOpen, setMobileNavOpen] = useState<boolean>(false);
   const [myAccountOpen, setMyAccountOpen] = useState<boolean>(false);
+  // Thanh menu trên cùng (màn hình lớn): thu gọn / mở rộng, nhớ lựa chọn
+  const [navCollapsed, setNavCollapsed] = useState<boolean>(() => {
+    try { return localStorage.getItem('nav_collapsed') === '1'; } catch { return false; }
+  });
+  const toggleNavCollapsed = () => {
+    setNavCollapsed(v => {
+      const next = !v;
+      try { localStorage.setItem('nav_collapsed', next ? '1' : '0'); } catch { /* bỏ qua */ }
+      return next;
+    });
+  };
 
   // Play audio-visual Beep simulators
   const triggerBeep = (success: boolean) => {
@@ -295,8 +313,15 @@ export default function App() {
   // Biểu tượng cho từng mục điều hướng
   const NAV_ICONS: Record<ScreenId, React.ComponentType<{ className?: string }>> = {
     stores: Store, accounts: Users, reports: TrendingUp, pos: ShoppingBag, kitchen: ChefHat, menu: Coffee,
-    tables: ClipboardList, orders: History, shifts: Wallet, inventory: Layers, customers: Users,
+    tables: ClipboardList, orders: History, shifts: Wallet, cashbook: Banknote, eod: FileText, inventory: Layers, customers: Users,
     employees: Briefcase, suppliers: Truck, account: UserCircle
+  };
+
+  // Màu ô menu (thanh menu trên cùng)
+  const NAV_COLORS: Record<string, string> = {
+    stores: '#4c7bd9', accounts: '#7a5bc7', reports: '#4c7bd9', pos: '#c15f3c', kitchen: '#8a5a3c', menu: '#2f8f7b',
+    tables: '#6b5bc7', orders: '#d9568f', shifts: '#3e8fb0', cashbook: '#2e7d5b', eod: '#4c7bd9', inventory: '#1f3a66', customers: '#4ca39b',
+    employees: '#8a6a00', suppliers: '#5b7d3a'
   };
 
   // Define Navigation Items dynamically based on active Store Type
@@ -304,6 +329,7 @@ export default function App() {
     { id: 'stores', name: 'Cửa hàng' },
     { id: 'accounts', name: 'Tài khoản' },
     { id: 'reports', name: 'Báo cáo doanh thu' },
+    { id: 'eod', name: 'Báo cáo cuối ngày' },
     { id: 'pos', name: simStoreType === 'fnb' ? 'Bán hàng (F&B Order)' : 'Quầy bán lẻ (POS)' },
     ...(simStoreType === 'fnb' ? [
       { id: 'kitchen' as ScreenId, name: 'Màn hình Bếp (KDS)' },
@@ -314,6 +340,7 @@ export default function App() {
     ]),
     { id: 'orders', name: 'Lịch sử hóa đơn' },
     { id: 'shifts', name: 'Sổ quỹ ca làm việc' },
+    { id: 'cashbook', name: 'Sổ quỹ & Dòng tiền' },
     { id: 'inventory', name: 'Quản lý kho (FEFO)' },
     { id: 'customers', name: 'Quản lý khách hàng' },
     { id: 'employees', name: 'Quản lý nhân viên' },
@@ -368,7 +395,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-surface-container-low font-sans text-on-surface flex antialiased">
+    <div className="h-dvh bg-surface-container-low font-sans text-on-surface flex antialiased overflow-hidden">
 
       {/* Audio-visual virtual speaker indicator (simulated beeps) */}
       <AnimatePresence>
@@ -377,7 +404,7 @@ export default function App() {
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
-            className="fixed bottom-6 right-6 z-50 px-4 py-3 bg-secondary text-on-secondary rounded-xl shadow-lg flex items-center space-x-3 pointer-events-none"
+            className="fixed top-4 left-1/2 -translate-x-1/2 z-[70] px-4 py-3 bg-secondary text-on-secondary rounded-xl shadow-lg flex items-center space-x-3 pointer-events-none"
           >
             <div className="w-2.5 h-2.5 bg-white rounded-full animate-ping" />
             <span className="text-sm font-bold tracking-wide">Thành công</span>
@@ -388,7 +415,7 @@ export default function App() {
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
-            className="fixed bottom-6 right-6 z-50 px-4 py-3 bg-error text-on-error rounded-xl shadow-lg flex items-center space-x-3 pointer-events-none"
+            className="fixed top-4 left-1/2 -translate-x-1/2 z-[70] px-4 py-3 bg-error text-on-error rounded-xl shadow-lg flex items-center space-x-3 pointer-events-none"
           >
             <div className="w-2.5 h-2.5 bg-white rounded-full animate-ping" />
             <span className="text-sm font-bold tracking-wide">Có lỗi xảy ra</span>
@@ -407,7 +434,7 @@ export default function App() {
       {/* --- SIDEBAR NAVIGATION: off-canvas trên di động, cố định trên màn lớn --- */}
       <aside
         className={`fixed inset-y-0 left-0 z-50 w-72 ${sidebarCollapsed ? 'lg:w-20' : 'lg:w-72'} bg-slate-900 text-slate-300 flex-shrink-0 flex flex-col shadow-xl transition-transform duration-300
-          ${mobileNavOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 lg:static lg:z-10 lg:border-r lg:border-slate-800`}
+          ${mobileNavOpen ? 'translate-x-0' : '-translate-x-full'} lg:hidden`}
       >
 
         {/* Logo & Store Header */}
@@ -520,8 +547,23 @@ export default function App() {
       {/* --- MAIN CORE SECTION VIEWPORT --- */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
+        {/* Thanh menu trên cùng (màn hình lớn): các chức năng dạng ô màu */}
+        <TopNavBar
+          items={navItems.map(item => ({ id: item.id, name: item.name.replace(/ \(.*\)$/, ''), Icon: NAV_ICONS[item.id], color: NAV_COLORS[item.id] || '#6b7280' }))}
+          activeId={activeScreen}
+          onSelect={(id) => { setActiveScreen(id as ScreenId); triggerBeep(true); }}
+          collapsed={navCollapsed}
+          onToggleCollapsed={toggleNavCollapsed}
+          storeName={fbStoreProfile?.name || (userRole === 'sysadmin' ? 'Quản trị hệ thống' : 'SmartPOS')}
+          roleLabel={`${userRole ? ROLE_LABELS[userRole] : ''}${isDemoSession ? ' · Demo' : ''}`}
+          userName={fbUserProfile?.name || 'Nhân viên'}
+          clock={timeStr || '00:00:00'}
+          onOpenAccount={() => { setMyAccountOpen(true); triggerBeep(true); }}
+          onLogout={() => handleFirebaseLogout()}
+        />
+
         {/* --- GLOBAL APP BAR / HEADER --- */}
-        <header className="bg-surface-container-lowest border-b border-outline-variant h-16 px-3 md:px-6 flex items-center justify-between flex-shrink-0 gap-2">
+        <header className="lg:hidden bg-surface-container-lowest border-b border-outline-variant h-16 px-3 md:px-6 flex items-center justify-between flex-shrink-0 gap-2">
           <div className="flex items-center space-x-3 min-w-0">
             <h2 className="text-base font-bold text-on-surface tracking-tight hidden md:block truncate">
               {activeScreen === 'pos' && 'Quầy bán hàng'}
@@ -532,6 +574,8 @@ export default function App() {
               {activeScreen === 'reports' && 'Báo cáo doanh thu & chỉ số'}
               {activeScreen === 'orders' && 'Lịch sử hóa đơn'}
               {activeScreen === 'shifts' && 'Sổ quỹ ca làm việc'}
+              {activeScreen === 'cashbook' && 'Sổ quỹ & Dòng tiền'}
+              {activeScreen === 'eod' && 'Báo cáo cuối ngày'}
               {activeScreen === 'customers' && 'Quản lý khách hàng'}
               {activeScreen === 'employees' && 'Quản lý nhân viên'}
               {activeScreen === 'suppliers' && 'Quản lý nhà cung cấp'}
@@ -575,7 +619,7 @@ export default function App() {
         </header>
 
         {/* --- DYNAMIC SCREEN RENDER STAGE --- */}
-        <section className="flex-1 overflow-y-auto px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6 pb-20 lg:pb-6 bg-surface-container-low">
+        <section className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6 pb-20 lg:px-3 lg:pt-3 lg:pb-3 bg-surface-container-low">
           
           <AnimatePresence mode="wait">
             {activeScreen === 'pos' && (
@@ -612,6 +656,8 @@ export default function App() {
                   triggerBeep={triggerBeep}
                   simBatches={simBatches}
                   setSimBatches={setSimBatches}
+                  simBankAccounts={simBankAccounts}
+                  setSimBankAccounts={setSimBankAccounts}
                 />
               </motion.div>
             )}
@@ -660,6 +706,41 @@ export default function App() {
                   triggerBeep={triggerBeep}
                   fbStoreProfile={fbStoreProfile}
                   fbUserProfile={fbUserProfile}
+                />
+              </motion.div>
+            )}
+
+            {activeScreen === 'eod' && (
+              <motion.div key="eod" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
+                <EndOfDayReport
+                  orders={simOrders}
+                  vouchers={simCashVouchers}
+                  accounts={simBankAccounts}
+                  carts={simCarts}
+                  products={simProducts}
+                  tables={simTables}
+                  zones={simZones}
+                  storeType={simStoreType}
+                />
+              </motion.div>
+            )}
+
+            {activeScreen === 'cashbook' && (
+              <motion.div
+                key="cashbook"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+              >
+                <CashbookSection
+                  simOrders={simOrders}
+                  bankAccounts={simBankAccounts}
+                  setBankAccounts={setSimBankAccounts}
+                  vouchers={simCashVouchers}
+                  setVouchers={setSimCashVouchers}
+                  staffName={fbUserProfile?.name || 'Nhân viên'}
+                  triggerBeep={triggerBeep}
                 />
               </motion.div>
             )}

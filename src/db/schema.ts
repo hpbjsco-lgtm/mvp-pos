@@ -18,7 +18,7 @@
  *     không mất order đang gọi (lỗi "không lưu được" của bản cũ).
  */
 
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 10;
 
 /** Các câu lệnh DDL, chạy tuần tự khi khởi tạo / nâng cấp DB. */
 export const MIGRATIONS: { version: number; statements: string[] }[] = [
@@ -480,6 +480,76 @@ export const MIGRATIONS: { version: number; statements: string[] }[] = [
       `ALTER TABLE cart_items ADD COLUMN sent_quantity REAL NOT NULL DEFAULT 0;`,
     ],
   },
+  {
+    version: 7,
+    statements: [
+      /* Thanh toán kết hợp: lưu chi tiết các khoản (JSON) cạnh payment_method = 'mixed'. */
+      `ALTER TABLE orders ADD COLUMN payments TEXT NOT NULL DEFAULT '';`,
+    ],
+  },
+  {
+    version: 8,
+    statements: [
+      /* Tài khoản ngân hàng của cửa hàng (hiển thị QR chuyển khoản) */
+      `CREATE TABLE IF NOT EXISTS bank_accounts (
+        id              TEXT PRIMARY KEY,
+        store_id        TEXT NOT NULL,
+        account_name    TEXT NOT NULL DEFAULT '',
+        account_number  TEXT NOT NULL DEFAULT '',
+        bank_code       TEXT NOT NULL DEFAULT '',
+        bank_name       TEXT NOT NULL DEFAULT '',
+        holder          TEXT NOT NULL DEFAULT '',
+        note            TEXT NOT NULL DEFAULT '',
+        is_default      INTEGER NOT NULL DEFAULT 0,
+        created_at      TEXT NOT NULL,
+        updated_at      TEXT NOT NULL,
+        deleted_at      TEXT,
+        rev             INTEGER NOT NULL DEFAULT 1
+      );`,
+      `CREATE INDEX IF NOT EXISTS idx_bank_accounts_store ON bank_accounts(store_id);`,
+
+      /* Phiếu thu / chi lập tay của sổ quỹ (quản lý dòng tiền theo loại quỹ & loại thu chi) */
+      `CREATE TABLE IF NOT EXISTS cash_vouchers (
+        id               TEXT PRIMARY KEY,
+        store_id         TEXT NOT NULL,
+        code             TEXT NOT NULL DEFAULT '',
+        voucher_type     TEXT NOT NULL DEFAULT 'receipt',  -- receipt | payment
+        fund             TEXT NOT NULL DEFAULT 'cash',     -- cash | bank | wallet
+        bank_account_id  TEXT NOT NULL DEFAULT '',
+        amount           REAL NOT NULL DEFAULT 0,
+        category         TEXT NOT NULL DEFAULT '',
+        counterparty     TEXT NOT NULL DEFAULT '',
+        phone            TEXT NOT NULL DEFAULT '',
+        note             TEXT NOT NULL DEFAULT '',
+        status           TEXT NOT NULL DEFAULT 'paid',     -- paid | cancelled
+        created_by       TEXT NOT NULL DEFAULT '',
+        created_at       TEXT NOT NULL,
+        updated_at       TEXT NOT NULL,
+        deleted_at       TEXT,
+        rev              INTEGER NOT NULL DEFAULT 1
+      );`,
+      `CREATE INDEX IF NOT EXISTS idx_cash_vouchers_store ON cash_vouchers(store_id, created_at);`,
+    ],
+  },
+  {
+    version: 9,
+    statements: [
+      /* Topping món: cờ topping + loại + danh sách món được gắn (JSON); topping đã chọn trên giỏ / chi tiết đơn / phiếu bếp */
+      `ALTER TABLE products ADD COLUMN is_topping INTEGER NOT NULL DEFAULT 0;`,
+      `ALTER TABLE products ADD COLUMN topping_kind TEXT NOT NULL DEFAULT '';`,
+      `ALTER TABLE products ADD COLUMN topping_for TEXT NOT NULL DEFAULT '';`,
+      `ALTER TABLE cart_items ADD COLUMN toppings TEXT NOT NULL DEFAULT '';`,
+      `ALTER TABLE order_items ADD COLUMN toppings TEXT NOT NULL DEFAULT '';`,
+      `ALTER TABLE kitchen_items ADD COLUMN toppings TEXT NOT NULL DEFAULT '';`,
+    ],
+  },
+  {
+    version: 10,
+    statements: [
+      /* Size / biến thể giá tùy chỉnh theo từng món (JSON [{name, price}]) */
+      `ALTER TABLE products ADD COLUMN sizes TEXT NOT NULL DEFAULT '';`,
+    ],
+  },
 ];
 
 /** Danh sách bảng nghiệp vụ dùng cho export / import snapshot Cloud. */
@@ -502,6 +572,8 @@ export const SYNCED_TABLES = [
   'attendance',
   'activity_logs',
   'shifts',
+  'bank_accounts',
+  'cash_vouchers',
 ] as const;
 
 export type SyncedTable = (typeof SYNCED_TABLES)[number];
@@ -526,6 +598,8 @@ export const TABLE_PRIMARY_KEY: Record<string, string> = {
   attendance: 'id',
   activity_logs: 'id',
   shifts: 'id',
+  bank_accounts: 'id',
+  cash_vouchers: 'id',
 };
 
 /** Bảng có cột `rev` / `updated_at` để so sánh khi merge (last-write-wins). */
@@ -544,4 +618,6 @@ export const TABLES_WITH_REV: Record<string, boolean> = {
   carts: true,
   attendance: true,
   shifts: true,
+  bank_accounts: true,
+  cash_vouchers: true,
 };

@@ -5,8 +5,8 @@
 | Trường | Nội dung |
 |---|---|
 | Tên hệ thống | SmartPOS — Phần mềm quản lý bán hàng cho quán cà phê / nhà hàng / bán lẻ |
-| Phiên bản tài liệu | 3.1 |
-| Ngày cập nhật | 2026-10-19 |
+| Phiên bản tài liệu | 3.6 |
+| Ngày cập nhật | 2026-10-27 |
 | Loại tài liệu | Functional Specification Document (Đặc tả chức năng) |
 | Trạng thái | Đang phát triển — các mục có cột "Trạng thái" bên dưới phản ánh mức độ hoàn thiện thực tế trong source code |
 
@@ -16,6 +16,11 @@
 |---|---|---|
 | 1.0 | 2026-07-02 | Bản đặc tả đầu tiên, mô tả hệ thống trên nền Firebase/Firestore (đã lỗi thời) |
 | 2.0 | 2026-08-13 | Viết lại toàn bộ theo cấu trúc BA chuẩn; cập nhật kiến trúc thực tế (SQLite local-first); bổ sung 6 chức năng mới: Đặt bàn trước, Tùy chọn món (size/đường/đá), Giảm giá & Thuế VAT, Lịch sử hóa đơn (hủy/in lại), Sổ quỹ ca làm việc, Dữ liệu mẫu demo |
+| 3.6 | 2026-10-27 | Size / mức giá tùy chỉnh theo từng món (5.5) |
+| 3.5 | 2026-10-27 | Topping món (5.5) |
+| 3.4 | 2026-10-27 | Báo cáo cuối ngày (5.18) |
+| 3.3 | 2026-10-27 | Sổ quỹ & Dòng tiền theo loại quỹ / loại thu chi (5.16); tài khoản ngân hàng + mã QR VietQR trên màn thanh toán và phiếu tạm tính (5.17) |
+| 3.2 | 2026-10-27 | Bố cục PC kiểu KiotViet (menu trên header, 2 khung bán hàng, hộp thoại thanh toán có bàn phím ảo, thanh toán kết hợp, in tạm tính) |
 | 3.1 | 2026-10-19 | Màu chủ đạo cam đất; icon bàn SVG cục bộ; tải ảnh món lên từ thiết bị; kiểu "tối giản bỏ icon" đã hoàn tác (mục 9) |
 | 3.0 | 2026-10-11 | Làm lại giao diện bán hàng F&B (danh sách bàn, gộp bàn, chuyển bàn, tách/ghép đơn, luồng điện thoại); phân quyền 5 vai trò (Sysadmin cứng / Chủ / Quản lý / Phục vụ-Thu ngân / Bếp); tab Demo được giữ lại; đăng nhập bằng tên tài khoản; ngắt kết nối Cloud, chỉ dùng SQLite; thêm tạo tài khoản nhân viên. Xem mục 8 để biết hiện trạng mã nguồn |
 
@@ -149,6 +154,11 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
 - **Đặt bàn trước:** sau khi thanh toán xong, phiếu đặt trước của bàn / nhóm bàn được xóa (nhãn đặt bàn không còn hiện).
 - Các hàng nút cuộn ngang (khu vực, danh mục, bộ lọc) ẩn thanh cuộn và có thể **nắm kéo** bằng chuột; cảm ứng vuốt như thường (`DragScrollRow.tsx`).
 
+- **Bố cục PC giống KiotViet (2026-10-27):** từ 1024px trở lên màn Bán hàng F&B chia 2 khung (`POSScreen.tsx`, nhánh `isDesktop`). Khung trái có dải màu cam với tab *Phòng bàn / Thực đơn* và ô *Tìm món (F3)*; tab Phòng bàn gồm tab khu vực, bộ lọc radio *Tất cả / Sử dụng / Còn trống (số lượng)*, thẻ bàn vẽ dạng mặt bàn + ghế (`KiotTableGrid.tsx`, icon `assets/icons/table-outline.svg`; tiền, thời gian, số món/khách nằm trong mặt bàn, tên bàn ở dưới), ô tick *Mở thực đơn khi chọn bàn* (mặc định tắt, nhớ lựa chọn); tab Thực đơn gồm hàng danh mục viết hoa và lưới món có ảnh + giá đè lên ảnh. Khung phải là đơn hàng: tab tên bàn, chip *Bàn / Khu vực*, ô *Tìm khách hàng (F4)* (chọn khách ngay trên đơn), danh sách dòng món (số thứ tự, −/+ số lượng, đơn giá, thành tiền; size/đường/đá, ghi chú, xóa), chân khung có số khách, lịch sử báo bếp, phiếu đặt bàn, *Tổng tiền* và hai nút **Thông báo (F10)** / **Thanh toán (F9)**. Phím tắt: F3, F9, F10.
+- **Bổ sung theo ảnh KiotViet (2026-10-27):** nút **In tạm tính** (phiếu tạm tính in 80mm, `ReceiptThermal variant="provisional"`: không có khách đưa / tiền thừa / điểm), thanh nhắc *"Bạn vừa cập nhật đơn hàng… Thông báo"* khi còn món chưa báo bếp, ba nút chân khung *Thông báo (F10) / In tạm tính / Thanh toán (F9)*, nút ✎ **ghi chú cho cả đơn** (lưu vào hóa đơn), nút tách/ghép đơn nhanh, nút **+ thêm khách hàng** ngay trên đơn.
+- **Thanh toán trên PC (hộp thoại 2 khung, `KiotCheckoutDialog.tsx`):** trái là chi tiết đơn nhóm theo danh mục (SL, đơn giá, thành tiền, tùy chọn/ghi chú) + chọn khách; phải là *Chi tiết giao dịch*: tổng tiền hàng, giảm giá, VAT, khách cần trả, **Khách thanh toán (F8)** (gõ trực tiếp được; mặc định bằng số cần trả), chọn *Tiền mặt / Chuyển khoản / Thẻ*, gợi ý mệnh giá (đúng số tiền rồi các mức làm tròn), **bàn phím ảo** (0-9, 000, xóa số cuối, C, Vừa đủ), tiền thừa trả khách, nút *In tạm tính* / *Thanh toán* (Enter trong ô tiền cũng thanh toán; nút bị khóa nếu tiền mặt chưa đủ).
+- **Thanh toán kết hợp (2026-10-27):** nút *Kết hợp* cạnh các phương thức mở hộp thoại **Kết hợp phương thức**: mỗi phương thức (Tiền mặt / Chuyển khoản / Thẻ) một ô tích + ô số tiền, có nút điền phần còn thiếu, báo thiếu / vượt. Quy tắc: chuyển khoản + thẻ không được vượt số cần trả; phần còn lại phải do tiền mặt đáp ứng, tiền mặt dư thì trả lại khách. Đơn lưu `paymentMethod = 'mixed'` kèm chi tiết `payments` (cột `orders.payments`, migration v7); hóa đơn in liệt kê từng khoản; **Sổ quỹ ca** tách doanh thu theo từng khoản (`utils/payments.ts`, có test).
+- Không có: nhiều tab đơn trên cùng một bàn, đơn gọi qua QR, chọn thu ngân — do mô hình hiện tại mỗi bàn một đơn.
 **Trạng thái:** ✅ (làm lại giao diện: ✅ mới; **chưa kiểm thử trên thiết bị thật** — cần rà lại màu, cỡ chữ, vị trí nút theo bản layout chính thức do chủ dự án cung cấp)
 
 ---
@@ -186,6 +196,11 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
 
 - **Ảnh món (mới):** mỗi món/sản phẩm có thể tải ảnh lên từ thư viện hoặc camera thiết bị (khi thêm mới, hoặc chạm vào ảnh trên danh sách để đổi). Ảnh được thu nhỏ (cạnh dài tối đa 640px), nén JPEG và lưu trực tiếp trong SQLite (cột `image_url`, dạng data URL ~30-80KB/ảnh); hiển thị ở màn hình bán hàng và quản lý thực đơn. Mã: `src/utils/imageUpload.ts`.
 
+- **Size / mức giá tùy chỉnh theo từng món (F&B, mới 2026-10-27):** mọi món trong thực đơn đều có thể bật *Nhiều mức giá / size* (nút **Sửa món** trên thẻ món, hoặc khi thêm món mới): tự đặt tên size (vd Nhỏ, Vừa, Lớn, Tô đặc biệt) và **giá bán riêng cho từng size**. Size đầu tiên là mặc định (và là giá gốc `price` của món). Lưu ở `Product.sizes` (migration v10); logic ở `utils/sizes.ts` (có test). Màn Bán hàng: lưới món hiện *từ <giá thấp nhất>*; thêm món vào đơn dùng size mặc định; dòng món có nút chọn size kèm giá, đổi size thì đơn giá dòng đổi theo (cộng thêm topping nếu có). Size được ghi vào phiếu bếp, hóa đơn; doanh thu / sổ quỹ / báo cáo dùng đúng giá theo size. Món **không** khai báo size thì bán một giá như cũ (không còn nút S/M/L cố định; đường / đá vẫn chỉ có ở đồ uống). Cửa hàng mới có dữ liệu mẫu cà phê, trà đào, phở với size mẫu.
+- **Topping món (F&B, mới 2026-10-27):** *Thực đơn → nút + → Topping* mở hộp **Tạo topping** (mã: `ToppingDialog.tsx`): tên, nhóm, giá, ảnh, loại (*chế biến / thường / sản xuất*), *Cho phép bán*, và **Gắn món** — tìm từng món hoặc **Chọn theo nhóm** rồi xóa bớt trong danh sách. Topping là một `Product` có cờ `isTopping`, `toppingKind`, `toppingFor` (id các món được gắn; migration v9). Topping hiện trong Thực đơn kèm nhãn *Topping · n món* và nút *Sửa topping*, **không** hiện trên lưới món ở màn Bán hàng.
+  - **Bán hàng:** dòng món có topping được gắn sẽ hiện các nút `+ Trân châu đen 5.000`; bấm để thêm, hiện `− Trân châu đen x2 +` để tăng/giảm. Giá dòng = giá món + tiền topping (cộng vào tạm tính, tổng bàn, thanh toán, hóa đơn, báo cáo). Hai dòng cùng món khác topping là hai dòng riêng. Topping chỉ áp dụng cho các phần **chưa báo bếp** của dòng; nếu đã báo hết thì tách 1 phần mới.
+  - Phiếu bếp, hộp thoại thanh toán (`+ 1 Trân châu đen`), hóa đơn / phiếu tạm tính đều hiển thị topping.
+  - **Chưa làm:** trừ tồn kho nguyên liệu theo loại topping (cần công thức / định mức), chi nhánh kinh doanh, giá theo bảng giá.
 **Trạng thái:** ✅
 
 ---
@@ -339,6 +354,53 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
 
 **Trạng thái:** ⚪ **Đã ngắt khỏi ứng dụng**; hiện chỉ lưu dữ liệu trong SQLite trên thiết bị. Mã nền tảng (`src/cloud/*`, `CloudSyncSection.tsx`, `server/cloud-sync-server.mjs`, `src/firebase.ts`) được giữ lại trong source nhưng **không được import/hiển thị ở đâu**. Sẽ làm lại cùng việc kết nối Firebase ở giai đoạn sau.
 
+### 5.16. Sổ quỹ & Dòng tiền (mới 2026-10-27)
+
+**Mô tả:** Quản lý dòng tiền của cửa hàng theo từng **loại quỹ** (Tiền mặt / Ngân hàng / Ví điện tử / Tổng quỹ) và từng **loại thu chi**. Khác với *Sổ quỹ ca làm việc* (5.10, đối soát két theo ca của thu ngân). Mã: `CashbookSection.tsx`, `utils/cashbook.ts` (có test). Chỉ Chủ / Quản lý được vào.
+
+**Quy tắc nghiệp vụ:**
+- **Nguồn dữ liệu:** (1) các khoản thu từ **hóa đơn bán hàng** — tự động, tách theo từng phương thức thanh toán (tiền mặt → quỹ Tiền mặt; chuyển khoản / thẻ → quỹ Ngân hàng, đúng tài khoản đã chọn); (2) **phiếu thu / phiếu chi lập tay** (mã `PT0001` / `PC0001`; trường: quỹ, tài khoản ngân hàng, giá trị, loại thu/chi, người nộp/nhận, điện thoại, ghi chú, thời gian). Không nhân đôi dữ liệu: hủy hóa đơn thì khoản thu tự mất khỏi sổ; phiếu lập tay hủy bằng *Hủy phiếu* (vẫn xem được khi bật "Hiện phiếu đã hủy").
+- **Tổng hợp theo kỳ** (Hôm nay / Tuần này / Tháng này / Năm nay / Tùy chọn): *Quỹ đầu kỳ* (tích lũy mọi khoản trước kỳ), *Tổng thu*, *Tổng chi*, *Tồn quỹ*; lọc theo quỹ và theo tài khoản ngân hàng; tìm kiếm; lọc chỉ thu / chỉ chi.
+- **Dòng tiền theo loại thu chi:** biểu đồ thanh theo từng loại (vd Thu tiền bán hàng, Chi nhập hàng, Chi lương…). Loại gợi ý có sẵn, nhập loại mới tự do.
+- Số dư ban đầu của một quỹ: lập *phiếu thu* loại "Vốn góp / Số dư đầu kỳ".
+- Ví điện tử hiện chỉ có phiếu lập tay (chưa có phương thức thanh toán ví điện tử trong bán hàng).
+- Dữ liệu: bảng `bank_accounts`, `cash_vouchers` (migration v8); `orders.payments` lưu chi tiết khoản + tài khoản nhận.
+
+**Trạng thái:** ✅ mới bổ sung (chưa kiểm thử trên thiết bị thật)
+
+---
+
+### 5.17. Tài khoản ngân hàng & Mã QR chuyển khoản (mới 2026-10-27)
+
+**Mô tả:** Khai báo tài khoản ngân hàng của cửa hàng (tên tài khoản, số tài khoản, ngân hàng, chủ tài khoản, ghi chú, đặt mặc định) để hiện **mã QR chuyển khoản** ngay khi thanh toán và in lên phiếu tạm tính cho khách quét. Mã: `BankAccountsDialog.tsx`, `QrCodeImage.tsx`, `utils/vietqr.ts`, `utils/banks.ts`.
+
+**Quy tắc nghiệp vụ:**
+- Quản lý tại *Sổ quỹ & Dòng tiền → Tài khoản ngân hàng*, hoặc nút *+ Thêm tài khoản / Quản lý* ngay trong hộp thoại Thanh toán. Tài khoản đầu tiên tự là mặc định; xóa tài khoản không ảnh hưởng các khoản đã ghi sổ.
+- Mã QR sinh **offline** theo chuẩn **VietQR / NAPAS 247** (EMVCo, CRC16), mang sẵn số tiền + nội dung (tên bàn): quét bằng app của ngân hàng bất kỳ. Thanh toán Chuyển khoản (kể cả phần chuyển khoản của thanh toán kết hợp) hiện QR + nút *Hiện mã QR* phóng to cho khách. Phiếu **In tạm tính** có QR của tài khoản mặc định với đúng số tiền của đơn.
+- Thu ngân vẫn tự xác nhận khi đã nhận tiền rồi bấm *Thanh toán* (app chưa tự đối soát giao dịch ngân hàng).
+- **Lưu ý:** mã BIN của các ngân hàng trong `utils/banks.ts` ghi theo danh mục NAPAS công khai, cần **quét thử bằng app ngân hàng** sau khi thêm tài khoản để chắc chắn; thêm ngân hàng khác tại file này.
+
+**Trạng thái:** ✅ mới bổ sung
+
+---
+
+### 5.18. Báo cáo cuối ngày (mới 2026-10-27)
+
+**Mô tả:** Báo cáo theo kỳ (Hôm nay / Hôm qua / Tuần này / Tháng này / Tùy chọn) với 4 tab: **Tổng hợp · Thu chi · Hàng hóa · Phòng bàn** (tab Phòng bàn chỉ có ở F&B), kèm khối chỉ số nhanh: số hóa đơn + doanh thu, số đơn đang phục vụ + giá trị tạm tính, bàn đang sử dụng (x / tổng), khách đang phục vụ. Mã: `EndOfDayReport.tsx`, `utils/endOfDay.ts` (có test). Chỉ Chủ / Quản lý.
+
+**Quy tắc / công thức:** (đơn đã hủy không tính vào doanh thu, chỉ hiện ở dòng *Hủy / trả hàng*)
+- *Doanh thu tổng* = Σ tạm tính trước giảm giá; *Tổng giảm giá hóa đơn* = Σ giảm giá; *Doanh thu* = Σ tổng thanh toán (gồm VAT); *Thuế VAT* = Σ thuế; *Thu khác* = phiếu thu lập tay trong kỳ.
+- *Doanh thu thuần (không gồm thu khác)* = Doanh thu − Thuế VAT; *(gồm thu khác)* = cộng thêm Thu khác.
+- **Thu chi:** thu bán hàng tách Tiền mặt / Chuyển khoản / Thẻ / Ví điện tử (theo từng khoản của thanh toán kết hợp); điểm tích lũy cộng thêm; phiếu thu và phiếu chi lập tay theo quỹ; chênh lệch thu − chi.
+- **Hàng hóa:** *Đang phục vụ* (món trong các đơn chưa thanh toán, hiện tại) và *Đã bán* (trong kỳ) — tổng giá trị / số món, danh sách món giảm dần theo giá trị, 5 món đầu + *Xem thêm*.
+- **Phòng bàn:** theo loại đơn (Ngồi tại bàn / Mang về / Giao đi) và theo từng bàn (giá trị, số đơn, khu vực).
+- Mục "đang phục vụ" luôn là trạng thái hiện tại, không phụ thuộc kỳ đã chọn.
+- **Chưa có** (hệ thống chưa có dữ liệu): giảm giá theo món, chiết khấu đối tác / Food Apps, công nợ khách hàng, theo chi nhánh.
+
+**Trạng thái:** ✅ mới bổ sung
+
+---
+
 ## 6. Yêu cầu phi chức năng
 
 | Hạng mục | Yêu cầu |
@@ -393,6 +455,11 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
 - **Icon bàn:** `src/assets/icons/table.svg` (nhìn từ trên xuống, dùng `currentColor`), nhúng bằng `?raw` trong `TableBoard.tsx`. File do dự án tự vẽ vì svgrepo.com chặn tải tự động; có thể thay bằng SVG tải về từ svgrepo.com (giữ nguyên tên file, dùng `fill="currentColor"`, kiểm tra giấy phép từng icon).
 - **Lưu ý khi khôi phục:** icon của các màn hình cũ (Báo cáo, Kho, Bếp, Khách hàng, Nhà cung cấp, Hóa đơn, Nhân viên, Thực đơn, Sơ đồ bàn, Thanh toán) được thêm lại theo vị trí tiêu đề/nút chính; một số icon nhỏ nằm giữa dòng chữ (huy hiệu, thẻ thống kê) có thể chưa giống hệt bản trước — cần rà khi có layout chính thức.
 - **Màu danh mục món** dùng bảng màu chủ đạo (`utils/categoryColor.ts`).
+
+## 11. Khung ứng dụng trên PC (2026-10-27)
+
+- Từ 1024px trở lên **không còn thanh bên**: các chức năng nằm trên **thanh menu ở đầu trang** dạng ô màu có icon + tên (`TopNavBar.tsx`), cuộn ngang / nắm kéo, có nút *Thu gọn / Mở rộng* (nhớ lựa chọn), kèm ô tên người dùng (mở "Tài khoản của tôi") và *Đăng xuất*. Màn hình nhỏ vẫn dùng thanh dưới + menu trượt.
+- Khung chiếm trọn chiều cao màn hình (`h-dvh`); riêng màn Bán hàng PC mỗi khung tự cuộn.
 
 ## 10. Giới hạn đã biết: dữ liệu theo từng trình duyệt / thiết bị (ghi nhận 2026-10-24)
 

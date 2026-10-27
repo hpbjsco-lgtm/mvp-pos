@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { getOrderPayments } from '../utils/payments';
 import React, { useState } from 'react';
 import { PlayCircle, Wallet } from 'lucide-react';
 import { Shift, Order } from '../types';
@@ -35,9 +36,12 @@ export default function ShiftSection({
       && new Date(o.createdAt).getTime() >= new Date(openShift.openedAt).getTime()
     ))
     : [];
-  const cashRevenue = shiftOrders.filter(o => o.paymentMethod === 'cash').reduce((s, o) => s + o.totalAmount, 0);
-  const cardRevenue = shiftOrders.filter(o => o.paymentMethod === 'card').reduce((s, o) => s + o.totalAmount, 0);
-  const qrRevenue = shiftOrders.filter(o => o.paymentMethod === 'qr').reduce((s, o) => s + o.totalAmount, 0);
+  // Doanh thu theo phương thức: tính theo từng khoản thanh toán (đơn thanh toán kết hợp được tách ra)
+  const revenueBy = (method: 'cash' | 'card' | 'qr') =>
+    shiftOrders.reduce((sum, o) => sum + getOrderPayments(o).filter(p => p.method === method).reduce((s, p) => s + p.amount, 0), 0);
+  const cashRevenue = revenueBy('cash');
+  const cardRevenue = revenueBy('card');
+  const qrRevenue = revenueBy('qr');
   const totalRevenue = cashRevenue + cardRevenue + qrRevenue;
   const expectedCash = (openShift?.openingCash || 0) + cashRevenue;
 

@@ -27,7 +27,9 @@ export type CollectionKey =
   | 'suppliers'
   | 'employees'
   | 'attendance'
-  | 'shifts';
+  | 'shifts'
+  | 'bankAccounts'
+  | 'cashVouchers';
 
 interface CollectionSpec {
   /** Bảng SQLite tương ứng. */
@@ -55,6 +57,11 @@ interface CollectionSpec {
 }
 
 const bool = (v: any): number => (v ? 1 : 0);
+/** Đọc cột JSON (rỗng / hỏng -> undefined). */
+const parseJson = (v: any): any => {
+  if (!v) return undefined;
+  try { const x = JSON.parse(v); return Array.isArray(x) && x.length === 0 ? undefined : x; } catch { return undefined; }
+};
 const str = (v: any, dflt = ''): string => (v === undefined || v === null ? dflt : String(v));
 const num = (v: any, dflt = 0): number => {
   const n = Number(v);
@@ -86,6 +93,10 @@ function productSpec(kind: 'product' | 'ingredient'): CollectionSpec {
       min_stock: num(p.minStock),
       image_url: str(p.imageUrl),
       note: str(p.note),
+      sizes: p.sizes && p.sizes.length > 0 ? JSON.stringify(p.sizes) : '',
+      is_topping: bool(p.isTopping),
+      topping_kind: str(p.toppingKind),
+      topping_for: p.toppingFor && p.toppingFor.length > 0 ? JSON.stringify(p.toppingFor) : '',
       created_at: str(p.createdAt, nowIso()),
     }),
     fromRow: (r) => ({
@@ -101,6 +112,10 @@ function productSpec(kind: 'product' | 'ingredient'): CollectionSpec {
       minStock: num(r.min_stock),
       imageUrl: r.image_url,
       note: r.note,
+      sizes: parseJson(r.sizes),
+      isTopping: !!r.is_topping || undefined,
+      toppingKind: r.topping_kind || undefined,
+      toppingFor: parseJson(r.topping_for),
       createdAt: r.created_at,
     }),
   };
@@ -295,6 +310,7 @@ export const COLLECTIONS: Record<CollectionKey, CollectionSpec> = {
       size: str(k.size),
       sugar_level: str(k.sugarLevel),
       ice_level: str(k.iceLevel),
+      toppings: str(k.toppings),
       served_at: k.status === 'served' ? str(k.servedAt, nowIso()) : (k.servedAt ?? null),
       created_at: str(k.createdAt, nowIso()),
     }),
@@ -311,6 +327,7 @@ export const COLLECTIONS: Record<CollectionKey, CollectionSpec> = {
       size: r.size || undefined,
       sugarLevel: r.sugar_level || undefined,
       iceLevel: r.ice_level || undefined,
+      toppings: r.toppings || undefined,
       servedAt: r.served_at || undefined,
       createdAt: r.created_at,
     }),
@@ -342,6 +359,7 @@ export const COLLECTIONS: Record<CollectionKey, CollectionSpec> = {
         total_amount: num(o.totalAmount, subtotal),
         total_cost: num(o.totalCost),
         payment_method: str(o.paymentMethod, 'cash'),
+        payments: o.payments && o.payments.length > 0 ? JSON.stringify(o.payments) : '',
         paid_amount: num(o.paidAmount),
         change_amount: num(o.changeAmount),
         points_earned: num(o.customerPointsEarned ?? o.pointsEarned),
@@ -368,6 +386,10 @@ export const COLLECTIONS: Record<CollectionKey, CollectionSpec> = {
       totalAmount: num(r.total_amount),
       totalCost: num(r.total_cost),
       paymentMethod: r.payment_method,
+      payments: (() => {
+        if (!r.payments) return undefined;
+        try { const v = JSON.parse(r.payments); return Array.isArray(v) && v.length > 0 ? v : undefined; } catch { return undefined; }
+      })(),
       paidAmount: num(r.paid_amount),
       changeAmount: num(r.change_amount),
       customerPointsEarned: num(r.points_earned),
@@ -394,6 +416,7 @@ export const COLLECTIONS: Record<CollectionKey, CollectionSpec> = {
           size: str(it.size),
           sugar_level: str(it.sugarLevel),
           ice_level: str(it.iceLevel),
+          toppings: it.toppings && it.toppings.length > 0 ? JSON.stringify(it.toppings) : '',
           line_no: idx,
           created_at: str(o.createdAt, nowIso()),
         })),
@@ -411,6 +434,7 @@ export const COLLECTIONS: Record<CollectionKey, CollectionSpec> = {
             size: r.size || undefined,
             sugarLevel: r.sugar_level || undefined,
             iceLevel: r.ice_level || undefined,
+            toppings: parseJson(r.toppings),
           }));
         }
       },
@@ -539,6 +563,72 @@ export const COLLECTIONS: Record<CollectionKey, CollectionSpec> = {
       dailyWage: num(r.daily_wage),
       status: r.status,
       note: r.note,
+      createdAt: r.created_at,
+    }),
+  },
+
+  bankAccounts: {
+    table: 'bank_accounts',
+    idField: 'id',
+    orderBy: 'created_at ASC',
+    toRow: (b, storeId) => ({
+      id: b.id,
+      store_id: storeId,
+      account_name: str(b.accountName),
+      account_number: str(b.accountNumber),
+      bank_code: str(b.bankCode),
+      bank_name: str(b.bankName),
+      holder: str(b.holder),
+      note: str(b.note),
+      is_default: bool(b.isDefault),
+      created_at: str(b.createdAt, nowIso()),
+    }),
+    fromRow: (r) => ({
+      id: r.id,
+      accountName: r.account_name,
+      accountNumber: r.account_number,
+      bankCode: r.bank_code,
+      bankName: r.bank_name,
+      holder: r.holder,
+      note: r.note || undefined,
+      isDefault: !!r.is_default,
+      createdAt: r.created_at,
+    }),
+  },
+
+  cashVouchers: {
+    table: 'cash_vouchers',
+    idField: 'id',
+    orderBy: 'created_at DESC',
+    toRow: (v, storeId) => ({
+      id: v.id,
+      store_id: storeId,
+      code: str(v.code),
+      voucher_type: str(v.type, 'receipt'),
+      fund: str(v.fund, 'cash'),
+      bank_account_id: str(v.bankAccountId),
+      amount: num(v.amount),
+      category: str(v.category),
+      counterparty: str(v.counterparty),
+      phone: str(v.phone),
+      note: str(v.note),
+      status: str(v.status, 'paid'),
+      created_by: str(v.createdBy),
+      created_at: str(v.createdAt, nowIso()),
+    }),
+    fromRow: (r) => ({
+      id: r.id,
+      code: r.code,
+      type: r.voucher_type,
+      fund: r.fund,
+      bankAccountId: r.bank_account_id || undefined,
+      amount: num(r.amount),
+      category: r.category,
+      counterparty: r.counterparty || undefined,
+      phone: r.phone || undefined,
+      note: r.note || undefined,
+      status: r.status,
+      createdBy: r.created_by || undefined,
       createdAt: r.created_at,
     }),
   },
@@ -703,11 +793,12 @@ export type CartMap = Record<string, Array<{
   sugarLevel?: string;
   iceLevel?: string;
   sentQuantity?: number;
+  toppings?: { productId: string; quantity: number }[];
 }>>;
 
 export async function loadCarts(storeId: string): Promise<CartMap> {
   const rows = await query(
-    `SELECT cart_key, product_id, quantity, note, size, sugar_level, ice_level, sent_quantity FROM cart_items
+    `SELECT cart_key, product_id, quantity, note, size, sugar_level, ice_level, sent_quantity, toppings FROM cart_items
      WHERE store_id = ? ORDER BY cart_key ASC, line_no ASC`,
     [storeId],
   );
@@ -723,6 +814,7 @@ export async function loadCarts(storeId: string): Promise<CartMap> {
       sugarLevel: r.sugar_level || undefined,
       iceLevel: r.ice_level || undefined,
       sentQuantity: num(r.sent_quantity, 0) || undefined,
+      toppings: parseJson(r.toppings),
     });
   }
   return carts;
@@ -770,6 +862,7 @@ export function diffCartStatements(prev: CartMap, next: CartMap, storeId: string
           sugar_level: str(item.sugarLevel),
           ice_level: str(item.iceLevel),
           sent_quantity: num(item.sentQuantity, 0),
+          toppings: item.toppings && item.toppings.length > 0 ? JSON.stringify(item.toppings) : '',
           line_no: idx,
           updated_at: ts,
         })[0],

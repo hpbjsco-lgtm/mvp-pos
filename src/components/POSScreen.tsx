@@ -4,15 +4,20 @@
  */
 
 import DragScrollRow from './DragScrollRow';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Trash2, Plus, Minus, ScanLine, Printer, X, ClipboardList, Edit3, ChefHat, ChevronDown, Search,
   LayoutGrid, UtensilsCrossed, Landmark, ShoppingCart, ArrowRight,
-  ArrowLeft, MoreVertical, Users, Timer, CalendarClock, Link2
+  ArrowLeft, MoreVertical, Users, Timer, CalendarClock, Link2, History
 } from 'lucide-react';
-import { Product, DiningTable, Zone, KitchenItem, Order, PaymentMethod, TableStatus, KitchenStatus, InventoryBatch, Customer } from '../types';
+import { BankAccount, PaymentPart, Product, DiningTable, Zone, KitchenItem, Order, PaymentMethod, TableStatus, KitchenStatus, InventoryBatch, Customer } from '../types';
 import TableMap from './TableMap';
 import TableBoard from './TableBoard';
+import KiotTableGrid from './KiotTableGrid';
+import KiotCheckoutDialog from './KiotCheckoutDialog';
+import BankAccountsDialog from './BankAccountsDialog';
+import { buildVietQRPayload } from '../utils/vietqr';
+import { findBank } from '../utils/banks';
 import {
   OrderOptionsMenu, OptionIcons, MergeTablesDialog, TransferTableDialog, SplitMergeOrderDialog,
   ReservationDialog, KitchenHistoryDialog, OrderInfoDialog, type OptionItem
@@ -22,9 +27,11 @@ import CheckoutScreen from './CheckoutScreen';
 import { logOperation } from '../utils/logger';
 import { categoryPlaceholderColor } from '../utils/categoryColor';
 import { useMediaQuery } from '../utils/useMediaQuery';
+import { changeTopping, lineUnitPrice, toppingsFor, toppingsText } from '../utils/toppings';
+import { defaultSize, hasSizes, priceLabel } from '../utils/sizes';
 import {
   lineKey, isVirtualCartId, resolvePrimaryId, getGroupLabel, getGroupTables, getTableStats, formatElapsed,
-  mergeTables, unmergeTable, transferTable, moveItems, releaseGroup, type MoveSelection
+  mergeLines, mergeTables, unmergeTable, transferTable, moveItems, releaseGroup, type MoveSelection
 } from '../utils/tableOps';
 
 export interface CartLine {
@@ -36,12 +43,12 @@ export interface CartLine {
   iceLevel?: string;
   /** Số lượng đã báo bếp; lần báo bếp sau chỉ gửi phần chênh lệch (quantity - sentQuantity). */
   sentQuantity?: number;
+  /** Topping chọn kèm món (mỗi phần món có cùng tập topping). */
+  toppings?: { productId: string; quantity: number }[];
 }
 
-const SIZE_OPTIONS = ['S', 'M', 'L'];
 const SUGAR_OPTIONS = ['0%', '30%', '50%', '70%', '100%'];
 const ICE_OPTIONS = ['0%', '30%', '50%', '70%', '100%'];
-const DEFAULT_SIZE = 'M';
 const DEFAULT_SUGAR = '100%';
 const DEFAULT_ICE = '100%';
 
@@ -70,6 +77,8 @@ interface POSScreenProps {
   triggerBeep: (success: boolean) => void;
   simBatches: InventoryBatch[];
   setSimBatches: React.Dispatch<React.SetStateAction<InventoryBatch[]>>;
+  simBankAccounts: BankAccount[];
+  setSimBankAccounts: React.Dispatch<React.SetStateAction<BankAccount[]>>;
 }
 
 export default function POSScreen({
@@ -94,7 +103,9 @@ export default function POSScreen({
   fbStoreProfile,
   triggerBeep,
   simBatches,
-  setSimBatches
+  setSimBatches,
+  simBankAccounts,
+  setSimBankAccounts
 }: POSScreenProps) {
 
   // Tab bên trái cho fnb: "Phòng bàn" (sơ đồ bàn, mặc định) hoặc "Thực đơn" (gọi thêm món)
@@ -113,6 +124,23 @@ export default function POSScreen({
 
   const [activeCategory, setActiveCategory] = useState<string>('Tất cả');
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // PC (bố cục KiotViet): có tự mở thực đơn khi chọn bàn hay không (nhớ lựa chọn)
+  const [openMenuOnSelect, setOpenMenuOnSelect] = useState<boolean>(() => {
+    try { return localStorage.getItem('pos_open_menu_on_select') === '1'; } catch { return false; }
+  });
+  const toggleOpenMenuOnSelect = (v: boolean) => {
+    setOpenMenuOnSelect(v);
+    try { localStorage.setItem('pos_open_menu_on_select', v ? '1' : '0'); } catch { /* bỏ qua */ }
+  };
+  // Tìm khách hàng ngay trên đơn (PC)
+  const [customerQuery, setCustomerQuery] = useState('');
+  const [customerListOpen, setCustomerListOpen] = useState(false);
+  // Phiếu tạm tính (in trước khi thanh toán) và ghi chú cho cả đơn
+  const [provisionalOrder, setProvisionalOrder] = useState<Order | null>(null);
+  const [bankDialogOpen, setBankDialogOpen] = useState(false);
+  const [orderNotes, setOrderNotes] = useState<Record<string, string>>({});
   const [barcodeInputValue, setBarcodeInputValue] = useState<string>('');
   const [showBarcodePanel, setShowBarcodePanel] = useState(false);
 
@@ -169,13 +197,12 @@ export default function POSScreen({
   const groupTables = simStoreType === 'fnb' && !isVirtualCart ? getGroupTables(simTables, currentCartId) : [];
 
   // Products Category parsing
-  const categories = ['Tất cả', ...Array.from(new Set(simProducts.map(p => p.category)))];
+  // Topping chỉ chọn kèm món, không hiện trên lưới món
+  const sellable = simProducts.filter(p => !p.isTopping);
+  const categories = ['Tất cả', ...Array.from(new Set(sellable.map(p => p.category)))];
 
   // Calculated totals
-  const cartSubtotal = currentCart.reduce((sum, item) => {
-    const prod = simProducts.find(p => p.id === item.productId);
-    return sum + (prod?.price || 0) * item.quantity;
-  }, 0);
+  const cartSubtotal = currentCart.reduce((sum, item) => sum + lineUnitPrice(item, simProducts) * item.quantity, 0);
   const discountAmount = Math.max(0, Math.min(discountInput || 0, cartSubtotal));
   const taxableAmount = cartSubtotal - discountAmount;
   const taxAmount = Math.round(taxableAmount * ((vatPercent || 0) / 100));
@@ -206,7 +233,11 @@ export default function POSScreen({
 
     // Đồ uống mặc định có size/đường/đá -> nhân viên chỉnh lại trực tiếp trên dòng giỏ hàng
     const isDrink = simStoreType === 'fnb' && product.category === 'Đồ uống';
-    const mods = isDrink ? { size: DEFAULT_SIZE, sugarLevel: DEFAULT_SUGAR, iceLevel: DEFAULT_ICE } : {};
+    // Món có size tùy chỉnh: mặc định size đầu tiên; đồ uống có thêm mức đường / đá
+    const mods = {
+      ...(simStoreType === 'fnb' && hasSizes(product) ? { size: defaultSize(product) } : {}),
+      ...(isDrink ? { sugarLevel: DEFAULT_SUGAR, iceLevel: DEFAULT_ICE } : {})
+    };
 
     // Bàn đã có khách đặt trước & đây là món đầu tiên của đơn -> yêu cầu nhân viên xác nhận
     if (simStoreType === 'fnb' && currentCart.length === 0 && selectedTable?.reservationName) {
@@ -282,7 +313,8 @@ export default function POSScreen({
       if (!isKitchenItemOfCurrentOrder(k) || !isKitchenActive(k)) return k;
       if (line && (k.productId !== line.productId || (k.note || '') !== (line.note || '')
         || (k.size || '') !== (line.size || '') || (k.sugarLevel || '') !== (line.sugarLevel || '')
-        || (k.iceLevel || '') !== (line.iceLevel || ''))) return k;
+        || (k.iceLevel || '') !== (line.iceLevel || '')
+        || (k.toppings || '') !== toppingsText(line, simProducts))) return k;
       return { ...k, status: KitchenStatus.CANCELLED };
     }));
   };
@@ -297,6 +329,73 @@ export default function POSScreen({
       return { ...prev, [currentCartId]: prevCart.filter(i => lineKey(i) !== targetKey) };
     });
     playBeep(true);
+  };
+
+  // Thêm / bớt topping cho một dòng món. Áp dụng cho các phần chưa báo bếp (nếu đã báo hết thì tách 1 phần mới)
+  const handleChangeTopping = (item: CartLine, toppingId: string, delta: number) => {
+    const key = lineKey(item);
+    setSimCarts(prev => {
+      const cart = prev[currentCartId] || [];
+      const idx = cart.findIndex(l => lineKey(l) === key);
+      if (idx === -1) return prev;
+      const line = cart[idx];
+      const sent = line.sentQuantity || 0;
+      const moveQty = line.quantity - sent > 0 ? line.quantity - sent : 1;
+      const rest = line.quantity - moveQty;
+      const remaining = { ...line, quantity: rest, sentQuantity: Math.min(sent, rest) || undefined };
+      const moved: CartLine = { ...line, quantity: moveQty, sentQuantity: undefined, toppings: changeTopping(line.toppings, toppingId, delta) };
+      const base = cart.map((l, i) => (i === idx ? remaining : l)).filter(l => l.quantity > 0);
+      return { ...prev, [currentCartId]: mergeLines(base, [moved]) };
+    });
+    playBeep(true);
+  };
+
+  // Chọn size / biến thể giá của một dòng món (mỗi size có giá riêng, do cửa hàng tự đặt tên và giá)
+  const renderSizePicker = (item: CartLine) => {
+    const prod = simProducts.find(p => p.id === item.productId);
+    if (simStoreType !== 'fnb' || !hasSizes(prod)) return null;
+    return (
+      <div className="inline-flex flex-wrap rounded-lg overflow-hidden border border-outline-variant">
+        {prod.sizes.map(opt => (
+          <button
+            key={opt.name}
+            onClick={() => handleUpdateModifier(item, 'size', opt.name)}
+            title={`${opt.name}: ${opt.price.toLocaleString('vi-VN')}đ`}
+            className={`min-h-8 px-2.5 text-sm font-bold cursor-pointer transition-colors ${
+              (item.size || prod.sizes[0].name) === opt.name ? 'bg-primary text-on-primary' : 'bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-high'
+            }`}
+          >
+            {opt.name} <span className="font-semibold opacity-80">{opt.price.toLocaleString('vi-VN')}</span>
+          </button>
+        ))}
+      </div>
+    );
+  };
+
+  // Các nút topping có thể gắn cho dòng món (món chỉ hiện nếu có topping được gắn)
+  const renderToppingChips = (item: CartLine) => {
+    if (simStoreType !== 'fnb') return null;
+    const options = toppingsFor(simProducts.find(p => p.id === item.productId), simProducts);
+    if (options.length === 0) return null;
+    return (
+      <div className="flex flex-wrap items-center gap-1.5 w-full">
+        {options.map(t => {
+          const qty = (item.toppings || []).find(x => x.productId === t.id)?.quantity || 0;
+          return qty > 0 ? (
+            <span key={t.id} className="inline-flex items-center rounded-full bg-primary text-on-primary text-sm font-bold">
+              <button onClick={() => handleChangeTopping(item, t.id, -1)} className="min-w-8 min-h-8 cursor-pointer" aria-label={`Bớt ${t.name}`}>−</button>
+              <span className="px-1">{t.name} x{qty}</span>
+              <button onClick={() => handleChangeTopping(item, t.id, 1)} className="min-w-8 min-h-8 cursor-pointer" aria-label={`Thêm ${t.name}`}>+</button>
+            </span>
+          ) : (
+            <button key={t.id} onClick={() => handleChangeTopping(item, t.id, 1)}
+              className="min-h-8 px-3 rounded-full border border-outline-variant text-sm font-semibold text-on-surface-variant hover:border-primary hover:text-primary cursor-pointer">
+              + {t.name} <span className="opacity-70">{t.price.toLocaleString('vi-VN')}</span>
+            </button>
+          );
+        })}
+      </div>
+    );
   };
 
   // Tăng / giảm số lượng 1 dòng món; giảm dưới 1 thì xóa dòng
@@ -434,6 +533,59 @@ export default function POSScreen({
     playBeep(true);
   };
 
+  // In phiếu tạm tính: dựng một đơn tạm từ giỏ hiện tại (chưa lưu, chưa thanh toán)
+  const handlePrintProvisional = () => {
+    if (currentCart.length === 0) {
+      playBeep(false);
+      alert('Đơn hàng trống! Hãy chọn món trước khi in tạm tính.');
+      return;
+    }
+    const items = currentCart.map(line => {
+      const prod = simProducts.find(p => p.id === line.productId);
+      return {
+        productId: line.productId,
+        name: prod?.name || 'Món',
+        quantity: line.quantity,
+        price: lineUnitPrice(line, simProducts),
+        toppings: (line.toppings || []).map(t => {
+          const tp = simProducts.find(p => p.id === t.productId);
+          return { name: tp?.name || 'Topping', price: tp?.price || 0, quantity: t.quantity };
+        }),
+        note: line.note || undefined,
+        size: line.size,
+        sugarLevel: line.sugarLevel,
+        iceLevel: line.iceLevel
+      };
+    });
+    setProvisionalOrder({
+      id: `TAM-${Date.now()}`,
+      orderNumber: 'TẠM TÍNH',
+      items,
+      subtotal: cartSubtotal,
+      discountAmount,
+      taxAmount,
+      totalAmount: grandTotal,
+      paymentMethod: PaymentMethod.CASH,
+      paidAmount: 0,
+      changeAmount: 0,
+      staffId: fbUserProfile?.uid || 'staff-01',
+      staffName: fbUserProfile?.name || '',
+      tableId: isVirtualCart ? undefined : currentCartId,
+      tableNumber: selectedTableName,
+      orderType: isVirtualCart ? 'takeaway' : 'dine-in',
+      note: orderNotes[currentCartId] || undefined,
+      createdAt: new Date().toISOString()
+    });
+    playBeep(true);
+  };
+
+  const handleEditOrderNote = () => {
+    const note = prompt('Ghi chú cho cả đơn hàng (ví dụ: khách dị ứng đậu phộng):', orderNotes[currentCartId] || '');
+    if (note === null) return;
+    setOrderNotes(prev => ({ ...prev, [currentCartId]: note.trim() }));
+    playBeep(true);
+  };
+
   // Chọn một bàn / giỏ ảo từ danh sách bàn
   const handleSelectTable = (id: string) => {
     setSimSelectedTableId(id);
@@ -442,12 +594,8 @@ export default function POSScreen({
       setMobileStep('order');
       return;
     }
-    // Máy tính: bàn trống -> mở luôn thực đơn để order; bàn đang dùng -> giữ sơ đồ, đơn hiện bên phải
-    const table = simTables.find(t => t.id === id);
-    const hasOrder = table
-      ? getTableStats(table, simTables, simCarts, simProducts).isOccupied
-      : (simCarts[id] || []).length > 0;
-    if (!hasOrder) setFnbLeftTab('menu');
+    // Máy tính: đơn hiện bên phải; chỉ tự mở thực đơn khi bật ô "Mở thực đơn khi chọn bàn"
+    if (openMenuOnSelect) setFnbLeftTab('menu');
   };
 
   // Barcode Scanner Simulator
@@ -545,6 +693,7 @@ export default function POSScreen({
         size: item.size,
         sugarLevel: item.sugarLevel,
         iceLevel: item.iceLevel,
+        toppings: toppingsText(item, simProducts) || undefined,
         createdAt: new Date().toISOString()
       };
     });
@@ -572,13 +721,13 @@ export default function POSScreen({
   };
 
   // Execute checkout and finalize order payment
-  const handleCheckoutSubmit = (method: 'cash' | 'qr' | 'card') => {
+  const handleCheckoutSubmit = (method: 'cash' | 'qr' | 'card' | 'mixed', mixed?: { parts: PaymentPart[]; received: number; change: number }, bankAccountId?: string) => {
     if (currentCart.length === 0) {
       playBeep(false);
       return;
     }
 
-    setPaymentMethod(method);
+    if (method !== 'mixed') setPaymentMethod(method);
     setCheckoutProcessing(true);
     playBeep(true);
 
@@ -595,7 +744,11 @@ export default function POSScreen({
           productId: cartItem.productId,
           name: prod.name,
           quantity: cartItem.quantity,
-          price: prod.price,
+          price: lineUnitPrice(cartItem, simProducts),
+          toppings: (cartItem.toppings || []).map(t => {
+            const tp = simProducts.find(p => p.id === t.productId);
+            return { name: tp?.name || 'Topping', price: tp?.price || 0, quantity: t.quantity };
+          }),
           batchId: activeBatch?.id,
           batchCode: activeBatch?.batchCode,
           note: cartItem.note || undefined,
@@ -639,12 +792,19 @@ export default function POSScreen({
         discountAmount,
         taxAmount,
         totalAmount: grandTotal,
-        paymentMethod: method === 'cash' ? PaymentMethod.CASH : method === 'qr' ? PaymentMethod.QR : PaymentMethod.CARD,
-        paidAmount: method === 'cash' ? (parseInt(cashPadInput) || grandTotal) : grandTotal,
-        changeAmount: method === 'cash' ? cashChangeDue : 0,
+        paymentMethod: method === 'mixed'
+          ? (mixed && mixed.parts.length > 1 ? PaymentMethod.MIXED : (mixed?.parts[0]?.method === 'qr' ? PaymentMethod.QR : mixed?.parts[0]?.method === 'card' ? PaymentMethod.CARD : PaymentMethod.CASH))
+          : method === 'cash' ? PaymentMethod.CASH : method === 'qr' ? PaymentMethod.QR : PaymentMethod.CARD,
+        // Luôn ghi chi tiết khoản thanh toán để sổ quỹ biết tiền vào quỹ nào / tài khoản nào
+        payments: method === 'mixed' && mixed
+          ? mixed.parts.map(p => (p.method === 'cash' ? p : { ...p, bankAccountId }))
+          : [{ method: method as 'cash' | 'qr' | 'card', amount: grandTotal, ...(method !== 'cash' && bankAccountId ? { bankAccountId } : {}) }],
+        paidAmount: method === 'mixed' && mixed ? mixed.received : method === 'cash' ? (parseInt(cashPadInput) || grandTotal) : grandTotal,
+        changeAmount: method === 'mixed' && mixed ? mixed.change : method === 'cash' ? cashChangeDue : 0,
         staffId: fbUserProfile?.uid || 'staff-01',
         staffName: fbUserProfile?.name || '',
         customerPointsEarned: pointsEarned,
+        note: orderNotes[currentCartId] || undefined,
         createdAt: new Date().toISOString()
       };
 
@@ -663,6 +823,7 @@ export default function POSScreen({
 
       logOperation('Màn hình bán hàng (POS)', 'Thanh toán đơn hàng', newOrder);
 
+      setOrderNotes(prev => { const { [currentCartId]: _removed, ...rest } = prev; return rest; });
       setSimOrders(prev => [newOrder, ...prev]);
       setLastPlacedOrder(newOrder);
 
@@ -695,8 +856,20 @@ export default function POSScreen({
     }, 800);
   };
 
+  // Phím tắt trên PC (giống KiotViet): F3 tìm món, F9 thanh toán, F10 báo bếp
+  useEffect(() => {
+    if (simStoreType !== 'fnb' || !isDesktop || posView !== 'catalog') return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'F3') { e.preventDefault(); searchInputRef.current?.focus(); }
+      else if (e.key === 'F9') { e.preventDefault(); goToCheckout(); }
+      else if (e.key === 'F10') { e.preventDefault(); handleSendToKitchen(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
   // Filtering products catalog
-  const filteredProducts = simProducts.filter(p => {
+  const filteredProducts = sellable.filter(p => {
     const matchesCategory = activeCategory === 'Tất cả' || p.category === activeCategory;
     const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.sku.includes(searchTerm);
     return matchesCategory && matchesSearch;
@@ -705,7 +878,7 @@ export default function POSScreen({
   // ------------------------------------------------------------------
   // Màn hình Thanh toán — tách riêng khỏi màn chọn món (đúng luồng thiết kế mới)
   // ------------------------------------------------------------------
-  if (posView === 'checkout') {
+  if (posView === 'checkout' && !(simStoreType === 'fnb' && isDesktop)) {
     return (
       <div id="pos-checkout-view">
         <CheckoutScreen
@@ -740,7 +913,9 @@ export default function POSScreen({
           setCashChangeDue={setCashChangeDue}
           processing={checkoutProcessing}
           onBack={() => setPosView('catalog')}
-          onComplete={handleCheckoutSubmit}
+          onComplete={(m) => handleCheckoutSubmit(m, undefined, (simBankAccounts.find(a => a.isDefault) || simBankAccounts[0])?.id)}
+          bankAccounts={simBankAccounts}
+          qrMemo={selectedTableName}
           playBeep={playBeep}
         />
 
@@ -775,7 +950,7 @@ export default function POSScreen({
                 <div className="flex justify-between items-start gap-2">
                   <div className="min-w-0">
                     <h5 className="text-base font-bold text-on-surface truncate">{prod.name}</h5>
-                    <span className="text-sm text-on-surface-variant">{prod.price.toLocaleString('vi-VN')} đ</span>
+                    <span className="text-sm text-on-surface-variant">{lineUnitPrice(item, simProducts).toLocaleString('vi-VN')} đ</span>
                     {simStoreType === 'fnb' && (item.sentQuantity || 0) > 0 && (
                       <span className="m3-badge m3-badge-success ml-2">Đã báo bếp {item.sentQuantity}/{item.quantity}</span>
                     )}
@@ -789,22 +964,14 @@ export default function POSScreen({
                   </button>
                 </div>
 
+                {renderToppingChips(item)}
+
                 {/* Tuỳ chọn size / đường / đá cho đồ uống */}
-                {isDrink && (
+                {(isDrink || hasSizes(prod)) && (
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <div className="inline-flex rounded-lg overflow-hidden border border-outline-variant">
-                      {SIZE_OPTIONS.map(opt => (
-                        <button
-                          key={opt}
-                          onClick={() => handleUpdateModifier(item, 'size', opt)}
-                          className={`min-w-8 min-h-8 px-1.5 text-sm font-bold cursor-pointer transition-colors ${
-                            item.size === opt ? 'bg-primary text-on-primary' : 'bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-high'
-                          }`}
-                        >
-                          {opt}
-                        </button>
-                      ))}
-                    </div>
+                    {renderSizePicker(item)}
+                    {isDrink && (
+                      <>
                     <select
                       value={item.sugarLevel || DEFAULT_SUGAR}
                       onChange={(e) => handleUpdateModifier(item, 'sugarLevel', e.target.value)}
@@ -819,6 +986,8 @@ export default function POSScreen({
                     >
                       {ICE_OPTIONS.map(opt => <option key={opt} value={opt}>Đá {opt}</option>)}
                     </select>
+                      </>
+                    )}
                   </div>
                 )}
 
@@ -858,6 +1027,7 @@ export default function POSScreen({
   const optionGroups: OptionItem[][] = [
     [
       { key: 'history', icon: OptionIcons.history, label: 'Lịch sử báo bếp', onClick: () => setActiveDialog('history') },
+      { key: 'provisional', icon: OptionIcons.info, label: 'In phiếu tạm tính', onClick: handlePrintProvisional, disabled: currentCart.length === 0 },
     ],
     [
       { key: 'merge', icon: OptionIcons.merge, label: 'Gộp bàn', onClick: () => setActiveDialog('merge'), disabled: isVirtualCart },
@@ -962,6 +1132,40 @@ export default function POSScreen({
         />
       )}
     </>
+  ) : null;
+
+  // QR chuyển khoản in trên phiếu tạm tính (tài khoản mặc định, đúng số tiền của đơn)
+  const defaultBank = simBankAccounts.find(a => a.isDefault) || simBankAccounts[0];
+  const provisionalTransfer = provisionalOrder && defaultBank && findBank(defaultBank.bankCode)
+    ? {
+        payload: buildVietQRPayload({
+          bin: findBank(defaultBank.bankCode)!.bin,
+          accountNumber: defaultBank.accountNumber,
+          amount: provisionalOrder.totalAmount,
+          memo: provisionalOrder.tableNumber || 'Thanh toan'
+        }),
+        bankName: defaultBank.bankName,
+        accountNumber: defaultBank.accountNumber,
+        holder: defaultBank.holder,
+        amount: provisionalOrder.totalAmount
+      }
+    : undefined;
+
+  const provisionalNode = provisionalOrder ? (
+    <ReceiptThermal
+      order={provisionalOrder}
+      variant="provisional"
+      transfer={provisionalTransfer}
+      storeInfo={{
+        name: fbStoreProfile?.name || 'SmartPOS Coffee Shop',
+        address: fbStoreProfile?.address || '123 Đường Lê Lợi, TP. HCM',
+        phone: fbStoreProfile?.phone || '0901234567',
+        storeType: simStoreType
+      }}
+      staffName={fbUserProfile?.name || 'Thu Ngân 01'}
+      onClose={() => { setProvisionalOrder(null); playBeep(true); }}
+    />
+  
   ) : null;
 
   const receiptNode = thermalReceiptOpen && lastPlacedOrder ? (
@@ -1147,7 +1351,7 @@ export default function POSScreen({
                     </div>
                     <div className="flex-1 min-w-0">
                       <h4 className="text-base font-bold text-on-surface line-clamp-2 leading-snug">{prod.name}</h4>
-                      <span className="text-sm font-bold text-primary">{prod.isAvailable ? `${prod.price.toLocaleString('vi-VN')}đ` : 'Hết hàng'}</span>
+                      <span className="text-sm font-bold text-primary">{prod.isAvailable ? `${priceLabel(prod)}đ` : 'Hết hàng'}</span>
                     </div>
                     {qtyInCart > 0 && (
                       <span className="bg-primary text-on-primary min-w-7 h-7 px-1.5 rounded-full flex items-center justify-center text-sm font-bold">{qtyInCart}</span>
@@ -1205,6 +1409,375 @@ export default function POSScreen({
 
         {dialogsNode}
         {receiptNode}
+        {provisionalNode}
+      </div>
+    );
+  }
+
+  // ------------------------------------------------------------------
+  // F&B trên PC: bố cục giống màn hình thu ngân KiotViet (2 khung: Phòng bàn / Thực đơn | Đơn hàng)
+  // ------------------------------------------------------------------
+  if (simStoreType === 'fnb' && isDesktop) {
+    const zoneName = simZones.find(z => z.id === selectedTable?.zoneId)?.name;
+    const selectedCustomer = simCustomers.find(c => c.id === selectedCustomerId);
+    const customerMatches = customerQuery.trim()
+      ? simCustomers.filter(c => c.name.toLowerCase().includes(customerQuery.toLowerCase()) || (c.phone || '').includes(customerQuery)).slice(0, 6)
+      : simCustomers.slice(0, 6);
+    const money = (n: number) => n.toLocaleString('vi-VN');
+    const tabBase = 'px-5 min-h-11 rounded-t-xl text-base font-bold flex items-center gap-2 cursor-pointer transition-colors';
+
+    return (
+      <div id="pos-kiot-layout" className="h-full min-h-0 grid grid-cols-[minmax(0,1.4fr)_minmax(440px,1fr)] gap-3">
+
+        {/* ===== Khung trái: Phòng bàn / Thực đơn ===== */}
+        <div className="min-h-0 flex flex-col rounded-2xl overflow-hidden border border-outline-variant bg-surface-container-lowest">
+          <div className="bg-primary px-3 pt-2.5 flex items-end gap-1.5 shrink-0">
+            <button
+              onClick={() => { setFnbLeftTab('tables'); playBeep(true); }}
+              className={`${tabBase} ${fnbLeftTab === 'tables' ? 'bg-surface-container-lowest text-primary' : 'text-white/90 hover:bg-white/15'}`}
+            >
+              <LayoutGrid className="w-5 h-5" /> Phòng bàn
+            </button>
+            <button
+              onClick={() => { setFnbLeftTab('menu'); playBeep(true); }}
+              className={`${tabBase} ${fnbLeftTab === 'menu' ? 'bg-surface-container-lowest text-primary' : 'text-white/90 hover:bg-white/15'}`}
+            >
+              <UtensilsCrossed className="w-5 h-5" /> Thực đơn
+            </button>
+            <div className="relative flex-1 pb-2 pl-2">
+              <Search className="w-4.5 h-4.5 text-white/85 absolute left-5 top-[calc(50%-4px)] -translate-y-1/2" />
+              <input
+                ref={searchInputRef}
+                value={searchTerm}
+                onChange={(e) => { setSearchTerm(e.target.value); if (e.target.value) setFnbLeftTab('menu'); }}
+                placeholder="Tìm món (F3)"
+                className="w-full min-h-10 rounded-full pl-11 pr-4 bg-white/20 text-white placeholder:text-white/85 text-base font-semibold outline-none focus:bg-white/30"
+              />
+            </div>
+          </div>
+
+          {fnbLeftTab === 'tables' ? (
+            <>
+              <div className="flex-1 min-h-0 p-3">
+                <KiotTableGrid
+                  tables={simTables}
+                  zones={simZones}
+                  carts={simCarts}
+                  products={simProducts}
+                  selectedId={simSelectedTableId}
+                  onSelect={handleSelectTable}
+                />
+              </div>
+              <label className="shrink-0 px-4 py-2.5 border-t border-outline-variant flex items-center gap-2 text-base text-on-surface cursor-pointer select-none">
+                <input type="checkbox" checked={openMenuOnSelect} onChange={(e) => toggleOpenMenuOnSelect(e.target.checked)} className="w-4.5 h-4.5 accent-primary" />
+                Mở thực đơn khi chọn bàn
+              </label>
+            </>
+          ) : (
+            <div className="flex-1 min-h-0 flex flex-col p-3 gap-3">
+              <DragScrollRow className="gap-1 items-center shrink-0">
+                {categories.map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => { setActiveCategory(cat); playBeep(true); }}
+                    className={`shrink-0 min-h-10 px-4 rounded-full text-sm font-bold uppercase whitespace-nowrap cursor-pointer transition-colors ${
+                      activeCategory === cat ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:bg-surface-container'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </DragScrollRow>
+
+              <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+                <div className="grid gap-3 grid-cols-[repeat(auto-fill,minmax(150px,1fr))]">
+                  {filteredProducts.map(prod => {
+                    const qtyInCart = currentCart.filter(i => i.productId === prod.id).reduce((sum, i) => sum + i.quantity, 0);
+                    return (
+                      <button
+                        key={prod.id}
+                        onClick={() => handleAddToCart(prod)}
+                        disabled={!prod.isAvailable}
+                        className={`relative rounded-xl overflow-hidden text-left bg-surface-container-lowest border border-outline-variant transition-shadow ${
+                          prod.isAvailable ? 'hover:shadow-md cursor-pointer active:scale-[0.98]' : 'opacity-50 cursor-not-allowed'
+                        }`}
+                      >
+                        <span className="relative block aspect-[4/3] w-full">
+                          {prod.imageUrl ? (
+                            <img src={prod.imageUrl} alt={prod.name} className="absolute inset-0 w-full h-full object-cover" />
+                          ) : (
+                            <span className={`absolute inset-0 flex items-center justify-center text-3xl font-black ${categoryPlaceholderColor(prod.category)}`}>
+                              {prod.name.charAt(0).toUpperCase()}
+                            </span>
+                          )}
+                          <span className="absolute bottom-1.5 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-md bg-white/95 text-primary text-sm font-bold shadow-sm">
+                            {priceLabel(prod)}
+                          </span>
+                          {qtyInCart > 0 && (
+                            <span className="absolute top-1.5 right-1.5 min-w-6 h-6 px-1.5 rounded-full bg-primary text-on-primary text-sm font-bold flex items-center justify-center shadow">{qtyInCart}</span>
+                          )}
+                          {!prod.isAvailable && (
+                            <span className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-full text-xs font-bold bg-error-container text-on-error-container">Hết món</span>
+                          )}
+                        </span>
+                        <span className="block px-2 py-2 text-sm font-semibold text-on-surface text-center leading-snug line-clamp-2 min-h-[3.1rem]">{prod.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {filteredProducts.length === 0 && (
+                  <p className="py-16 text-center text-base font-bold text-on-surface-variant">Không tìm thấy món phù hợp</p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ===== Khung phải: Đơn hàng ===== */}
+        <div className="min-h-0 flex flex-col rounded-2xl overflow-hidden border border-outline-variant bg-surface-container-lowest">
+          <div className="bg-primary px-3 pt-2.5 flex items-end justify-between gap-2 shrink-0">
+            <div className={`${tabBase} bg-surface-container-lowest text-primary max-w-[60%]`}>
+              <span className="truncate">{selectedTableName}</span>
+            </div>
+            <div className="flex items-center gap-3 pb-2 text-white/95 text-sm font-semibold min-w-0">
+              <span className="truncate">{fbUserProfile?.name}</span>
+              {currentCart.length > 0 && (
+                <button onClick={handleClearCart} className="underline underline-offset-2 hover:text-white cursor-pointer shrink-0">Xóa hết</button>
+              )}
+            </div>
+          </div>
+
+          {/* Vị trí + khách hàng */}
+          <div className="px-3 py-2.5 flex items-center gap-2 shrink-0 border-b border-outline-variant/60">
+            <button
+              onClick={() => { setFnbLeftTab('tables'); playBeep(true); }}
+              className="min-h-10 px-3.5 rounded-full bg-primary-container text-on-primary-container text-sm font-bold whitespace-nowrap max-w-[36%] truncate cursor-pointer"
+              title="Chọn bàn khác"
+            >
+              {selectedTableName}{zoneName && !isVirtualCart ? ` / ${zoneName}` : ''}
+            </button>
+
+            <div className="relative flex-1 min-w-0">
+              {selectedCustomer ? (
+                <div className="min-h-10 px-3.5 rounded-full bg-surface-container flex items-center justify-between gap-2 text-sm font-bold">
+                  <span className="truncate">{selectedCustomer.name}{selectedCustomer.phone ? ` · ${selectedCustomer.phone}` : ''}</span>
+                  <button onClick={() => { setSelectedCustomerId(''); setCustomerQuery(''); }} className="text-on-surface-variant hover:text-error cursor-pointer" aria-label="Bỏ chọn khách"><X className="w-4 h-4" /></button>
+                </div>
+              ) : (
+                <>
+                  <Search className="w-4 h-4 text-on-surface-variant absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    value={customerQuery}
+                    onChange={(e) => { setCustomerQuery(e.target.value); setCustomerListOpen(true); }}
+                    onFocus={() => setCustomerListOpen(true)}
+                    onBlur={() => setTimeout(() => setCustomerListOpen(false), 150)}
+                    placeholder="Tìm khách hàng (F4)"
+                    className="w-full min-h-10 rounded-full pl-10 pr-3 bg-surface-container text-sm font-semibold outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                  {customerListOpen && customerMatches.length > 0 && (
+                    <div className="absolute z-30 left-0 right-0 top-full mt-1 bg-surface-container-lowest border border-outline-variant rounded-xl shadow-lg overflow-hidden">
+                      {customerMatches.map(c => (
+                        <button
+                          key={c.id}
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => { setSelectedCustomerId(c.id); setCustomerQuery(''); setCustomerListOpen(false); playBeep(true); }}
+                          className="w-full text-left px-3.5 py-2 hover:bg-surface-container text-sm cursor-pointer"
+                        >
+                          <span className="font-bold">{c.name}</span> <span className="text-on-surface-variant">{c.phone}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+            <button
+              onClick={() => { setNewCustName(''); setNewCustPhone(''); setShowAddCustomer(true); playBeep(true); }}
+              className="m3-icon-btn !w-10 !h-10 bg-surface-container shrink-0"
+              title="Thêm khách hàng mới"
+              aria-label="Thêm khách hàng mới"
+            >
+              <Plus className="w-5 h-5" />
+            </button>
+            {optionsButton}
+          </div>
+
+          {/* Danh sách món */}
+          <div className="flex-1 min-h-0 overflow-y-auto px-3">
+            {currentCart.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center gap-3 text-center text-on-surface-variant px-6">
+                <UtensilsCrossed className="w-16 h-16 text-primary/70" />
+                <p className="text-base font-semibold text-primary">Chưa có món trong đơn</p>
+                <p className="text-base text-primary/80">Vui lòng chọn món trong thực đơn bên trái màn hình</p>
+              </div>
+            ) : (
+              currentCart.map((item, idx) => {
+                const prod = simProducts.find(p => p.id === item.productId);
+                if (!prod) return null;
+                const isDrink = prod.category === 'Đồ uống';
+                return (
+                  <div key={`${item.productId}-${idx}`} className="py-2.5 border-b border-outline-variant/60">
+                    <div className="grid grid-cols-[minmax(0,1fr)_auto_5rem_5.5rem] items-center gap-3">
+                      <div className="min-w-0">
+                        <span className="text-base font-bold text-on-surface">{idx + 1}. {prod.name}</span>
+                        {(item.sentQuantity || 0) > 0 && (
+                          <span className="m3-badge m3-badge-success ml-2">Đã báo bếp {item.sentQuantity}/{item.quantity}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center rounded-full border border-outline-variant">
+                        <button onClick={() => handleUpdateQty(item, -1)} className="m3-icon-btn !w-9 !h-9" aria-label="Giảm"><Minus className="w-4 h-4" /></button>
+                        <span className="min-w-8 text-center text-base font-bold">{item.quantity}</span>
+                        <button onClick={() => handleUpdateQty(item, 1)} className="m3-icon-btn !w-9 !h-9" aria-label="Tăng"><Plus className="w-4 h-4" /></button>
+                      </div>
+                      <span className="text-base text-on-surface-variant text-right">{money(lineUnitPrice(item, simProducts))}</span>
+                      <span className="text-base font-bold text-on-surface text-right">{money(lineUnitPrice(item, simProducts) * item.quantity)}</span>
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                      {renderToppingChips(item)}
+                      {renderSizePicker(item)}
+                      {isDrink && (
+                        <>
+                          <select value={item.sugarLevel || DEFAULT_SUGAR} onChange={(e) => handleUpdateModifier(item, 'sugarLevel', e.target.value)} className="min-h-8 px-2 rounded-lg text-sm font-bold border border-outline-variant bg-surface-container-lowest">
+                            {SUGAR_OPTIONS.map(o => <option key={o} value={o}>Đường {o}</option>)}
+                          </select>
+                          <select value={item.iceLevel || DEFAULT_ICE} onChange={(e) => handleUpdateModifier(item, 'iceLevel', e.target.value)} className="min-h-8 px-2 rounded-lg text-sm font-bold border border-outline-variant bg-surface-container-lowest">
+                            {ICE_OPTIONS.map(o => <option key={o} value={o}>Đá {o}</option>)}
+                          </select>
+                        </>
+                      )}
+                      <button onClick={() => handleUpdateItemNote(item)} className="min-h-8 px-2 text-sm font-semibold text-on-surface-variant hover:text-primary flex items-center gap-1 cursor-pointer">
+                        <Edit3 className="w-3.5 h-3.5" /> {item.note ? item.note : 'Ghi chú'}
+                      </button>
+                      <button onClick={() => handleRemoveLine(item)} className="ml-auto m3-icon-btn !w-8 !h-8 hover:text-error" aria-label="Xóa món" title="Xóa món">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Nhắc báo bếp khi có món chưa gửi */}
+          {currentCart.some(l => l.quantity > (l.sentQuantity || 0)) && (
+            <div className="shrink-0 px-4 py-2 bg-tertiary-container/60 text-on-tertiary-container text-sm font-semibold">
+              Bạn vừa cập nhật đơn hàng. Bấm <button onClick={handleSendToKitchen} className="underline underline-offset-2 font-bold cursor-pointer">Thông báo</button> để gửi thông tin chế biến đến bar bếp.
+            </div>
+          )}
+
+          {/* Chân khung: công cụ + tổng tiền + nút */}
+          <div className="shrink-0 border-t border-outline-variant px-3 pt-3 pb-3 space-y-3">
+            <div className="flex items-center gap-2">
+              {!isVirtualCart && selectedTable && (
+                <div className="inline-flex items-center rounded-full bg-primary text-on-primary">
+                  <button onClick={() => handleGuestDelta(-1)} className="m3-icon-btn !w-9 !h-9 !text-on-primary hover:!bg-white/15" aria-label="Giảm số khách"><Minus className="w-3.5 h-3.5" /></button>
+                  <span className="flex items-center gap-1 text-sm font-bold px-0.5"><Users className="w-4 h-4" />{selectedTable.guestCount || 0}</span>
+                  <button onClick={() => handleGuestDelta(1)} className="m3-icon-btn !w-9 !h-9 !text-on-primary hover:!bg-white/15" aria-label="Tăng số khách"><Plus className="w-3.5 h-3.5" /></button>
+                </div>
+              )}
+              <button onClick={handleEditOrderNote} className={`m3-icon-btn !w-10 !h-10 border border-outline-variant ${orderNotes[currentCartId] ? 'bg-tertiary-container text-on-tertiary-container' : ''}`} title={orderNotes[currentCartId] ? `Ghi chú đơn: ${orderNotes[currentCartId]}` : 'Ghi chú cho đơn'} aria-label="Ghi chú cho đơn"><Edit3 className="w-5 h-5" /></button>
+              <button onClick={() => setActiveDialog('history')} className="m3-icon-btn !w-10 !h-10 border border-outline-variant" title="Lịch sử báo bếp" aria-label="Lịch sử báo bếp"><History className="w-5 h-5" /></button>
+              {!isVirtualCart && (
+                <button onClick={() => setActiveDialog('reservation')} className={`m3-icon-btn !w-10 !h-10 border border-outline-variant ${selectedTable?.reservationName ? 'bg-tertiary-container text-on-tertiary-container' : ''}`} title="Phiếu đặt bàn" aria-label="Phiếu đặt bàn"><CalendarClock className="w-5 h-5" /></button>
+              )}
+              <button onClick={() => setActiveDialog('split')} disabled={currentCart.length === 0} className="m3-icon-btn !w-10 !h-10 border border-outline-variant disabled:opacity-40" title="Tách / ghép đơn" aria-label="Tách / ghép đơn"><ClipboardList className="w-5 h-5" /></button>
+              {groupTables.length > 1 && <span className="m3-badge m3-badge-warning"><Link2 className="w-3.5 h-3.5" />Gộp {groupTables.length} bàn</span>}
+            </div>
+            <div className="flex items-center justify-between text-base text-on-surface">
+              <span className="flex items-center gap-2">
+                Tổng tiền
+                <span className="min-w-6 h-6 px-1.5 rounded-full bg-primary text-on-primary text-sm font-bold flex items-center justify-center">{itemCount}</span>
+              </span>
+              <strong className="text-2xl">{money(grandTotal)}</strong>
+            </div>
+            <div className="grid grid-cols-[1fr_1fr_1.35fr] gap-2.5">
+              <button onClick={handleSendToKitchen} disabled={currentCart.length === 0} className="min-h-14 rounded-xl border-2 border-primary text-primary text-base font-bold whitespace-nowrap flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 hover:bg-primary-container/40">
+                <ChefHat className="w-5 h-5" /> Thông báo (F10)
+              </button>
+              <button onClick={handlePrintProvisional} disabled={currentCart.length === 0} className="min-h-14 rounded-xl border-2 border-primary text-primary text-base font-bold whitespace-nowrap flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 hover:bg-primary-container/40">
+                <Printer className="w-5 h-5" /> In tạm tính
+              </button>
+              <button onClick={goToCheckout} disabled={currentCart.length === 0} className="min-h-14 rounded-xl bg-primary text-on-primary text-base font-bold flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 hover:brightness-110">
+                <Landmark className="w-5 h-5" /> Thanh toán (F9)
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {dialogsNode}
+        {receiptNode}
+
+        {/* Thanh toán (hộp thoại 2 khung như KiotViet) */}
+        {posView === 'checkout' && (
+          <KiotCheckoutDialog
+            title={`Thanh toán · ${selectedTableName}${zoneName && !isVirtualCart ? ` / ${zoneName}` : ''}`}
+            dateText={new Date().toLocaleString('vi-VN')}
+            lines={currentCart.map(line => {
+              const prod = simProducts.find(p => p.id === line.productId);
+              const options = [line.size, line.sugarLevel && `${line.sugarLevel} đường`, line.iceLevel && `${line.iceLevel} đá`].filter(Boolean).join(', ');
+              const tops = (line.toppings || []).map(t => `+ ${t.quantity} ${simProducts.find(p => p.id === t.productId)?.name || 'Topping'}`).join(', ');
+              return {
+                name: prod?.name || 'Món',
+                category: prod?.category || 'Khác',
+                quantity: line.quantity,
+                price: lineUnitPrice(line, simProducts),
+                detail: [tops, options, line.note].filter(Boolean).join(' · ')
+              };
+            })}
+            itemCount={itemCount}
+            subtotal={cartSubtotal}
+            discountInput={discountInput}
+            setDiscountInput={setDiscountInput}
+            vatPercent={vatPercent}
+            setVatPercent={setVatPercent}
+            taxAmount={taxAmount}
+            grandTotal={grandTotal}
+            customers={simCustomers}
+            selectedCustomerId={selectedCustomerId}
+            setSelectedCustomerId={setSelectedCustomerId}
+            pointsToEarn={Math.floor(grandTotal / 10000)}
+            paymentMethod={paymentMethod}
+            setPaymentMethod={setPaymentMethod}
+            cashPadInput={cashPadInput}
+            setCashPadInput={setCashPadInput}
+            setCashChangeDue={setCashChangeDue}
+            processing={checkoutProcessing}
+            onClose={() => setPosView('catalog')}
+            onPay={handleCheckoutSubmit}
+            onPrintProvisional={handlePrintProvisional}
+            playBeep={playBeep}
+            bankAccounts={simBankAccounts}
+            onManageBankAccounts={() => setBankDialogOpen(true)}
+            qrMemo={`${selectedTableName}`}
+          />
+        )}
+
+        {bankDialogOpen && (
+          <BankAccountsDialog
+            accounts={simBankAccounts}
+            setAccounts={setSimBankAccounts}
+            triggerBeep={triggerBeep}
+            closeAfterSave
+            onClose={() => setBankDialogOpen(false)}
+          />
+        )}
+
+        {provisionalNode}
+
+        {/* Thêm khách hàng nhanh */}
+        {showAddCustomer && (
+          <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4" onClick={() => setShowAddCustomer(false)}>
+            <form onSubmit={handleAddNewCustomer} onClick={(e) => e.stopPropagation()} className="bg-surface-container-lowest rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold">Thêm khách hàng</h3>
+                <button type="button" onClick={() => setShowAddCustomer(false)} className="m3-icon-btn" aria-label="Đóng"><X className="w-5 h-5" /></button>
+              </div>
+              <input value={newCustName} onChange={(e) => setNewCustName(e.target.value)} placeholder="Tên khách hàng" className="m3-input" autoFocus required />
+              <input value={newCustPhone} onChange={(e) => setNewCustPhone(e.target.value)} placeholder="Số điện thoại" inputMode="tel" className="m3-input font-mono" required />
+              <button type="submit" className="m3-btn-filled w-full !min-h-12">Lưu và chọn khách này</button>
+            </form>
+          </div>
+        )}
       </div>
     );
   }

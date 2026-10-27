@@ -17,11 +17,11 @@ export type AppRole = 'sysadmin' | 'owner' | 'manager' | 'staff' | 'kitchen';
 
 export type ScreenId =
   | 'pos' | 'inventory' | 'reports' | 'account' | 'kitchen' | 'menu' | 'tables'
-  | 'customers' | 'employees' | 'suppliers' | 'orders' | 'shifts'
+  | 'customers' | 'employees' | 'suppliers' | 'orders' | 'shifts' | 'cashbook' | 'eod'
   | 'stores' | 'accounts'; // chỉ dành cho sysadmin: quản lý cửa hàng / tài khoản trên máy
 
 const ALL_SCREENS: ScreenId[] = [
-  'reports', 'pos', 'kitchen', 'menu', 'tables', 'orders', 'shifts',
+  'reports', 'eod', 'pos', 'kitchen', 'menu', 'tables', 'orders', 'shifts', 'cashbook',
   'inventory', 'customers', 'employees', 'suppliers', 'account',
 ];
 

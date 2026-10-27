@@ -6,6 +6,8 @@
 import React from 'react';
 import { X, Check } from 'lucide-react';
 import { Order } from '../types';
+import { PAYMENT_LABELS } from '../utils/payments';
+import QrCodeImage from './QrCodeImage';
 
 interface ReceiptThermalProps {
   order: Order | null;
@@ -16,6 +18,10 @@ interface ReceiptThermalProps {
     storeType: 'fnb' | 'retail';
   };
   staffName: string;
+  /** 'provisional' = phiếu tạm tính (chưa thanh toán): không có khách đưa / tiền thừa / điểm tích lũy. */
+  variant?: 'final' | 'provisional';
+  /** Thông tin chuyển khoản + nội dung mã QR để in lên phiếu tạm tính cho khách quét. */
+  transfer?: { payload: string; bankName: string; accountNumber: string; holder: string; amount: number };
   onClose: () => void;
 }
 
@@ -23,9 +29,12 @@ export default function ReceiptThermal({
   order,
   storeInfo,
   staffName,
+  variant = 'final',
+  transfer,
   onClose
 }: ReceiptThermalProps) {
   if (!order) return null;
+  const provisional = variant === 'provisional';
 
   const handleNativePrint = () => {
     // Print utility: selects the element content and opens native print window or alerts
@@ -43,8 +52,8 @@ export default function ReceiptThermal({
               <Check className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-extrabold text-on-surface">Giao dịch thành công</h3>
-              <p className="text-[10px] text-on-surface-variant font-mono">ID: {order.id}</p>
+              <h3 className="text-sm font-extrabold text-on-surface">{provisional ? 'Phiếu tạm tính' : 'Giao dịch thành công'}</h3>
+              <p className="text-[10px] text-on-surface-variant font-mono">{provisional ? 'Chưa thanh toán' : `ID: ${order.id}`}</p>
             </div>
           </div>
           <button
@@ -77,7 +86,7 @@ export default function ReceiptThermal({
 
             {/* Receipt Title */}
             <div className="text-center my-4 space-y-1">
-              <h5 className="text-xs font-bold uppercase tracking-widest">HÓA ĐƠN THANH TOÁN</h5>
+              <h5 className="text-xs font-bold uppercase tracking-widest">{provisional ? 'PHIẾU TẠM TÍNH' : 'HÓA ĐƠN THANH TOÁN'}</h5>
               <p className="text-[9px] text-on-surface-variant">Số: {order.orderNumber}</p>
               <p className="text-[9px] text-on-surface-variant">Ngày: {new Date(order.createdAt).toLocaleString('vi-VN')}</p>
             </div>
@@ -112,6 +121,10 @@ export default function ReceiptThermal({
             {/* Divider */}
             <div className="border-t border-dashed border-slate-400 my-3"></div>
 
+            {order.note && (
+              <div className="text-[10px] font-sans italic text-on-surface-variant mb-2">Ghi chú đơn: {order.note}</div>
+            )}
+
             {/* Items Table list */}
             <div className="space-y-2">
               <div className="grid grid-cols-12 font-bold text-on-surface">
@@ -137,6 +150,11 @@ export default function ReceiptThermal({
                       <span>Đơn giá: {item.price.toLocaleString('vi-VN')}đ</span>
                       {item.batchCode && <span className="font-sans">Lô: {item.batchCode}</span>}
                     </div>
+                    {item.toppings && item.toppings.length > 0 && (
+                      <div className="text-[9px] text-on-surface-variant px-1 font-sans">
+                        {item.toppings.map(t => `+ ${t.quantity} ${t.name}`).join(', ')}
+                      </div>
+                    )}
                     {modifiers && <div className="text-[9px] text-on-surface-variant px-1 font-sans">Tùy chọn: {modifiers}</div>}
                     {item.note && <div className="text-[9px] text-on-surface-variant px-1 font-sans italic">Ghi chú: {item.note}</div>}
                   </div>
@@ -173,15 +191,32 @@ export default function ReceiptThermal({
                 <span>TỔNG CỘNG:</span>
                 <span>{order.totalAmount.toLocaleString('vi-VN')} đ</span>
               </div>
+              {!provisional && (<>
+              {order.payments && order.payments.length > 1 ? (
+                <>
+                  {order.payments.map((p, i) => (
+                    <div key={i} className="flex justify-between text-[10px] text-on-surface-variant font-normal">
+                      <span>{PAYMENT_LABELS[p.method]}:</span>
+                      <span>{p.amount.toLocaleString('vi-VN')} đ</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between text-[10px] text-on-surface-variant font-normal">
+                    <span>Khách đưa (Kết hợp):</span>
+                    <span>{order.paidAmount.toLocaleString('vi-VN')} đ</span>
+                  </div>
+                </>
+              ) : (
               <div className="flex justify-between text-[10px] text-on-surface-variant font-normal">
                 <span>Khách đưa ({order.paymentMethod === 'cash' ? 'Tiền mặt' : order.paymentMethod === 'qr' ? 'Chuyển khoản QR' : 'Thẻ ngân hàng'}):</span>
                 <span>{order.paidAmount.toLocaleString('vi-VN')} đ</span>
               </div>
+              )}
               <div className="flex justify-between text-[10px] text-on-surface-variant font-normal">
                 <span>Tiền trả lại:</span>
                 <span>{order.changeAmount.toLocaleString('vi-VN')} đ</span>
               </div>
-              {order.customerPointsEarned && order.customerPointsEarned > 0 ? (
+              </>)}
+              {!provisional && order.customerPointsEarned && order.customerPointsEarned > 0 ? (
                 <div className="flex justify-between text-[9px] text-on-secondary-container font-normal border border-secondary-container bg-secondary-container px-1 py-0.5 rounded font-sans">
                   <span>Điểm tích lũy cộng thêm:</span>
                   <span>+{order.customerPointsEarned} điểm</span>
@@ -192,18 +227,32 @@ export default function ReceiptThermal({
             {/* Divider */}
             <div className="border-t border-dashed border-slate-400 my-3"></div>
 
+            {/* Mã QR chuyển khoản (phiếu tạm tính) */}
+            {provisional && transfer && (
+              <div className="text-center py-2 space-y-1 font-sans">
+                <p className="text-[10px] font-bold uppercase tracking-wide">Quét mã để chuyển khoản</p>
+                <QrCodeImage value={transfer.payload} size={150} className="mx-auto" />
+                <p className="text-[10px]">{transfer.bankName}</p>
+                <p className="text-[11px] font-bold font-mono">{transfer.accountNumber}</p>
+                <p className="text-[10px]">{transfer.holder}</p>
+                <p className="text-[11px] font-bold">Số tiền: {transfer.amount.toLocaleString('vi-VN')} đ</p>
+              </div>
+            )}
+
             {/* Barcode representation */}
+            {!provisional && (
             <div className="text-center py-2 space-y-1">
               <div className="h-8 bg-slate-950 flex items-center justify-center font-mono text-[9px] text-white tracking-[6px] select-none mx-auto w-40 font-bold">
                 |||||{order.orderNumber}||||
               </div>
               <p className="text-[8px] text-on-surface-variant font-sans">Quét mã vạch này để tra cứu đơn hàng trực tiếp</p>
             </div>
+            )}
 
             {/* Thank you note */}
             <div className="text-center mt-3 text-[10px] text-on-surface-variant font-sans italic space-y-0.5 pb-2">
-              <p>Cảm ơn Quý Khách đã ủng hộ!</p>
-              <p>Hẹn gặp lại quý khách lần sau.</p>
+              <p>{provisional ? 'Phiếu tạm tính — chưa phải hóa đơn thanh toán.' : 'Cảm ơn Quý Khách đã ủng hộ!'}</p>
+              {!provisional && <p>Hẹn gặp lại quý khách lần sau.</p>}
               <p className="text-[8px] text-on-surface-variant">Powered by SmartPOS Multi-tenant Cloud</p>
             </div>
 
@@ -219,7 +268,7 @@ export default function ReceiptThermal({
             onClick={handleNativePrint}
             className="flex-1 py-3 px-4 bg-primary hover:brightness-110 text-white rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-lg shadow-emerald-500/10"
           >
-             IN HÓA ĐƠN NHIỆT (80mm)
+             {provisional ? 'IN PHIẾU TẠM TÍNH (80mm)' : 'IN HÓA ĐƠN NHIỆT (80mm)'}
           </button>
           
           <button
