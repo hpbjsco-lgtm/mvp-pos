@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { DiningTable, TableStatus, Product } from '../types';
 import {
   CartMap, lineKey, mergeTables, unmergeTable, unmergeAll, transferTable, canTransferTo, moveItems,
-  releaseGroup, getGroupLabel, getTableStats, formatElapsed, TAKEAWAY_ID, resolvePrimaryId,
+  mergeLines, releaseGroup, getGroupLabel, getTableStats, formatElapsed, TAKEAWAY_ID, resolvePrimaryId,
 } from './tableOps';
 
 const mk = (id: string, extra: Partial<DiningTable> = {}): DiningTable => ({
@@ -137,5 +137,32 @@ describe('stats helpers', () => {
     expect(formatElapsed('2026-01-01T10:00:00Z', now)).toBe('2g05p');
     expect(formatElapsed('2026-01-01T12:00:00Z', now)).toBe('5p');
     expect(formatElapsed(undefined, now)).toBe('');
+  });
+});
+
+describe('sentQuantity (báo bếp không trùng)', () => {
+  const sentLine = (productId: string, quantity: number, sentQuantity: number) => ({ productId, quantity, note: '', sentQuantity });
+
+  it('mergeLines sums quantity and sent quantity of identical lines', () => {
+    const merged = mergeLines([sentLine('p1', 2, 2)], [sentLine('p1', 3, 1)]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].quantity).toBe(5);
+    expect(merged[0].sentQuantity).toBe(3);
+  });
+
+  it('moveItems moves the already-sent part first and keeps remainder consistent', () => {
+    const tables = [mk('1', { status: TableStatus.SERVING }), mk('2')];
+    const carts: CartMap = { '1': [sentLine('p1', 4, 3)] };
+    const r = moveItems(tables, carts, '1', '2', { [lineKey(sentLine('p1', 4, 3))]: 2 });
+    expect(r.carts['2'][0]).toMatchObject({ quantity: 2, sentQuantity: 2 });
+    expect(r.carts['1'][0]).toMatchObject({ quantity: 2, sentQuantity: 1 });
+  });
+
+  it('sent quantity never exceeds remaining quantity after a partial move', () => {
+    const tables = [mk('1', { status: TableStatus.SERVING }), mk('2')];
+    const carts: CartMap = { '1': [sentLine('p1', 3, 3)] };
+    const r = moveItems(tables, carts, '1', '2', { [lineKey(sentLine('p1', 3, 3))]: 1 });
+    expect(r.carts['1'][0]).toMatchObject({ quantity: 2, sentQuantity: 2 });
+    expect(r.carts['2'][0]).toMatchObject({ quantity: 1, sentQuantity: 1 });
   });
 });

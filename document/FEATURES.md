@@ -111,6 +111,9 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
 - Sau khi thanh toán: in hóa đơn nhiệt 80mm, trừ tồn kho (bán lẻ), cộng điểm khách hàng, trả bàn về trống — kể cả toàn bộ nhóm bàn gộp (F&B). Đơn Mang về / Giao đi ghi nhận loại đơn `takeaway`.
 - **In hóa đơn:** dùng `window.print()` với CSS in riêng (`@media print` trong `src/index.css`, vùng in `#print-area`, font Arial 12px, rộng 76mm, không ép `@page size`). Máy in nhiệt SUPERISC S31 trên macOS từng báo lỗi do driver — cần cài đúng driver hãng; nếu in trình duyệt vẫn không ổn định, hướng dự kiến là gửi lệnh ESC/POS trực tiếp (chưa làm).
 
+- **Tiền mặt (cập nhật 2026-10-24):** ô "Khách đưa" cho gõ trực tiếp bằng bàn phím máy tính / điện thoại (tự tính tiền thừa), ngoài bàn phím số trên màn hình.
+- **Xóa món:** nút thùng rác xóa hẳn cả dòng món; nút − chỉ giảm 1 (giảm dưới 1 thì xóa dòng).
+
 **Trạng thái:** ✅ (Tùy chọn món và Giảm giá/VAT: ✅ mới bổ sung)
 
 ---
@@ -142,6 +145,10 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
 - Số khách chỉnh bằng nút − / + trên đơn. Báo bếp đặt bàn (cả nhóm gộp) sang trạng thái Phục vụ.
 - Khu vực và bàn thêm/xóa/kéo-thả chỉ dành cho Owner/Manager (mục Sơ đồ bàn).
 
+- **Sơ đồ bàn (mục Sơ đồ bàn, chế độ Thiết kế):** có nút ✎ sửa **tên bàn và số chỗ** trên từng bàn (không cần xóa tạo lại).
+- **Đặt bàn trước:** sau khi thanh toán xong, phiếu đặt trước của bàn / nhóm bàn được xóa (nhãn đặt bàn không còn hiện).
+- Các hàng nút cuộn ngang (khu vực, danh mục, bộ lọc) ẩn thanh cuộn và có thể **nắm kéo** bằng chuột; cảm ứng vuốt như thường (`DragScrollRow.tsx`).
+
 **Trạng thái:** ✅ (làm lại giao diện: ✅ mới; **chưa kiểm thử trên thiết bị thật** — cần rà lại màu, cỡ chữ, vị trí nút theo bản layout chính thức do chủ dự án cung cấp)
 
 ---
@@ -158,6 +165,9 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
 - **Hiển thị tùy chọn món (mới):** mỗi thẻ món hiển thị badge Size/Đường/Đá nếu có.
 - Cảnh báo trực quan khi món chờ chế biến quá 10 phút.
 - Cho phép dọn hàng loạt các món đã "Đã phục vụ" để màn hình luôn gọn.
+
+- **Báo bếp không trùng (cập nhật 2026-10-24):** mỗi dòng trong đơn lưu `sentQuantity` (số lượng đã báo bếp, cột `cart_items.sent_quantity`, migration v6). Bấm *Gửi bếp* lần sau chỉ gửi phần chênh lệch (món mới / số lượng tăng thêm); nếu không có gì mới thì báo "đã báo bếp hết". Dòng hiển thị nhãn "Đã báo bếp x/y".
+- **Hủy:** xóa một dòng đã báo bếp, *Xóa hết* hoặc *Hủy đơn hàng* sẽ đánh dấu các phiếu bếp chưa phục vụ tương ứng là **Đã hủy** (trạng thái mới `cancelled`). Màn hình bếp: món đã hủy ẩn khỏi tab "Đang hoạt động", xem ở tab "Đã hủy"; nút dọn xóa cả món đã phục vụ và đã hủy.
 
 **Trạng thái:** ✅
 
@@ -193,6 +203,10 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
 - Xuất kho tự động theo lô hết hạn sớm nhất còn hàng (FEFO).
 - Khi một hóa đơn bán lẻ bị **hủy** (xem mục 5.9), số lượng đã trừ của lô hàng liên quan được **hoàn lại tự động**.
 
+- **Nhập lô với nguyên liệu / sản phẩm mới (2026-10-24):** ô "liên kết" có lựa chọn *+ Thêm … mới* để tạo nguyên liệu (tên, đơn vị) ngay khi nhập lô.
+- **Phiếu xuất kho (mới):** nút *Xuất kho* ở đầu màn hình Kho. Chọn hàng, số lượng, lý do (dùng chế biến / hư hỏng / hết hạn hủy / khác); hệ thống tự trừ tồn theo **FEFO** (lô hết hạn sớm nhất trước), báo thiếu nếu không đủ, sinh phiếu `PXK-…` (lý do hao hụt ghi là phiếu *điều chỉnh*). Có mục *Lịch sử nhập / xuất kho*.
+- Lưu ý: F&B hiện **chưa** tự trừ nguyên liệu khi bán món (cần khai báo công thức/định mức — chưa làm).
+
 **Trạng thái:** ✅
 
 ---
@@ -226,6 +240,8 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
 - Chỉ Owner/Manager vào được mục Nhân viên; được sửa vai trò, mức lương và **thêm nhân viên mới** (họ tên, tên tài khoản, email, mật khẩu tối thiểu 6 ký tự, vai trò, lương giờ). Vai trò *Nhân viên bếp* chỉ chọn được ở cửa hàng F&B.
 - Nút 🔑 trên thẻ nhân viên: **đặt lại mật khẩu** (chủ: mọi tài khoản; quản lý: trừ tài khoản chủ; ai cũng đặt lại được của chính mình).
 - Mỗi tài khoản đăng nhập bằng tên tài khoản + mật khẩu và chỉ thấy các màn hình theo vai trò (mục 4).
+
+- **Tài khoản của tôi (2026-10-24):** bấm vào tên người dùng ở thanh bên mở hộp thoại dùng được cho **mọi vai trò** (kể cả Phục vụ / Bếp): **Chấm công vào/ra ca** và **tự đổi mật khẩu** (phải nhập đúng mật khẩu hiện tại, tối thiểu 6 ký tự). Sysadmin không chấm công và đổi mật khẩu trong `authConfig.ts`.
 
 **Trạng thái:** ✅
 
@@ -298,6 +314,8 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
 
 **User story:**
 - Là *Owner*, tôi muốn xem nhanh doanh thu hôm nay/tháng này/năm nay và biết món nào đang bán chạy để điều chỉnh nhập hàng.
+
+- **Đơn đã hủy không tính vào báo cáo** (doanh thu, số đơn, lợi nhuận, sản phẩm bán chạy) — cập nhật 2026-10-24.
 
 **Trạng thái:** 🟡 — số liệu KPI chính xác theo dữ liệu thật; biểu đồ xu hướng theo ngày/tháng hiện đang dùng hệ số minh họa, chưa tổng hợp 100% từ dữ liệu lịch sử thật.
 
@@ -375,3 +393,10 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
 - **Icon bàn:** `src/assets/icons/table.svg` (nhìn từ trên xuống, dùng `currentColor`), nhúng bằng `?raw` trong `TableBoard.tsx`. File do dự án tự vẽ vì svgrepo.com chặn tải tự động; có thể thay bằng SVG tải về từ svgrepo.com (giữ nguyên tên file, dùng `fill="currentColor"`, kiểm tra giấy phép từng icon).
 - **Lưu ý khi khôi phục:** icon của các màn hình cũ (Báo cáo, Kho, Bếp, Khách hàng, Nhà cung cấp, Hóa đơn, Nhân viên, Thực đơn, Sơ đồ bàn, Thanh toán) được thêm lại theo vị trí tiêu đề/nút chính; một số icon nhỏ nằm giữa dòng chữ (huy hiệu, thẻ thống kê) có thể chưa giống hệt bản trước — cần rà khi có layout chính thức.
 - **Màu danh mục món** dùng bảng màu chủ đạo (`utils/categoryColor.ts`).
+
+## 10. Giới hạn đã biết: dữ liệu theo từng trình duyệt / thiết bị (ghi nhận 2026-10-24)
+
+- Dữ liệu nằm trong IndexedDB của **từng trình duyệt trên từng máy** (hoặc kho SQLite của từng app). Tài khoản tạo ở Chrome **không tồn tại** ở Edge (hoặc máy khác) — đăng nhập báo "Tài khoản không tồn tại trên thiết bị này". Đây là hệ quả của kiến trúc local-first, **không phải lỗi mã**.
+- Vì vậy thu ngân và bếp hiện **không đồng bộ** giữa hai máy / hai trình duyệt. Muốn bếp thấy đơn của thu ngân theo thời gian thực cần một lớp đồng bộ (Cloud/Firebase đã dự kiến, hoặc đồng bộ mạng LAN).
+- **Không mở nhiều tab của cùng một cửa hàng trên cùng trình duyệt**: mỗi tab giữ một bản CSDL riêng trong bộ nhớ và ghi đè lẫn nhau → dữ liệu có thể lệch/mất. Khi kiểm thử, dùng một tab duy nhất.
+

@@ -18,7 +18,7 @@
  *     không mất order đang gọi (lỗi "không lưu được" của bản cũ).
  */
 
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 /** Các câu lệnh DDL, chạy tuần tự khi khởi tạo / nâng cấp DB. */
 export const MIGRATIONS: { version: number; statements: string[] }[] = [
@@ -471,6 +471,13 @@ export const MIGRATIONS: { version: number; statements: string[] }[] = [
       `ALTER TABLE users ADD COLUMN username TEXT NOT NULL DEFAULT '';`,
       `UPDATE users SET username = lower(email) WHERE username = '';`,
       `CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username) WHERE username <> '';`,
+    ],
+  },
+  {
+    version: 6,
+    statements: [
+      /* Số lượng đã báo bếp của từng dòng trong giỏ: lần báo bếp sau chỉ gửi phần chênh lệch, không gửi trùng. */
+      `ALTER TABLE cart_items ADD COLUMN sent_quantity REAL NOT NULL DEFAULT 0;`,
     ],
   },
 ];

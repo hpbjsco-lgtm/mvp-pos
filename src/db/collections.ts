@@ -702,11 +702,12 @@ export type CartMap = Record<string, Array<{
   size?: string;
   sugarLevel?: string;
   iceLevel?: string;
+  sentQuantity?: number;
 }>>;
 
 export async function loadCarts(storeId: string): Promise<CartMap> {
   const rows = await query(
-    `SELECT cart_key, product_id, quantity, note, size, sugar_level, ice_level FROM cart_items
+    `SELECT cart_key, product_id, quantity, note, size, sugar_level, ice_level, sent_quantity FROM cart_items
      WHERE store_id = ? ORDER BY cart_key ASC, line_no ASC`,
     [storeId],
   );
@@ -721,6 +722,7 @@ export async function loadCarts(storeId: string): Promise<CartMap> {
       size: r.size || undefined,
       sugarLevel: r.sugar_level || undefined,
       iceLevel: r.ice_level || undefined,
+      sentQuantity: num(r.sent_quantity, 0) || undefined,
     });
   }
   return carts;
@@ -767,6 +769,7 @@ export function diffCartStatements(prev: CartMap, next: CartMap, storeId: string
           size: str(item.size),
           sugar_level: str(item.sugarLevel),
           ice_level: str(item.iceLevel),
+          sent_quantity: num(item.sentQuantity, 0),
           line_no: idx,
           updated_at: ts,
         })[0],

@@ -140,7 +140,8 @@ export enum KitchenStatus {
   PENDING = 'pending', // Chờ chế biến
   PREPARING = 'preparing', // Đang chế biến
   COMPLETED = 'completed', // Đã chế biến xong (chờ cung ứng)
-  SERVED = 'served' // Đã phục vụ lên bàn cho khách
+  SERVED = 'served', // Đã phục vụ lên bàn cho khách
+  CANCELLED = 'cancelled' // Đã hủy (đơn bị hủy / món bị xóa sau khi đã báo bếp)
 }
 
 export interface KitchenItem {

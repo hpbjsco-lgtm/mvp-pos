@@ -25,6 +25,7 @@ import EmployeesSection from './components/EmployeesSection';
 import SysAdminStores from './components/SysAdminStores';
 import SysAdminAccounts from './components/SysAdminAccounts';
 import SuppliersSection from './components/SuppliersSection';
+import MyAccountDialog from './components/MyAccountDialog';
 import { canAccess, defaultScreen, isAdminRole, normalizeRole, ROLE_LABELS, type ScreenId } from './utils/permissions';
 import { setLogContext, logOperation } from './utils/logger';
 import { useAppData } from './db/useAppData';
@@ -99,6 +100,7 @@ export default function App() {
   // Sidebar collapsibility state
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
   const [mobileNavOpen, setMobileNavOpen] = useState<boolean>(false);
+  const [myAccountOpen, setMyAccountOpen] = useState<boolean>(false);
 
   // Play audio-visual Beep simulators
   const triggerBeep = (success: boolean) => {
@@ -473,8 +475,12 @@ export default function App() {
 
         {/* User Card & Logout bottom region */}
         <div className={`p-4 border-t border-slate-800 bg-slate-950/60 flex items-center ${sidebarCollapsed ? 'lg:justify-center' : 'justify-between'}`}>
-          <div className="flex items-center space-x-2.5 overflow-hidden">
-            <div className="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 flex-shrink-0" title={fbUserProfile?.name || 'Nhân viên'}>
+          <button
+            onClick={() => { setMyAccountOpen(true); setMobileNavOpen(false); triggerBeep(true); }}
+            className="flex items-center space-x-2.5 overflow-hidden text-left cursor-pointer rounded-xl hover:bg-slate-800/60 p-1 -m-1"
+            title="Chấm công / Đổi mật khẩu"
+          >
+            <div className="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 flex-shrink-0">
               <UserCircle className="w-5 h-5 text-slate-400" />
             </div>
             <div className={`min-w-0 ${sidebarCollapsed ? 'lg:hidden' : ''}`}>
@@ -485,7 +491,7 @@ export default function App() {
                 {fbUserProfile?.username || fbUserProfile?.email}
               </p>
             </div>
-          </div>
+          </button>
           <button
             onClick={() => handleFirebaseLogout()}
             className={`p-2 text-slate-500 hover:text-error rounded-lg hover:bg-slate-800/80 transition-colors cursor-pointer ${sidebarCollapsed ? 'lg:hidden' : ''}`}
@@ -495,6 +501,21 @@ export default function App() {
           </button>
         </div>
       </aside>
+
+      {myAccountOpen && fbUserProfile && (
+        <MyAccountDialog
+          user={{ uid: fbUserProfile.uid, name: fbUserProfile.name, username: fbUserProfile.username, email: fbUserProfile.email }}
+          roleLabel={userRole ? ROLE_LABELS[userRole] : ''}
+          canCheckIn={userRole !== 'sysadmin'}
+          canChangePassword={userRole !== 'sysadmin'}
+          attendance={simAttendance}
+          onCheckIn={handleCheckIn}
+          onCheckOut={handleCheckOut}
+          onChangePassword={app.changeOwnPassword}
+          triggerBeep={triggerBeep}
+          onClose={() => setMyAccountOpen(false)}
+        />
+      )}
 
       {/* --- MAIN CORE SECTION VIEWPORT --- */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">

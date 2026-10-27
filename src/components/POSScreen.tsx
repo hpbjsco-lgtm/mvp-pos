@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import DragScrollRow from './DragScrollRow';
 import React, { useState, useEffect } from 'react';
 import {
   Trash2, Plus, Minus, ScanLine, Printer, X, ClipboardList, Edit3, ChefHat, ChevronDown, Search,
@@ -33,6 +34,8 @@ export interface CartLine {
   size?: string;
   sugarLevel?: string;
   iceLevel?: string;
+  /** Số lượng đã báo bếp; lần báo bếp sau chỉ gửi phần chênh lệch (quantity - sentQuantity). */
+  sentQuantity?: number;
 }
 
 const SIZE_OPTIONS = ['S', 'M', 'L'];
@@ -262,29 +265,57 @@ export default function POSScreen({
   };
 
   // Modify cart quantity
-  const handleUpdateQty = (item: CartLine, delta: number) => {
+  // Món/đơn hiện tại có thuộc phiếu bếp này không (khớp theo nhãn bàn / nhóm bàn gộp / Mang về)
+  const isKitchenItemOfCurrentOrder = (k: KitchenItem) => {
+    if (simStoreType !== 'fnb') return false;
+    const names = new Set(groupTables.map(t => t.name));
+    return isVirtualCart
+      ? k.tableNumber === selectedTableName
+      : (k.tableNumber || '').split(' + ').some(n => names.has(n));
+  };
+  const isKitchenActive = (k: KitchenItem) =>
+    k.status === KitchenStatus.PENDING || k.status === KitchenStatus.PREPARING || k.status === KitchenStatus.COMPLETED;
+
+  // Đánh dấu "Đã hủy" các món bếp chưa phục vụ của đơn hiện tại (có thể giới hạn theo một dòng món)
+  const cancelKitchenItems = (line?: CartLine) => {
+    setSimKitchenItems(prev => prev.map(k => {
+      if (!isKitchenItemOfCurrentOrder(k) || !isKitchenActive(k)) return k;
+      if (line && (k.productId !== line.productId || (k.note || '') !== (line.note || '')
+        || (k.size || '') !== (line.size || '') || (k.sugarLevel || '') !== (line.sugarLevel || '')
+        || (k.iceLevel || '') !== (line.iceLevel || ''))) return k;
+      return { ...k, status: KitchenStatus.CANCELLED };
+    }));
+  };
+
+  // Xóa hẳn một dòng món khỏi giỏ (nếu đã báo bếp thì hủy luôn phiếu bếp tương ứng)
+  const handleRemoveLine = (item: CartLine) => {
+    const targetKey = lineKey(item);
+    const existing = currentCart.find(i => lineKey(i) === targetKey);
+    if (existing && (existing.sentQuantity || 0) > 0) cancelKitchenItems(existing);
     setSimCarts(prev => {
       const prevCart = prev[currentCartId] || [];
-      const targetKey = lineKey(item);
-      const targetIdx = prevCart.findIndex(i => lineKey(i) === targetKey);
-      if (targetIdx === -1) return prev;
+      return { ...prev, [currentCartId]: prevCart.filter(i => lineKey(i) !== targetKey) };
+    });
+    playBeep(true);
+  };
 
-      let nextCart = prevCart.map((i, idx) => {
-        if (idx === targetIdx) {
-          const nextQty = i.quantity + delta;
-          return { ...i, quantity: Math.max(1, nextQty) };
-        }
-        return i;
+  // Tăng / giảm số lượng 1 dòng món; giảm dưới 1 thì xóa dòng
+  const handleUpdateQty = (item: CartLine, delta: number) => {
+    const targetKey = lineKey(item);
+    const existing = currentCart.find(i => lineKey(i) === targetKey);
+    if (!existing) return;
+    if (existing.quantity + delta < 1) {
+      handleRemoveLine(existing);
+      return;
+    }
+    setSimCarts(prev => {
+      const prevCart = prev[currentCartId] || [];
+      const nextCart = prevCart.map(i => {
+        if (lineKey(i) !== targetKey) return i;
+        const quantity = i.quantity + delta;
+        return { ...i, quantity, sentQuantity: Math.min(i.sentQuantity || 0, quantity) || undefined };
       });
-
-      if (delta < 0 && prevCart[targetIdx].quantity === 1) {
-        nextCart = prevCart.filter((_, idx) => idx !== targetIdx);
-      }
-
-      return {
-        ...prev,
-        [currentCartId]: nextCart
-      };
+      return { ...prev, [currentCartId]: nextCart };
     });
     playBeep(true);
   };
@@ -320,6 +351,7 @@ export default function POSScreen({
         ...prev,
         [currentCartId]: []
       }));
+      if (simStoreType === 'fnb') cancelKitchenItems();
       if (simStoreType === 'fnb' && !isVirtualCart) {
         setSimTables(prev => releaseGroup(prev, currentCartId));
       }
@@ -387,6 +419,7 @@ export default function POSScreen({
   const handleCancelOrder = () => {
     if (!confirm(`Hủy đơn hàng của ${selectedTableName}? Toàn bộ món sẽ bị xóa và bàn được trả về trống.`)) return;
     logOperation('Màn hình bán hàng (POS)', 'Hủy đơn hàng', { cartId: currentCartId, lines: currentCart });
+    cancelKitchenItems();
     setSimCarts(prev => ({ ...prev, [currentCartId]: [] }));
     if (!isVirtualCart) setSimTables(prev => releaseGroup(prev, currentCartId));
     setMobileStep('tables');
@@ -488,14 +521,24 @@ export default function POSScreen({
       return;
     }
 
-    const itemsToSend: KitchenItem[] = currentCart.map(item => {
+    // Chỉ gửi phần chưa báo bếp (số lượng - đã báo), tránh tạo phiếu bếp trùng khi thêm món rồi báo lại
+    const unsent = currentCart
+      .map(item => ({ item, delta: item.quantity - (item.sentQuantity || 0) }))
+      .filter(x => x.delta > 0);
+    if (unsent.length === 0) {
+      playBeep(false);
+      alert('Tất cả món trong đơn đã được báo bếp. Hãy thêm món mới rồi báo bếp lại.');
+      return;
+    }
+
+    const itemsToSend: KitchenItem[] = unsent.map(({ item, delta }) => {
       const prod = simProducts.find(p => p.id === item.productId);
       return {
         id: `K-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
         orderId: `ORD-${Date.now().toString().slice(-4)}`,
         productId: item.productId,
         productName: prod?.name || 'Món ăn',
-        quantity: item.quantity,
+        quantity: delta,
         tableNumber: selectedTableName,
         status: KitchenStatus.PENDING,
         note: item.note || "",
@@ -505,6 +548,12 @@ export default function POSScreen({
         createdAt: new Date().toISOString()
       };
     });
+
+    // Ghi nhận số lượng đã báo bếp trên từng dòng
+    setSimCarts(prev => ({
+      ...prev,
+      [currentCartId]: (prev[currentCartId] || []).map(l => ({ ...l, sentQuantity: l.quantity }))
+    }));
 
     setSimKitchenItems(prev => [...itemsToSend, ...prev]);
 
@@ -519,7 +568,7 @@ export default function POSScreen({
     }
 
     playBeep(true);
-    alert(`Đã truyền thành công ${itemsToSend.length} món ăn xuống quầy chuẩn bị KDS!`);
+    alert(`Đã báo bếp ${itemsToSend.length} món mới!`);
   };
 
   // Execute checkout and finalize order payment
@@ -618,7 +667,11 @@ export default function POSScreen({
       setLastPlacedOrder(newOrder);
 
       if (simStoreType === 'fnb' && !isVirtualCart) {
-        setSimTables(prev => releaseGroup(prev, currentCartId));
+        // Thanh toán xong: trả bàn và xóa phiếu đặt trước (khách đặt đã dùng bàn)
+        const paidIds = new Set(groupTables.map(t => t.id));
+        setSimTables(prev => releaseGroup(prev, currentCartId).map(t => (paidIds.has(t.id)
+          ? { ...t, reservationName: '', reservationPhone: '', reservationTime: '', reservationNote: '' }
+          : t)));
       }
 
       setSimCarts(prev => ({
@@ -723,9 +776,12 @@ export default function POSScreen({
                   <div className="min-w-0">
                     <h5 className="text-base font-bold text-on-surface truncate">{prod.name}</h5>
                     <span className="text-sm text-on-surface-variant">{prod.price.toLocaleString('vi-VN')} đ</span>
+                    {simStoreType === 'fnb' && (item.sentQuantity || 0) > 0 && (
+                      <span className="m3-badge m3-badge-success ml-2">Đã báo bếp {item.sentQuantity}/{item.quantity}</span>
+                    )}
                   </div>
                   <button
-                    onClick={() => handleUpdateQty(item, -item.quantity)}
+                    onClick={() => handleRemoveLine(item)}
                     className="m3-icon-btn !w-8 !h-8 hover:text-error"
                     aria-label="Xóa món"
                   >
@@ -1058,7 +1114,7 @@ export default function POSScreen({
               />
             </div>
 
-            <div className="flex overflow-x-auto gap-2 pb-1 scrollbar-none">
+            <DragScrollRow className="gap-2 pb-1">
               {categories.map(cat => (
                 <button
                   key={cat}
@@ -1068,7 +1124,7 @@ export default function POSScreen({
                   {cat}
                 </button>
               ))}
-            </div>
+            </DragScrollRow>
 
             <div className="m3-card divide-y divide-outline-variant/60 overflow-hidden">
               {filteredProducts.map(prod => {
@@ -1255,7 +1311,7 @@ export default function POSScreen({
                 />
               </div>
 
-              <div className="flex overflow-x-auto gap-2 pb-1 scrollbar-none">
+              <DragScrollRow className="gap-2 pb-1">
                 {categories.map(cat => (
                   <button
                     key={cat}
@@ -1265,7 +1321,7 @@ export default function POSScreen({
                     {cat}
                   </button>
                 ))}
-              </div>
+              </DragScrollRow>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[480px] overflow-y-auto pr-1 -mr-1">
                 {filteredProducts.map(prod => (

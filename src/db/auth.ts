@@ -281,6 +281,19 @@ export async function changePassword(uid: string, newPassword: string): Promise<
   ]);
 }
 
+/** Người dùng tự đổi mật khẩu của chính mình (phải nhập đúng mật khẩu hiện tại). */
+export async function changeOwnPassword(uid: string, currentPassword: string, newPassword: string): Promise<void> {
+  if (newPassword.length < 6) throw new Error('Mật khẩu mới cần tối thiểu 6 ký tự.');
+  const row = await queryOne('SELECT password_hash, password_salt FROM users WHERE uid = ? AND deleted_at IS NULL', [uid]);
+  if (!row) throw new Error('Không tìm thấy tài khoản.');
+  // Tài khoản demo (chưa có mật khẩu) thì bỏ qua bước kiểm tra mật khẩu cũ
+  if (row.password_hash) {
+    const ok = await verifyPassword(currentPassword, String(row.password_salt ?? ''), String(row.password_hash ?? ''));
+    if (!ok) throw new Error('Mật khẩu hiện tại không đúng.');
+  }
+  await changePassword(uid, newPassword);
+}
+
 export async function signOut(): Promise<void> {
   await setMeta(SESSION_KEY, '');
 }

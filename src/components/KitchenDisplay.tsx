@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import DragScrollRow from './DragScrollRow';
 import React, { useState, useEffect } from 'react';
 import { ChefHat, Trash2 } from 'lucide-react';
 import { KitchenItem, KitchenStatus } from '../types';
@@ -19,7 +20,8 @@ const STATUS_STYLES: Record<KitchenStatus, { bar: string; badge: string; label: 
   [KitchenStatus.PENDING]: { bar: 'border-l-error', badge: 'm3-badge-error', label: 'Chờ làm' },
   [KitchenStatus.PREPARING]: { bar: 'border-l-tertiary', badge: 'm3-badge-warning', label: 'Đang nấu' },
   [KitchenStatus.COMPLETED]: { bar: 'border-l-primary', badge: 'bg-primary-container text-on-primary-container', label: 'Xong, chờ bưng' },
-  [KitchenStatus.SERVED]: { bar: 'border-l-outline-variant', badge: 'm3-badge-success', label: 'Đã lên bàn' }
+  [KitchenStatus.SERVED]: { bar: 'border-l-outline-variant', badge: 'm3-badge-success', label: 'Đã lên bàn' },
+  [KitchenStatus.CANCELLED]: { bar: 'border-l-error', badge: 'm3-badge-error', label: 'Đã hủy' }
 };
 
 export default function KitchenDisplay({
@@ -62,24 +64,27 @@ export default function KitchenDisplay({
     triggerBeep(true);
   };
 
+  const isClosed = (s: KitchenStatus) => s === KitchenStatus.SERVED || s === KitchenStatus.CANCELLED;
+
   const handleClearServed = () => {
-    if (confirm('Bạn có muốn xóa toàn bộ các sản phẩm đã hoàn tất phục vụ ra khỏi hàng đợi bếp?')) {
-      setSimKitchenItems(prev => prev.filter(item => item.status !== KitchenStatus.SERVED));
+    if (confirm('Bạn có muốn xóa các món đã phục vụ xong và các món đã hủy ra khỏi hàng đợi bếp?')) {
+      setSimKitchenItems(prev => prev.filter(item => !isClosed(item.status)));
       triggerBeep(true);
     }
   };
 
   const filteredItems = simKitchenItems.filter(item => {
     if (filterStatus === 'all') return true;
-    if (filterStatus === 'active') return item.status !== KitchenStatus.SERVED;
+    if (filterStatus === 'active') return !isClosed(item.status);
     return item.status === filterStatus;
   });
 
   const statusFilters: { id: string; label: string }[] = [
-    { id: 'active', label: `Đang hoạt động (${simKitchenItems.filter(i => i.status !== KitchenStatus.SERVED).length})` },
+    { id: 'active', label: `Đang hoạt động (${simKitchenItems.filter(i => !isClosed(i.status)).length})` },
     { id: KitchenStatus.PENDING, label: `Chờ làm (${simKitchenItems.filter(i => i.status === KitchenStatus.PENDING).length})` },
     { id: KitchenStatus.PREPARING, label: `Đang làm (${simKitchenItems.filter(i => i.status === KitchenStatus.PREPARING).length})` },
     { id: KitchenStatus.COMPLETED, label: `Chờ phục vụ (${simKitchenItems.filter(i => i.status === KitchenStatus.COMPLETED).length})` },
+    { id: KitchenStatus.CANCELLED, label: `Đã hủy (${simKitchenItems.filter(i => i.status === KitchenStatus.CANCELLED).length})` },
     { id: 'all', label: `Tất cả (${simKitchenItems.length})` }
   ];
 
@@ -101,7 +106,7 @@ export default function KitchenDisplay({
         </div>
       </div>
 
-      <div className="flex overflow-x-auto gap-2 pb-1 scrollbar-none">
+      <DragScrollRow className="gap-2 pb-1">
         {statusFilters.map(f => (
           <button
             key={f.id}
@@ -111,7 +116,7 @@ export default function KitchenDisplay({
             {f.label}
           </button>
         ))}
-      </div>
+      </DragScrollRow>
 
       {filteredItems.length === 0 ? (
         <div className="py-16 text-center text-on-surface-variant flex flex-col items-center justify-center gap-2">
@@ -122,7 +127,7 @@ export default function KitchenDisplay({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           {filteredItems.map(item => {
             const mins = getElapsedMinutes(item.createdAt);
-            const isLate = mins >= 10 && item.status !== KitchenStatus.SERVED;
+            const isLate = mins >= 10 && !isClosed(item.status);
             const style = STATUS_STYLES[item.status];
 
             return (
@@ -142,7 +147,7 @@ export default function KitchenDisplay({
                 </div>
 
                 <div className="space-y-1">
-                  <h4 className={`text-base font-bold ${item.status === KitchenStatus.SERVED ? 'line-through text-on-surface-variant' : 'text-on-surface'}`}>
+                  <h4 className={`text-base font-bold ${isClosed(item.status) ? 'line-through text-on-surface-variant' : 'text-on-surface'}`}>
                     x{item.quantity} {item.productName}
                   </h4>
                   {(item.size || item.sugarLevel || item.iceLevel) && (
@@ -161,7 +166,7 @@ export default function KitchenDisplay({
 
                 <div className="flex items-center justify-between pt-2 border-t border-outline-variant">
                   <span className={`m3-badge ${style.badge}`}>{style.label}</span>
-                  {item.status !== KitchenStatus.SERVED && (
+                  {!isClosed(item.status) && (
                     <button
                       onClick={() => handleUpdateStatus(item.id, item.status)}
                       className="m3-btn-filled !min-h-10 !px-4 text-sm"

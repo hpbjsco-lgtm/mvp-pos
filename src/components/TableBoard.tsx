@@ -6,6 +6,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { CalendarClock, Link2, Search, ShoppingBag, Bike, Timer, UtensilsCrossed, Users, X } from 'lucide-react';
 import { DiningTable, Product, Zone } from '../types';
+import DragScrollRow from './DragScrollRow';
 import tableIconSvg from '../assets/icons/table.svg?raw';
 import {
   CartMap, DELIVERY_ID, TAKEAWAY_ID, formatElapsed, getGroupTables, getTableStats, isVirtualCartId, resolvePrimaryId,
@@ -75,7 +76,7 @@ export default function TableBoard({ tables, zones, carts, products, selectedId,
     <div id="table-board" className="space-y-3">
       {/* Khu vực + tìm kiếm */}
       <div className="flex items-center gap-2">
-        <div className="flex-1 flex gap-2 overflow-x-auto scrollbar-none">
+        <DragScrollRow className="flex-1 gap-2">
           {[{ id: 'all', name: 'Tất cả khu vực' }, ...zones].map(z => (
             <button
               key={z.id}
@@ -85,7 +86,7 @@ export default function TableBoard({ tables, zones, carts, products, selectedId,
               {z.name}
             </button>
           ))}
-        </div>
+        </DragScrollRow>
         <button
           onClick={() => { setSearchOpen(v => !v); if (searchOpen) setQuery(''); }}
           className={`m3-icon-btn !w-10 !h-10 ${searchOpen ? 'bg-primary-container text-on-primary-container' : ''}`}

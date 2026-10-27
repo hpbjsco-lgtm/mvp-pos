@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { Calendar, Eye, Grid, Hand, Lock, Trash2, Users, X } from 'lucide-react';
+import { Calendar, Edit2, Eye, Grid, Hand, Lock, Trash2, Users, X } from 'lucide-react';
 import { DiningTable, Zone, TableStatus } from '../types';
 import { logOperation } from '../utils/logger';
 
@@ -49,6 +49,29 @@ export default function TableMap({
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0 });
   const [tableStartCoords, setTableStartCoords] = useState({ x: 0, y: 0 });
+
+  // Sửa tên / số chỗ của bàn (chế độ thiết kế)
+  const [editTableId, setEditTableId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editCapacity, setEditCapacity] = useState<number>(4);
+
+  const openEditTable = (t: DiningTable, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditTableId(t.id);
+    setEditName(t.name);
+    setEditCapacity(t.capacity);
+  };
+
+  const handleSaveTable = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editTableId || !editName.trim()) return;
+    const patch = { name: editName.trim(), capacity: Math.max(1, Math.min(99, editCapacity || 1)) };
+    const table = simTables.find(t => t.id === editTableId);
+    if (table) logOperation('Sơ đồ phòng bàn', 'Sửa bàn ăn', { ...table, ...patch });
+    setSimTables(prev => prev.map(t => (t.id === editTableId ? { ...t, ...patch } : t)));
+    setEditTableId(null);
+    triggerBeep(true);
+  };
 
   // Đặt bàn trước - modal state
   const [reservationTableId, setReservationTableId] = useState<string | null>(null);
@@ -330,12 +353,22 @@ export default function TableMap({
                   </span>
 
                   {simUserRole === 'admin' && isDesignMode ? (
-                    <button
-                      onClick={(e) => handleDeleteTable(t.id, e)}
-                      className="p-1 text-on-surface-variant hover:text-error rounded-md hover:bg-surface-container-high"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    <span className="flex items-center gap-0.5" onMouseDown={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={(e) => openEditTable(t, e)}
+                        className="p-1 text-on-surface-variant hover:text-primary rounded-md hover:bg-surface-container-high"
+                        title="Sửa tên / số chỗ"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={(e) => handleDeleteTable(t.id, e)}
+                        className="p-1 text-on-surface-variant hover:text-error rounded-md hover:bg-surface-container-high"
+                        title="Xóa bàn"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </span>
                   ) : (
                     <span className="text-[10px] text-on-surface-variant font-bold flex items-center gap-0.5">
                        <Users className="w-2.5 h-2.5" /> {t.capacity}
@@ -452,6 +485,30 @@ export default function TableMap({
             </button>
           </form>
 
+        </div>
+      )}
+
+      {/* Modal sửa tên / số chỗ bàn */}
+      {editTableId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={() => setEditTableId(null)}>
+          <form onSubmit={handleSaveTable} onClick={(e) => e.stopPropagation()} className="bg-surface-container-lowest rounded-3xl border border-outline-variant max-w-sm w-full p-6 shadow-xl space-y-4">
+            <div className="flex justify-between items-center pb-3 border-b border-outline-variant">
+              <h3 className="text-base font-bold text-on-surface">Sửa bàn ăn</h3>
+              <button type="button" onClick={() => setEditTableId(null)} className="m3-icon-btn"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-semibold text-on-surface-variant">Tên bàn</label>
+              <input value={editName} onChange={(e) => setEditName(e.target.value)} className="m3-input" required autoFocus />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-semibold text-on-surface-variant">Số chỗ ngồi</label>
+              <input type="number" min={1} max={99} value={editCapacity} onChange={(e) => setEditCapacity(parseInt(e.target.value) || 0)} className="m3-input font-mono" required />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button type="button" onClick={() => setEditTableId(null)} className="m3-btn-tonal !min-h-11">Hủy</button>
+              <button type="submit" className="m3-btn-filled !min-h-11">Lưu</button>
+            </div>
+          </form>
         </div>
       )}
 

@@ -23,6 +23,7 @@ import {
 } from './collections';
 import { batch, flush, initDatabase, queryOne, run, setMeta } from './index';
 import {
+  changeOwnPassword as authChangeOwnPassword,
   changePassword,
   createEmployee as authCreateEmployee,
   ensureDemoStore,
@@ -67,6 +68,8 @@ export interface AppDataApi {
   signOut: () => Promise<void>;
   /** Tạo tài khoản nhân viên (có mật khẩu) trong cửa hàng hiện tại rồi nạp lại danh sách nhân viên. */
   createEmployee: (params: { username: string; email: string; password: string; name: string; role: StoreRole; hourlyRate: number }) => Promise<void>;
+  /** Người dùng đang đăng nhập tự đổi mật khẩu của mình. */
+  changeOwnPassword: (currentPassword: string, newPassword: string) => Promise<void>;
   /** Đặt lại mật khẩu cho một tài khoản trong cửa hàng hiện tại (chủ / quản lý thực hiện). */
   resetPassword: (uid: string, newPassword: string) => Promise<void>;
   /** Nạp lại toàn bộ dữ liệu từ SQLite (dùng khi cần làm mới dữ liệu từ ổ lưu trữ). */
@@ -238,6 +241,14 @@ export function useAppData(): AppDataApi {
     [user],
   );
 
+  const changeOwnPassword = useCallback(
+    async (currentPassword: string, newPassword: string) => {
+      if (!user) throw new Error('Chưa đăng nhập.');
+      await authChangeOwnPassword(user.uid, currentPassword, newPassword);
+    },
+    [user],
+  );
+
   const signOutCb = useCallback(async () => {
     await flush();
     await authSignOut();
@@ -302,6 +313,7 @@ export function useAppData(): AppDataApi {
     signOut: signOutCb,
     createEmployee,
     resetPassword,
+    changeOwnPassword,
     reload,
     setStoreType,
   };

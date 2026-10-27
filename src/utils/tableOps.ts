@@ -58,8 +58,10 @@ export function mergeLines(base: CartLine[], incoming: CartLine[]): CartLine[] {
   const result = base.map(l => ({ ...l }));
   for (const line of incoming) {
     const idx = result.findIndex(l => lineKey(l) === lineKey(line));
-    if (idx > -1) result[idx] = { ...result[idx], quantity: result[idx].quantity + line.quantity };
-    else result.push({ ...line });
+    if (idx > -1) {
+      const sent = (result[idx].sentQuantity || 0) + (line.sentQuantity || 0);
+      result[idx] = { ...result[idx], quantity: result[idx].quantity + line.quantity, sentQuantity: sent || undefined };
+    } else result.push({ ...line });
   }
   return result;
 }
@@ -250,8 +252,12 @@ export function moveItems(
 
   for (const line of source) {
     const want = Math.max(0, Math.min(selection[lineKey(line)] || 0, line.quantity));
-    if (want > 0) moving.push({ ...line, quantity: want });
-    if (line.quantity - want > 0) remaining.push({ ...line, quantity: line.quantity - want });
+    // Phần đã báo bếp đi theo phần được chuyển trước; phần còn lại không thể lớn hơn số lượng còn lại
+    const sent = line.sentQuantity || 0;
+    const movedSent = Math.min(sent, want);
+    const keptSent = Math.min(sent - movedSent, line.quantity - want);
+    if (want > 0) moving.push({ ...line, quantity: want, sentQuantity: movedSent || undefined });
+    if (line.quantity - want > 0) remaining.push({ ...line, quantity: line.quantity - want, sentQuantity: keptSent || undefined });
   }
   if (moving.length === 0) return { tables, carts };
 

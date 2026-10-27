@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import DragScrollRow from './DragScrollRow';
 import React, { useState } from 'react';
 import { Ban, History, Printer, Receipt, Search } from 'lucide-react';
 import { Order, InventoryBatch, Customer } from '../types';
@@ -109,7 +110,7 @@ export default function OrderHistorySection({
         />
       </div>
 
-      <div className="flex overflow-x-auto gap-2 pb-1 scrollbar-none">
+      <DragScrollRow className="gap-2 pb-1">
         {statusFilters.map(s => (
           <button
             key={s.id}
@@ -119,7 +120,7 @@ export default function OrderHistorySection({
             {s.label}
           </button>
         ))}
-      </div>
+      </DragScrollRow>
 
       {filteredOrders.length === 0 ? (
         <div className="py-16 text-center text-on-surface-variant flex flex-col items-center justify-center gap-2">

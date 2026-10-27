@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import DragScrollRow from './DragScrollRow';
 import React, { useState, useEffect } from 'react';
 import { BarChart2, CheckCircle2, Clock, RefreshCw, Shield } from 'lucide-react';
 import { Order, Product, Attendance } from '../types';
@@ -80,7 +81,9 @@ export default function ReportsSection({
   }, [isSysAdmin]);
 
   // Use either global system wide data or specific store data based on role
-  const ordersToUse = isSysAdmin ? (allSystemOrders.length > 0 ? allSystemOrders : simOrders) : simOrders;
+  // Đơn đã hủy (void) không được tính vào doanh thu / số đơn / sản phẩm bán
+  const ordersToUse = (isSysAdmin ? (allSystemOrders.length > 0 ? allSystemOrders : simOrders) : simOrders)
+    .filter(o => (o.status || 'completed') !== 'void');
   const productsToUse = isSysAdmin ? (allSystemProducts.length > 0 ? allSystemProducts : simProducts) : simProducts;
 
   // Calculate high-level KPIs based on order history
@@ -282,7 +285,7 @@ export default function ReportsSection({
       )}
 
       {/* Bộ lọc khoảng thời gian */}
-      <div className="flex overflow-x-auto gap-2 pb-1 scrollbar-none">
+      <DragScrollRow className="gap-2 pb-1">
         {(['daily', 'monthly', 'yearly'] as const).map(t => (
           <button
             key={t}
@@ -292,7 +295,7 @@ export default function ReportsSection({
             {t === 'daily' ? 'Hôm nay' : t === 'monthly' ? 'Theo tháng' : 'Theo năm'}
           </button>
         ))}
-      </div>
+      </DragScrollRow>
 
       {/* Doanh thu tổng quan */}
       <div className="rounded-3xl bg-primary text-on-primary p-5 space-y-1 relative overflow-hidden">

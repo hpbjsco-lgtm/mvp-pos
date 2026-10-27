@@ -271,12 +271,25 @@ export default function CheckoutScreen({
                     Xóa nhập lại
                   </button>
                 </div>
-                <input
-                  type="text"
-                  value={cashPadInput ? (parseInt(cashPadInput) || 0).toLocaleString('vi-VN') + ' đ' : '0 đ'}
-                  readOnly
-                  className="m3-input text-right font-bold text-primary !min-h-12 text-lg"
-                />
+                {/* Gõ trực tiếp bằng bàn phím máy tính / bàn phím điện thoại, hoặc bấm bàn phím số bên dưới */}
+                <div className="relative">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoFocus
+                    value={cashPadInput ? (parseInt(cashPadInput) || 0).toLocaleString('vi-VN') : ''}
+                    placeholder="0"
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, '').slice(0, 11).replace(/^0+(?=\d)/, '');
+                      setCashPadInput(digits);
+                      setCashChangeDue(Math.max(0, (parseInt(digits) || 0) - grandTotal));
+                    }}
+                    onKeyDown={(e) => { if (e.key === 'Escape') { setCashPadInput(''); setCashChangeDue(0); } }}
+                    aria-label="Số tiền khách đưa"
+                    className="m3-input text-right font-bold text-primary !min-h-12 text-lg pr-10"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-lg font-bold text-primary pointer-events-none">đ</span>
+                </div>
               </div>
 
               <div className="grid grid-cols-4 gap-1.5">

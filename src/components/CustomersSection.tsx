@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import DragScrollRow from './DragScrollRow';
 import React, { useState } from 'react';
 import { Edit2, Plus, Search, Trash2, Users, X } from 'lucide-react';
 import { Customer } from '../types';
@@ -174,7 +175,7 @@ export default function CustomersSection({
         />
       </div>
 
-      <div className="flex overflow-x-auto gap-2 pb-1 scrollbar-none">
+      <DragScrollRow className="gap-2 pb-1">
         {tierFilters.map(t => (
           <button
             key={t.id}
@@ -184,7 +185,7 @@ export default function CustomersSection({
             {t.label}
           </button>
         ))}
-      </div>
+      </DragScrollRow>
 
       {/* Danh sách khách hàng */}
       {filteredCustomers.length === 0 ? (

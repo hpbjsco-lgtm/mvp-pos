@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import DragScrollRow from './DragScrollRow';
 import React, { useMemo, useState } from 'react';
 import { Coffee, Plus, Search, ShoppingBasket, Trash2, X } from 'lucide-react';
 import { Product } from '../types';
@@ -182,7 +183,7 @@ export default function MenuManagement({
         />
       </div>
 
-      <div className="flex overflow-x-auto gap-2 pb-1 scrollbar-none">
+      <DragScrollRow className="gap-2 pb-1">
         {['all', ...existingCategories].map(cat => (
           <button
             key={cat}
@@ -192,7 +193,7 @@ export default function MenuManagement({
             {cat === 'all' ? 'Tất cả' : cat}
           </button>
         ))}
-      </div>
+      </DragScrollRow>
 
       {filteredProducts.length === 0 ? (
         <div className="py-16 text-center text-on-surface-variant flex flex-col items-center justify-center gap-2">
