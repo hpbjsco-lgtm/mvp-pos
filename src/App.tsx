@@ -108,6 +108,8 @@ export default function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
   const [mobileNavOpen, setMobileNavOpen] = useState<boolean>(false);
   const [myAccountOpen, setMyAccountOpen] = useState<boolean>(false);
+  // Yêu cầu mở sẵn form thêm Món / Topping ở màn Thực đơn (từ nút "Thêm mới" của Kho hàng)
+  const [menuAction, setMenuAction] = useState<'dish' | 'topping' | null>(null);
   // Thanh menu trên cùng (màn hình lớn): thu gọn / mở rộng, nhớ lựa chọn
   const [navCollapsed, setNavCollapsed] = useState<boolean>(() => {
     try { return localStorage.getItem('nav_collapsed') === '1'; } catch { return false; }
@@ -658,6 +660,10 @@ export default function App() {
                   setSimBatches={setSimBatches}
                   simBankAccounts={simBankAccounts}
                   setSimBankAccounts={setSimBankAccounts}
+                  simIngredients={simIngredients}
+                  simIngredientBatches={simIngredientBatches}
+                  setSimIngredientBatches={setSimIngredientBatches}
+                  setSimIngredientTransactions={setSimIngredientTransactions}
                 />
               </motion.div>
             )}
@@ -682,6 +688,9 @@ export default function App() {
                   simStoreType={simStoreType}
                   isOffline={isLocalOnly}
                   storeId={storeId}
+                  menuProducts={simStoreType === 'fnb' ? simProducts : []}
+                  onCreateDish={() => { setMenuAction('dish'); setActiveScreen('menu'); }}
+                  onCreateTopping={() => { setMenuAction('topping'); setActiveScreen('menu'); }}
                 />
               </motion.div>
             )}
@@ -806,6 +815,9 @@ export default function App() {
                   isOffline={isLocalOnly}
                   storeId={storeId}
                   storeType={simStoreType}
+                  startAction={menuAction}
+                  onActionHandled={() => setMenuAction(null)}
+                  ingredients={simStoreType === 'fnb' ? simIngredients : []}
                 />
               </motion.div>
             )}

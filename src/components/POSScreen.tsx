@@ -10,7 +10,7 @@ import {
   LayoutGrid, UtensilsCrossed, Landmark, ShoppingCart, ArrowRight,
   ArrowLeft, MoreVertical, Users, Timer, CalendarClock, Link2, History
 } from 'lucide-react';
-import { BankAccount, PaymentPart, Product, DiningTable, Zone, KitchenItem, Order, PaymentMethod, TableStatus, KitchenStatus, InventoryBatch, Customer } from '../types';
+import { BankAccount, InventoryTransaction, InventoryTransactionType, PaymentPart, Product, DiningTable, Zone, KitchenItem, Order, PaymentMethod, TableStatus, KitchenStatus, InventoryBatch, Customer } from '../types';
 import TableMap from './TableMap';
 import TableBoard from './TableBoard';
 import KiotTableGrid from './KiotTableGrid';
@@ -29,6 +29,7 @@ import { categoryPlaceholderColor } from '../utils/categoryColor';
 import { useMediaQuery } from '../utils/useMediaQuery';
 import { changeTopping, lineUnitPrice, toppingsFor, toppingsText } from '../utils/toppings';
 import { defaultSize, hasSizes, priceLabel } from '../utils/sizes';
+import { isDrinkProduct, planDirectDeduction, planRecipeDeduction } from '../utils/recipes';
 import {
   lineKey, isVirtualCartId, resolvePrimaryId, getGroupLabel, getGroupTables, getTableStats, formatElapsed,
   mergeLines, mergeTables, unmergeTable, transferTable, moveItems, releaseGroup, type MoveSelection
@@ -79,6 +80,11 @@ interface POSScreenProps {
   setSimBatches: React.Dispatch<React.SetStateAction<InventoryBatch[]>>;
   simBankAccounts: BankAccount[];
   setSimBankAccounts: React.Dispatch<React.SetStateAction<BankAccount[]>>;
+  /** Kho nguyên vật liệu (F&B): trừ tồn theo công thức món khi bán. */
+  simIngredients: Product[];
+  simIngredientBatches: InventoryBatch[];
+  setSimIngredientBatches: React.Dispatch<React.SetStateAction<InventoryBatch[]>>;
+  setSimIngredientTransactions: React.Dispatch<React.SetStateAction<InventoryTransaction[]>>;
 }
 
 export default function POSScreen({
@@ -105,7 +111,11 @@ export default function POSScreen({
   simBatches,
   setSimBatches,
   simBankAccounts,
-  setSimBankAccounts
+  setSimBankAccounts,
+  simIngredients,
+  simIngredientBatches,
+  setSimIngredientBatches,
+  setSimIngredientTransactions
 }: POSScreenProps) {
 
   // Tab bên trái cho fnb: "Phòng bàn" (sơ đồ bàn, mặc định) hoặc "Thực đơn" (gọi thêm món)
@@ -232,7 +242,7 @@ export default function POSScreen({
     }
 
     // Đồ uống mặc định có size/đường/đá -> nhân viên chỉnh lại trực tiếp trên dòng giỏ hàng
-    const isDrink = simStoreType === 'fnb' && product.category === 'Đồ uống';
+    const isDrink = simStoreType === 'fnb' && isDrinkProduct(product);
     // Món có size tùy chỉnh: mặc định size đầu tiên; đồ uống có thêm mức đường / đá
     const mods = {
       ...(simStoreType === 'fnb' && hasSizes(product) ? { size: defaultSize(product) } : {}),
@@ -315,7 +325,7 @@ export default function POSScreen({
         || (k.size || '') !== (line.size || '') || (k.sugarLevel || '') !== (line.sugarLevel || '')
         || (k.iceLevel || '') !== (line.iceLevel || '')
         || (k.toppings || '') !== toppingsText(line, simProducts))) return k;
-      return { ...k, status: KitchenStatus.CANCELLED };
+      return { ...k, status: KitchenStatus.CANCELLED, cancelledAt: new Date().toISOString(), cancelledBy: fbUserProfile?.name || '' };
     }));
   };
 
@@ -679,11 +689,14 @@ export default function POSScreen({
       return;
     }
 
+    // Mọi món của cùng một lần báo bếp dùng chung mã lô -> gom thành một mục trong lịch sử báo bếp
+    const batchId = `NB-${Date.now()}`;
     const itemsToSend: KitchenItem[] = unsent.map(({ item, delta }) => {
       const prod = simProducts.find(p => p.id === item.productId);
       return {
         id: `K-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-        orderId: `ORD-${Date.now().toString().slice(-4)}`,
+        orderId: batchId,
+        staffName: fbUserProfile?.name || '',
         productId: item.productId,
         productName: prod?.name || 'Món ăn',
         quantity: delta,
@@ -770,6 +783,34 @@ export default function POSScreen({
           }
           return b;
         }));
+      }
+
+      // F&B: trừ kho theo công thức món chế biến (nguyên liệu, FEFO) và trừ tồn trực tiếp món thường có quản lý lô
+      if (simStoreType === 'fnb') {
+        const sold = currentCart.map(l => ({ productId: l.productId, quantity: l.quantity }));
+        const recipePlan = planRecipeDeduction(sold, simProducts, simIngredients, simIngredientBatches);
+        if (recipePlan.picks.length > 0) {
+          const takeByBatch = new Map<string, number>();
+          recipePlan.picks.forEach(p => takeByBatch.set(p.batch.id, (takeByBatch.get(p.batch.id) || 0) + p.take));
+          setSimIngredientBatches(prev => prev.map(b => (takeByBatch.has(b.id) ? { ...b, quantity: Math.max(0, +(b.quantity - (takeByBatch.get(b.id) || 0)).toFixed(6)) } : b)));
+          const nowMs = Date.now();
+          setSimIngredientTransactions(prev => [{
+            id: `TX-${nowMs}`,
+            transactionNumber: `PXK-${nowMs.toString().slice(-5)}`,
+            type: InventoryTransactionType.EXPORT,
+            items: recipePlan.picks.map(p => ({ productId: p.batch.productId, batchCode: p.batch.batchCode, quantity: +p.take.toFixed(6), price: p.batch.importPrice })),
+            totalAmount: recipePlan.picks.reduce((s, p) => s + (p.batch.importPrice || 0) * p.take, 0),
+            staffId: fbUserProfile?.uid || 'staff-01',
+            note: `Bán hàng ${orderNum}${recipePlan.shortages.length > 0 ? ' (thiếu tồn một số nguyên liệu)' : ''}`,
+            createdAt: new Date().toISOString()
+          }, ...prev]);
+        }
+        const directPlan = planDirectDeduction(sold, simProducts, simBatches);
+        if (directPlan.picks.length > 0) {
+          const takeByBatch = new Map<string, number>();
+          directPlan.picks.forEach(p => takeByBatch.set(p.batch.id, (takeByBatch.get(p.batch.id) || 0) + p.take));
+          setSimBatches(prev => prev.map(b => (takeByBatch.has(b.id) ? { ...b, quantity: Math.max(0, b.quantity - (takeByBatch.get(b.id) || 0)) } : b)));
+        }
       }
 
       const pointsEarned = Math.floor(grandTotal / 10000); // 1 point per 10k VND
@@ -943,7 +984,7 @@ export default function POSScreen({
             const prod = simProducts.find(p => p.id === item.productId);
             if (!prod) return null;
 
-            const isDrink = simStoreType === 'fnb' && prod.category === 'Đồ uống';
+            const isDrink = simStoreType === 'fnb' && isDrinkProduct(prod);
 
             return (
               <div key={`${item.productId}-${idx}`} className="p-3 bg-surface-container rounded-2xl space-y-2">
@@ -1019,8 +1060,14 @@ export default function POSScreen({
   // F&B: thanh thông tin đơn, menu tuỳ chọn và các hộp thoại thao tác
   // ------------------------------------------------------------------
   const groupNames = new Set(groupTables.map(t => t.name));
+  // Chỉ lấy phiếu bếp của đơn hiện tại: từ lúc bàn mở (bàn ảo Mang về / Giao đi: từ đầu ngày)
+  const historyStart = !isVirtualCart && selectedTable?.openedAt
+    ? new Date(selectedTable.openedAt).getTime() - 60000
+    : new Date(new Date().setHours(0, 0, 0, 0)).getTime();
   const kitchenHistory = simStoreType === 'fnb'
-    ? simKitchenItems.filter(k => (isVirtualCart ? k.tableNumber === selectedTableName : k.tableNumber.split(' + ').some(n => groupNames.has(n))))
+    ? simKitchenItems.filter(k =>
+        (isVirtualCart ? k.tableNumber === selectedTableName : (k.tableNumber || '').split(' + ').some(n => groupNames.has(n)))
+        && new Date(k.createdAt).getTime() >= historyStart)
     : [];
   const hasOrderToCancel = currentCart.length > 0 || groupTables.length > 1;
 
@@ -1510,7 +1557,7 @@ export default function POSScreen({
                               {prod.name.charAt(0).toUpperCase()}
                             </span>
                           )}
-                          <span className="absolute bottom-1.5 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-md bg-white/95 text-primary text-sm font-bold shadow-sm">
+                          <span className="absolute bottom-1.5 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-md bg-white/95 text-primary text-sm font-bold shadow-sm whitespace-nowrap">
                             {priceLabel(prod)}
                           </span>
                           {qtyInCart > 0 && (
@@ -1614,7 +1661,7 @@ export default function POSScreen({
               currentCart.map((item, idx) => {
                 const prod = simProducts.find(p => p.id === item.productId);
                 if (!prod) return null;
-                const isDrink = prod.category === 'Đồ uống';
+                const isDrink = isDrinkProduct(prod);
                 return (
                   <div key={`${item.productId}-${idx}`} className="py-2.5 border-b border-outline-variant/60">
                     <div className="grid grid-cols-[minmax(0,1fr)_auto_5rem_5.5rem] items-center gap-3">

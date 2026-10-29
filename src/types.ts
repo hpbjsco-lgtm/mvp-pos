@@ -57,7 +57,35 @@ export interface Product {
   toppingKind?: 'prepared' | 'regular' | 'made'; // chế biến / thường / sản xuất
   toppingFor?: string[]; // id các món được gắn topping này
   isAvailable: boolean; // Trạng thái món ăn / sản phẩm (còn hàng / hết hàng, đặc biệt hữu ích cho F&B)
+  // --- Món trong thực đơn (F&B) ---
+  menuType?: 'food' | 'drink' | 'service' | 'other'; // Loại thực đơn: đồ ăn / đồ uống / dịch vụ / khác
+  dishKind?: 'prepared' | 'regular'; // Món chế biến (theo công thức, trừ nguyên liệu) hay món thường (trừ tồn trực tiếp)
+  recipe?: RecipeItem[]; // Thành phần nguyên liệu của món chế biến
+  // --- Quản lý kho hàng (nguyên vật liệu / công cụ dụng cụ) ---
+  itemGroup?: 'ingredient' | 'tool'; // Nhóm quản lý: nguyên vật liệu hay công cụ dụng cụ
+  brand?: string; // Thương hiệu
+  trackStock?: boolean; // Có quản lý tồn kho hay không
+  minStock?: number; // Định mức tồn thấp nhất (cảnh báo khi tồn dưới mức này)
+  maxStock?: number; // Định mức tồn cao nhất
+  location?: string; // Vị trí để hàng
+  weight?: string; // Trọng lượng
+  unitConversions?: UnitConversion[]; // Các đơn vị quy đổi về đơn vị cơ bản `unit`
+  isActive?: boolean; // false = ngừng kinh doanh
+  note?: string; // Mô tả chi tiết
   createdAt: string;
+}
+
+/** Một thành phần trong công thức món: dùng `quantity` (tính theo đơn vị `unit`) nguyên liệu `ingredientId` cho 1 phần món. */
+export interface RecipeItem {
+  ingredientId: string;
+  quantity: number;
+  unit?: string; // Đơn vị của `quantity`; bỏ trống = đơn vị cơ bản của nguyên liệu
+}
+
+/** Quy đổi đơn vị: 1 `name` = `ratio` đơn vị cơ bản (vd 1 Hộp = 24 Chai). */
+export interface UnitConversion {
+  name: string;
+  ratio: number;
 }
 
 export interface InventoryBatch {
@@ -214,6 +242,9 @@ export interface KitchenItem {
   sugarLevel?: string;
   iceLevel?: string;
   toppings?: string; // Topping kèm món, dạng chữ (vd "Trân châu đen x1, Thạch dừa x2")
+  staffName?: string; // Người bấm báo bếp
+  cancelledAt?: string; // Thời điểm hủy món (khi status = cancelled)
+  cancelledBy?: string;
   createdAt: string;
 }
 

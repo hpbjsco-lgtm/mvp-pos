@@ -13,13 +13,13 @@ import { batch as runBatch, buildUpsert, newId, nowIso, queryOne } from './index
 import type { SqlStatement } from './driver';
 import { hashPassword, randomSalt } from './password';
 
-const FNB_PRODUCTS: { id: string; sku: string; name: string; price: number; cost: number; category: string; sizes?: { name: string; price: number }[] }[] = [
-  { id: 'P1', sku: '8930001001', name: 'Cà Phê Sữa Đá Sài Gòn', price: 29000, cost: 10000, category: 'Đồ uống', sizes: [{ name: 'Nhỏ', price: 29000 }, { name: 'Vừa', price: 35000 }, { name: 'Lớn', price: 42000 }] },
-  { id: 'P2', sku: '8930001002', name: 'Trà Đào Cam Sả Hồng Đài', price: 35000, cost: 12000, category: 'Đồ uống', sizes: [{ name: 'Vừa', price: 35000 }, { name: 'Lớn', price: 45000 }] },
-  { id: 'P3', sku: '8930001003', name: 'Phở Bò Thượng Hạng Kobe', price: 89000, cost: 35000, category: 'Món ăn', sizes: [{ name: 'Tô thường', price: 89000 }, { name: 'Tô đặc biệt', price: 119000 }] },
-  { id: 'P4', sku: '8930001004', name: 'Bún Chả Hà Nội Gia Truyền', price: 45000, cost: 18000, category: 'Món ăn' },
-  { id: 'P5', sku: '8930001005', name: 'Bánh Mì Garlic Bơ Tỏi', price: 25000, cost: 8000, category: 'Ăn nhẹ' },
-  { id: 'P6', sku: '8930001006', name: 'Nước Ngọt Coca Cola Lon', price: 15000, cost: 6000, category: 'Đồ uống' },
+const FNB_PRODUCTS: { id: string; sku: string; name: string; price: number; cost: number; category: string; sizes?: { name: string; price: number }[]; menuType?: string; dishKind?: string; recipe?: { ingredientId: string; quantity: number; unit?: string }[] }[] = [
+  { id: 'P1', sku: '8930001001', name: 'Cà Phê Sữa Đá Sài Gòn', price: 29000, cost: 10000, category: 'Đồ uống', sizes: [{ name: 'Nhỏ', price: 29000 }, { name: 'Vừa', price: 35000 }, { name: 'Lớn', price: 42000 }], menuType: 'drink', dishKind: 'prepared', recipe: [{ ingredientId: 'I1', quantity: 0.02 }, { ingredientId: 'I2', quantity: 0.05 }, { ingredientId: 'I8', quantity: 0.05 }] },
+  { id: 'P2', sku: '8930001002', name: 'Trà Đào Cam Sả Hồng Đài', price: 35000, cost: 12000, category: 'Đồ uống', sizes: [{ name: 'Vừa', price: 35000 }, { name: 'Lớn', price: 45000 }], menuType: 'drink', dishKind: 'prepared', recipe: [{ ingredientId: 'I3', quantity: 0.01 }, { ingredientId: 'I7', quantity: 0.15 }, { ingredientId: 'I8', quantity: 0.05 }] },
+  { id: 'P3', sku: '8930001003', name: 'Phở Bò Thượng Hạng Kobe', price: 89000, cost: 35000, category: 'Món ăn', sizes: [{ name: 'Tô thường', price: 89000 }, { name: 'Tô đặc biệt', price: 119000 }], menuType: 'food', dishKind: 'prepared', recipe: [{ ingredientId: 'I4', quantity: 0.15 }, { ingredientId: 'I5', quantity: 0.2 }] },
+  { id: 'P4', sku: '8930001004', name: 'Bún Chả Hà Nội Gia Truyền', price: 45000, cost: 18000, category: 'Món ăn', menuType: 'food', dishKind: 'prepared', recipe: [{ ingredientId: 'I4', quantity: 0.1 }] },
+  { id: 'P5', sku: '8930001005', name: 'Bánh Mì Garlic Bơ Tỏi', price: 25000, cost: 8000, category: 'Ăn nhẹ', menuType: 'food', dishKind: 'prepared', recipe: [{ ingredientId: 'I6', quantity: 0.02 }] },
+  { id: 'P6', sku: '8930001006', name: 'Nước Ngọt Coca Cola Lon', price: 15000, cost: 6000, category: 'Đồ uống', menuType: 'drink', dishKind: 'regular' },
 ];
 
 const FNB_INGREDIENTS = [
@@ -179,6 +179,9 @@ export async function seedStore(storeId: string, storeType: 'fnb' | 'retail'): P
         cost: p.cost,
         category: p.category,
         sizes: 'sizes' in p && p.sizes ? JSON.stringify(p.sizes) : '',
+        menu_type: 'menuType' in p && p.menuType ? p.menuType : '',
+        dish_kind: 'dishKind' in p && p.dishKind ? p.dishKind : '',
+        recipe: 'recipe' in p && p.recipe ? JSON.stringify(p.recipe) : '',
         is_available: 1,
         track_stock: storeType === 'retail' ? 1 : 0,
         created_at: ts,

@@ -8,6 +8,7 @@ import {
   X, Link2, Unlink, ArrowRightLeft, Scissors, Combine, CalendarClock, Info, History, Trash2, Minus, Plus, Check, ChevronRight,
 } from 'lucide-react';
 import { DiningTable, KitchenItem, Product, Zone } from '../types';
+import { buildKitchenHistory } from '../utils/kitchenHistory';
 import type { CartLine } from './POSScreen';
 import {
   CartMap, DELIVERY_ID, MoveSelection, TAKEAWAY_ID, canTransferTo, formatElapsed, getChildTables, getGroupLabel,
@@ -486,28 +487,48 @@ export function ReservationDialog({ table, onSave, onClear, onClose }: {
 /* ------------------------------------------------------------------ */
 
 export function KitchenHistoryDialog({ label, items, onClose }: { label: string; items: KitchenItem[]; onClose: () => void }) {
-  const statusLabel: Record<string, string> = { pending: 'Chờ chế biến', preparing: 'Đang chế biến', completed: 'Đã xong', served: 'Đã phục vụ' };
+  const events = buildKitchenHistory(items);
   return (
-    <Modal title={`Lịch sử báo bếp - ${label}`} icon={<History className="w-4.5 h-4.5" />} onClose={onClose}>
-      {items.length === 0 ? (
-        <p className="py-8 text-center text-base font-bold text-on-surface-variant">Chưa có món nào được gửi bếp.</p>
-      ) : (
-        <div className="rounded-2xl border border-outline-variant overflow-hidden divide-y divide-outline-variant/60">
-          {items.map(k => (
-            <div key={k.id} className="px-4 py-2.5 flex items-center gap-3">
-              <div className="flex-1 min-w-0">
-                <p className="text-base font-bold text-on-surface truncate">{k.quantity} × {k.productName}</p>
-                <p className="text-[13px] text-on-surface-variant">
-                  {new Date(k.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-                  {k.note ? ` · ${k.note}` : ''}
-                </p>
-              </div>
-              <span className="m3-badge m3-badge-neutral">{statusLabel[k.status] || k.status}</span>
-            </div>
-          ))}
+    <div className="fixed inset-0 z-[60] bg-black/40 flex justify-end" onClick={onClose}>
+      <aside
+        className="h-full w-full sm:w-[440px] bg-surface-container-lowest shadow-2xl flex flex-col"
+        onClick={e => e.stopPropagation()}
+        aria-label="Lịch sử báo bếp"
+      >
+        <div className="px-5 py-4 flex items-start justify-between gap-3 shrink-0">
+          <div className="min-w-0">
+            <h3 className="text-base font-black tracking-wide text-on-surface">LỊCH SỬ BÁO BẾP</h3>
+            <p className="text-sm text-on-surface-variant truncate">{label}</p>
+          </div>
+          <button onClick={onClose} className="m3-icon-btn !w-9 !h-9" aria-label="Đóng"><X className="w-5 h-5" /></button>
         </div>
-      )}
-    </Modal>
+
+        <div className="flex-1 overflow-y-auto bg-surface-container-low">
+          {events.length === 0 ? (
+            <p className="py-16 text-center text-base font-bold text-on-surface-variant">Chưa có món nào được gửi bếp.</p>
+          ) : (
+            events.map(ev => (
+              <section key={ev.id} className="bg-surface-container-lowest px-5 py-4 mb-2.5 space-y-2">
+                <p className="text-sm text-on-surface-variant">{new Date(ev.time).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                <p className="text-base font-bold text-on-surface">{ev.staff ? `${ev.staff} thông báo bếp` : 'Thông báo bếp'}</p>
+                <div className="border-l-2 border-outline-variant pl-4 space-y-3">
+                  {ev.lines.map((line, i) => (
+                    <div key={i} className="space-y-0.5">
+                      <p className={`text-base ${line.sign === '-' ? 'text-error font-semibold' : 'text-on-surface'}`}>
+                        {line.sign} {line.quantity} {line.name}
+                      </p>
+                      {line.details.map((d, j) => (
+                        <p key={j} className="text-sm text-on-surface-variant">{d}</p>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ))
+          )}
+        </div>
+      </aside>
+    </div>
   );
 }
 

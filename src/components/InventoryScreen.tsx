@@ -7,6 +7,9 @@ import DragScrollRow from './DragScrollRow';
 import React, { useState } from 'react';
 import { Layers, Package, Plus, Search, Trash2, X, ArrowUpFromLine } from 'lucide-react';
 import { Product, InventoryBatch, InventoryTransaction, InventoryTransactionType } from '../types';
+import { stockOf, toBaseQuantity, unitChoices } from '../utils/inventoryItems';
+import InventoryCatalog from './InventoryCatalog';
+import IngredientDialog from './IngredientDialog';
 import { logOperation } from '../utils/logger';
 
 interface InventoryScreenProps {
@@ -21,6 +24,11 @@ interface InventoryScreenProps {
   simStoreType?: 'fnb' | 'retail';
   isOffline?: boolean;
   storeId?: string;
+  /** Món bán + topping (hiện trong danh mục hàng ở chế độ F&B). */
+  menuProducts?: Product[];
+  /** Chuyển sang Thực đơn để tạo món / topping mới. */
+  onCreateDish?: () => void;
+  onCreateTopping?: () => void;
 }
 
 const NEW_PRODUCT = '__new__';
@@ -42,13 +50,22 @@ export default function InventoryScreen({
   setSimTransactions,
   triggerBeep,
   fbUserProfile,
-  simStoreType = 'fnb'
+  simStoreType = 'fnb',
+  menuProducts = [],
+  onCreateDish,
+  onCreateTopping
 }: InventoryScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'expired' | 'near_expiry' | 'healthy'>('all');
   const [addModalOpen, setAddModalOpen] = useState(false);
 
   const isFnB = simStoreType === 'fnb';
+
+  // F&B có 2 chế độ xem: Hàng hóa (danh mục) và Lô hàng & lịch sử; bán lẻ chỉ có lô hàng
+  const [view, setView] = useState<'catalog' | 'batches'>(simStoreType === 'fnb' ? 'catalog' : 'batches');
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const [itemDialog, setItemDialog] = useState<{ group: 'ingredient' | 'tool'; item?: Product } | null>(null);
+  const [importUnit, setImportUnit] = useState('');
 
   // Custom batch entry form states
   const [selectedProductId, setSelectedProductId] = useState(simProducts[0]?.id || '');
@@ -118,6 +135,8 @@ export default function InventoryScreen({
     }
     if (!prod) return;
 
+    // Nhập theo đơn vị quy đổi (vd Thùng) thì đổi về đơn vị cơ bản (vd Chai) trước khi cộng tồn
+    const baseQuantity = toBaseQuantity(prod, importUnit, newQuantity);
     const newId = `B-${Date.now()}`;
     const batch: InventoryBatch = {
       id: newId,
@@ -126,8 +145,8 @@ export default function InventoryScreen({
       expiryDate: newExpiryDate,
       manufactureDate: newManufactureDate || undefined,
       importPrice: newImportPrice || prod.cost,
-      quantity: newQuantity,
-      originalQuantity: newQuantity,
+      quantity: baseQuantity,
+      originalQuantity: baseQuantity,
       createdAt: new Date().toISOString()
     };
 
@@ -141,10 +160,10 @@ export default function InventoryScreen({
       items: [{
         productId: prod.id,
         batchCode: batch.batchCode,
-        quantity: newQuantity,
+        quantity: baseQuantity,
         price: batch.importPrice
       }],
-      totalAmount: (batch.importPrice || 0) * newQuantity,
+      totalAmount: (batch.importPrice || 0) * baseQuantity,
       staffId: fbUserProfile?.uid || 'staff-01',
       note: `Nhập tay lô mới ${batch.batchCode}`,
       createdAt: new Date().toISOString()
@@ -159,10 +178,46 @@ export default function InventoryScreen({
     setNewManufactureDate('');
     setNewImportPrice(0);
     setNewQuantity(0);
+    setImportUnit('');
     setNewProductName('');
     setNewProductUnit('');
     setSelectedProductId(prod.id);
     setAddModalOpen(false);
+    triggerBeep(true);
+  };
+
+  // ---- Danh mục hàng: tạo / sửa / xóa nguyên vật liệu, công cụ dụng cụ ----
+  const handleSaveItem = (product: Product, openingStock: number) => {
+    const exists = simProducts.some(p => p.id === product.id);
+    logOperation('Quản lý kho', exists ? 'Sửa hàng trong kho' : 'Thêm hàng vào kho', product);
+    setSimProducts(prev => (exists ? prev.map(p => (p.id === product.id ? product : p)) : [product, ...prev]));
+    if (openingStock > 0) {
+      const now = Date.now();
+      const batch: InventoryBatch = {
+        id: `B-${now}`, productId: product.id, batchCode: `TON-DAU-${product.sku}`.toUpperCase(),
+        expiryDate: '2099-12-31', importPrice: product.cost, quantity: openingStock, originalQuantity: openingStock,
+        createdAt: new Date().toISOString()
+      };
+      const tx: InventoryTransaction = {
+        id: `TX-${now}`, transactionNumber: `PNK-${now.toString().slice(-5)}`, type: InventoryTransactionType.IMPORT,
+        items: [{ productId: product.id, batchCode: batch.batchCode, quantity: openingStock, price: product.cost }],
+        totalAmount: product.cost * openingStock, staffId: fbUserProfile?.uid || 'staff-01', note: 'Tồn kho ban đầu', createdAt: new Date().toISOString()
+      };
+      setSimBatches(prev => [batch, ...prev]);
+      setSimTransactions(prev => [tx, ...prev]);
+    }
+    triggerBeep(true);
+  };
+
+  const handleDeleteItem = (product: Product) => {
+    if (stockOf(product.id, simBatches) > 0) {
+      alert('Hàng này còn tồn kho. Hãy xuất kho hết hoặc chọn "Ngừng kinh doanh" thay vì xóa.');
+      triggerBeep(false);
+      return;
+    }
+    if (!confirm(`Xóa "${product.name}" khỏi danh mục kho?`)) return;
+    logOperation('Quản lý kho', 'Xóa hàng khỏi kho', product);
+    setSimProducts(prev => prev.filter(p => p.id !== product.id));
     triggerBeep(true);
   };
 
@@ -260,8 +315,31 @@ export default function InventoryScreen({
 
       <div className="flex items-center gap-2 flex-wrap">
         <Layers className="w-5 h-5 text-primary" />
-        <h2 className="text-lg font-bold text-on-surface flex-1 min-w-[8rem]">{isFnB ? 'Kho nguyên liệu' : 'Kho hàng'}</h2>
-        <button onClick={() => { setAddModalOpen(true); triggerBeep(true); }} className="m3-btn-filled !min-h-11 text-sm">
+        <h2 className="text-lg font-bold text-on-surface flex-1 min-w-[8rem]">{isFnB ? 'Kho hàng' : 'Kho hàng'}</h2>
+
+        {isFnB && (
+          <div className="relative">
+            <button onClick={() => setAddMenuOpen(v => !v)} className="m3-btn-filled !min-h-11 text-sm"><Plus className="w-4 h-4" /> Thêm mới ▾</button>
+            {addMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setAddMenuOpen(false)} />
+                <div className="absolute right-0 top-full mt-1 z-40 w-56 bg-surface-container-lowest border border-outline-variant rounded-xl shadow-lg overflow-hidden">
+                  {[
+                    ['+ Nguyên vật liệu', () => setItemDialog({ group: 'ingredient' })],
+                    ['+ Công cụ dụng cụ', () => setItemDialog({ group: 'tool' })],
+                    ['+ Món', () => onCreateDish?.()],
+                    ['+ Topping', () => onCreateTopping?.()],
+                  ].map(([label, fn]) => (
+                    <button key={label as string} onClick={() => { setAddMenuOpen(false); (fn as () => void)(); }}
+                      className="w-full text-left px-4 py-3 text-base font-semibold hover:bg-surface-container cursor-pointer">{label as string}</button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        <button onClick={() => { setAddModalOpen(true); triggerBeep(true); }} className="m3-btn-outlined !min-h-11 text-sm">
           <Plus className="w-4 h-4" /> Nhập kho
         </button>
         <button
@@ -272,6 +350,27 @@ export default function InventoryScreen({
         </button>
       </div>
 
+      {isFnB && (
+        <div className="flex border-b border-outline-variant">
+          {([['catalog', 'Hàng hóa'], ['batches', 'Lô hàng & Lịch sử']] as const).map(([k, label]) => (
+            <button key={k} onClick={() => setView(k)}
+              className={`flex-1 sm:flex-none sm:px-8 min-h-12 text-base font-bold border-b-[3px] -mb-px cursor-pointer ${view === k ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'}`}>{label}</button>
+          ))}
+        </div>
+      )}
+
+      {isFnB && view === 'catalog' && (
+        <InventoryCatalog
+          items={simProducts}
+          dishes={menuProducts}
+          batches={simBatches}
+          onEdit={(p) => setItemDialog({ group: p.itemGroup === 'tool' ? 'tool' : 'ingredient', item: p })}
+          onDelete={handleDeleteItem}
+        />
+      )}
+
+      {view === 'batches' && (
+      <>
       {/* Thống kê nhanh */}
       <div className="grid grid-cols-2 gap-3">
         <div className="m3-card p-4 space-y-1">
@@ -368,14 +467,17 @@ export default function InventoryScreen({
         </div>
       )}
 
-      {/* Nút nổi nhập kho lô mới */}
-      <button
+      </>
+      )}
+
+      {/* Nút nổi nhập kho lô mới (chỉ ở chế độ xem lô hàng) */}
+      {view === 'batches' && <button
         onClick={() => { setAddModalOpen(true); triggerBeep(true); }}
         className="fixed right-5 bottom-[calc(5.5rem+var(--safe-bottom))] lg:bottom-8 z-30 w-14 h-14 rounded-2xl bg-primary text-on-primary shadow-xl flex items-center justify-center cursor-pointer active:scale-95 transition-transform"
         title={`Nhập kho lô ${isFnB ? 'nguyên liệu' : 'hàng'} mới`}
       >
         <Plus className="w-6 h-6" />
-      </button>
+      </button>}
 
       {/* Modal nhập kho lô mới */}
       {addModalOpen && (
@@ -484,11 +586,25 @@ export default function InventoryScreen({
                   <input
                     type="number"
                     value={newQuantity}
-                    onChange={(e) => setNewQuantity(parseInt(e.target.value) || 0)}
+                    onChange={(e) => setNewQuantity(parseFloat(e.target.value) || 0)}
                     className="m3-input font-mono"
-                    min="1"
+                    min="0"
+                    step="any"
                     required
                   />
+                  {(() => {
+                    const chosen = simProducts.find(p => p.id === selectedProductId);
+                    const choices = chosen ? unitChoices(chosen) : [];
+                    if (choices.length < 2) return null;
+                    return (
+                      <div className="space-y-1 pt-1">
+                        <select value={importUnit || chosen!.unit || ''} onChange={(e) => setImportUnit(e.target.value)} className="m3-input !min-h-10 text-sm" aria-label="Đơn vị nhập">
+                          {choices.map(c => <option key={c.name} value={c.name}>{c.name}{c.ratio !== 1 ? ` (= ${c.ratio} ${chosen!.unit})` : ''}</option>)}
+                        </select>
+                        {newQuantity > 0 && <p className="text-sm text-on-surface-variant">= {toBaseQuantity(chosen!, importUnit || chosen!.unit || '', newQuantity).toLocaleString('vi-VN')} {chosen!.unit}</p>}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -501,6 +617,7 @@ export default function InventoryScreen({
       )}
 
       {/* Lịch sử nhập / xuất kho */}
+      {view === 'batches' && (
       <div className="m3-card p-4 space-y-2">
         <button onClick={() => setShowHistory(v => !v)} className="w-full flex items-center justify-between text-left cursor-pointer">
           <span className="text-base font-bold text-on-surface">Lịch sử nhập / xuất kho ({simTransactions.length})</span>
@@ -528,6 +645,19 @@ export default function InventoryScreen({
           </div>
         ))}
       </div>
+
+      )}
+
+      {itemDialog && (
+        <IngredientDialog
+          item={itemDialog.item}
+          group={itemDialog.group}
+          allItems={simProducts}
+          currentStock={itemDialog.item ? stockOf(itemDialog.item.id, simBatches) : 0}
+          onSave={handleSaveItem}
+          onClose={() => setItemDialog(null)}
+        />
+      )}
 
       {/* Modal xuất kho */}
       {exportOpen && (

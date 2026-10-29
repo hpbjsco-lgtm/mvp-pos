@@ -12,6 +12,7 @@ import { logOperation } from '../utils/logger';
 import { categoryBadgeColor } from '../utils/categoryColor';
 import { fileToResizedDataUrl } from '../utils/imageUpload';
 import ToppingDialog from './ToppingDialog';
+import DishDialog from './DishDialog';
 
 const CATEGORIES_BY_STORE_TYPE: Record<'fnb' | 'retail', string[]> = {
   fnb: ['Đồ uống', 'Món ăn', 'Khác'],
@@ -38,13 +39,21 @@ interface MenuManagementProps {
   isOffline?: boolean;
   storeId?: string;
   storeType?: 'fnb' | 'retail';
+  /** Yêu cầu mở sẵn form thêm món / topping (khi chuyển từ màn Kho hàng sang). */
+  startAction?: 'dish' | 'topping' | null;
+  onActionHandled?: () => void;
+  /** Nguyên vật liệu trong kho (thành phần công thức món, F&B). */
+  ingredients?: Product[];
 }
 
 export default function MenuManagement({
   simProducts,
   setSimProducts,
   triggerBeep,
-  storeType = 'fnb'
+  storeType = 'fnb',
+  startAction,
+  onActionHandled,
+  ingredients = []
 }: MenuManagementProps) {
   const categorySuggestions = CATEGORIES_BY_STORE_TYPE[storeType];
   const isRetail = storeType === 'retail';
@@ -65,6 +74,19 @@ export default function MenuManagement({
   // Topping (chỉ F&B): hộp chọn loại cần thêm + hộp tạo / sửa topping
   const [chooserOpen, setChooserOpen] = useState(false);
   const [toppingDialog, setToppingDialog] = useState<{ topping?: Product } | null>(null);
+  const [dishDialog, setDishDialog] = useState<{ dish?: Product } | null>(null);
+
+  // Lưu món (F&B) và cập nhật danh sách món được gắn của từng topping
+  const handleSaveDish = (dish: Product, toppingIds: string[]) => {
+    logOperation('Quản lý thực đơn', simProducts.some(p => p.id === dish.id) ? 'Sửa món' : 'Thêm món', dish);
+    setSimProducts(prev => {
+      const next = prev.some(p => p.id === dish.id) ? prev.map(p => (p.id === dish.id ? dish : p)) : [dish, ...prev];
+      return next.map(p => (p.isTopping
+        ? { ...p, toppingFor: toppingIds.includes(p.id) ? [...new Set([...(p.toppingFor || []), dish.id])] : (p.toppingFor || []).filter(id => id !== dish.id) }
+        : p));
+    });
+    triggerBeep(true);
+  };
 
   const handleSaveTopping = (t: Product) => {
     logOperation('Quản lý thực đơn', simProducts.some(p => p.id === t.id) ? 'Sửa topping' : 'Thêm topping', t);
@@ -123,9 +145,14 @@ export default function MenuManagement({
     setNewItemSizes([]);
   };
 
-  const openNewItem = () => { resetForm(); setAddModalOpen(true); };
+  const openNewItem = () => {
+    if (!isRetail) { setDishDialog({}); return; }
+    resetForm();
+    setAddModalOpen(true);
+  };
 
   const openEditItem = (p: Product) => {
+    if (!isRetail) { setDishDialog({ dish: p }); triggerBeep(true); return; }
     setEditingId(p.id);
     setNewItemName(p.name);
     setNewItemCategory(p.category);
@@ -148,6 +175,15 @@ export default function MenuManagement({
       setNewItemSizes([{ name: 'Nhỏ', price: newItemPrice }, { name: 'Lớn', price: newItemPrice + 10000 }]);
     }
   };
+
+  // Mở sẵn form theo yêu cầu từ màn khác (vd Kho hàng -> + Món / + Topping)
+  React.useEffect(() => {
+    if (!startAction) return;
+    if (startAction === 'dish') openNewItem();
+    else setToppingDialog({});
+    onActionHandled?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startAction]);
 
   const handleSubmitMenuItem = (e: React.FormEvent) => {
     e.preventDefault();
@@ -351,6 +387,10 @@ export default function MenuManagement({
             </button>
           </div>
         </div>
+      )}
+
+      {dishDialog && (
+        <DishDialog dish={dishDialog.dish} menuProducts={simProducts} ingredients={ingredients} onSave={handleSaveDish} onClose={() => setDishDialog(null)} />
       )}
 
       {toppingDialog && (

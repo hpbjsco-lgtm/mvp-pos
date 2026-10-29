@@ -5,7 +5,7 @@
 | Trường | Nội dung |
 |---|---|
 | Tên hệ thống | SmartPOS — Phần mềm quản lý bán hàng cho quán cà phê / nhà hàng / bán lẻ |
-| Phiên bản tài liệu | 3.6 |
+| Phiên bản tài liệu | 3.9 |
 | Ngày cập nhật | 2026-10-27 |
 | Loại tài liệu | Functional Specification Document (Đặc tả chức năng) |
 | Trạng thái | Đang phát triển — các mục có cột "Trạng thái" bên dưới phản ánh mức độ hoàn thiện thực tế trong source code |
@@ -16,6 +16,9 @@
 |---|---|---|
 | 1.0 | 2026-07-02 | Bản đặc tả đầu tiên, mô tả hệ thống trên nền Firebase/Firestore (đã lỗi thời) |
 | 2.0 | 2026-08-13 | Viết lại toàn bộ theo cấu trúc BA chuẩn; cập nhật kiến trúc thực tế (SQLite local-first); bổ sung 6 chức năng mới: Đặt bàn trước, Tùy chọn món (size/đường/đá), Giảm giá & Thuế VAT, Lịch sử hóa đơn (hủy/in lại), Sổ quỹ ca làm việc, Dữ liệu mẫu demo |
+| 3.9 | 2026-10-28 | Tạo món kiểu KiotViet, công thức nguyên liệu, tự trừ kho khi bán (5.5) |
+| 3.8 | 2026-10-28 | Quản lý hàng hóa trong kho: danh mục, định mức tồn, đơn vị quy đổi (5.6) |
+| 3.7 | 2026-10-28 | Lịch sử báo bếp kiểu KiotViet (5.4) |
 | 3.6 | 2026-10-27 | Size / mức giá tùy chỉnh theo từng món (5.5) |
 | 3.5 | 2026-10-27 | Topping món (5.5) |
 | 3.4 | 2026-10-27 | Báo cáo cuối ngày (5.18) |
@@ -179,6 +182,8 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
 - **Báo bếp không trùng (cập nhật 2026-10-24):** mỗi dòng trong đơn lưu `sentQuantity` (số lượng đã báo bếp, cột `cart_items.sent_quantity`, migration v6). Bấm *Gửi bếp* lần sau chỉ gửi phần chênh lệch (món mới / số lượng tăng thêm); nếu không có gì mới thì báo "đã báo bếp hết". Dòng hiển thị nhãn "Đã báo bếp x/y".
 - **Hủy:** xóa một dòng đã báo bếp, *Xóa hết* hoặc *Hủy đơn hàng* sẽ đánh dấu các phiếu bếp chưa phục vụ tương ứng là **Đã hủy** (trạng thái mới `cancelled`). Màn hình bếp: món đã hủy ẩn khỏi tab "Đang hoạt động", xem ở tab "Đã hủy"; nút dọn xóa cả món đã phục vụ và đã hủy.
 
+- **Lịch sử báo bếp (kiểu KiotViet, 2026-10-28):** nút 🕘 ở chân khung đơn (hoặc menu ⋯ → Lịch sử báo bếp) mở **ngăn bên phải** "LỊCH SỬ BÁO BẾP": mỗi lần bấm *Thông báo* là một mục gồm ngày giờ, *"<tên người> thông báo bếp"* và các món `+ 1 Tên món` kèm dòng phụ (size, `+ 1 topping`, `50% đường, 70% đá`, ghi chú trong ngoặc kép); món bị hủy sau đó hiện thành mục riêng `− 1 Tên món` (màu đỏ, ghi giờ + người hủy). Mới nhất ở trên; chỉ gồm phiếu bếp của đơn hiện tại (từ lúc mở bàn; Mang về / Giao đi: trong ngày). Mã: `utils/kitchenHistory.ts` (có test), `KitchenHistoryDialog` trong `TableDialogs.tsx`. Phiếu bếp lưu thêm `staffName`, `cancelledAt`, `cancelledBy` (migration v11); các món của cùng một lần báo bếp dùng chung mã lô.
+
 **Trạng thái:** ✅
 
 ---
@@ -197,6 +202,12 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
 - **Ảnh món (mới):** mỗi món/sản phẩm có thể tải ảnh lên từ thư viện hoặc camera thiết bị (khi thêm mới, hoặc chạm vào ảnh trên danh sách để đổi). Ảnh được thu nhỏ (cạnh dài tối đa 640px), nén JPEG và lưu trực tiếp trong SQLite (cột `image_url`, dạng data URL ~30-80KB/ảnh); hiển thị ở màn hình bán hàng và quản lý thực đơn. Mã: `src/utils/imageUpload.ts`.
 
 - **Size / mức giá tùy chỉnh theo từng món (F&B, mới 2026-10-27):** mọi món trong thực đơn đều có thể bật *Nhiều mức giá / size* (nút **Sửa món** trên thẻ món, hoặc khi thêm món mới): tự đặt tên size (vd Nhỏ, Vừa, Lớn, Tô đặc biệt) và **giá bán riêng cho từng size**. Size đầu tiên là mặc định (và là giá gốc `price` của món). Lưu ở `Product.sizes` (migration v10); logic ở `utils/sizes.ts` (có test). Màn Bán hàng: lưới món hiện *từ <giá thấp nhất>*; thêm món vào đơn dùng size mặc định; dòng món có nút chọn size kèm giá, đổi size thì đơn giá dòng đổi theo (cộng thêm topping nếu có). Size được ghi vào phiếu bếp, hóa đơn; doanh thu / sổ quỹ / báo cáo dùng đúng giá theo size. Món **không** khai báo size thì bán một giá như cũ (không còn nút S/M/L cố định; đường / đá vẫn chỉ có ở đồ uống). Cửa hàng mới có dữ liệu mẫu cà phê, trà đào, phở với size mẫu.
+- **Tạo / sửa món kiểu KiotViet + công thức nguyên liệu (F&B, mới 2026-10-28):** nút *Sửa món* / *+ Món* mở hộp **Tạo món** (`DishDialog.tsx`): tên món, nhóm món, **loại thực đơn** (Đồ ăn / Đồ uống / Dịch vụ / Khác — loại *Đồ uống* mới có mức đường / đá), mã món, ảnh; **Giá & Thuế** (một giá hoặc *Thiết lập giá* nhiều size) kèm *Lợi nhuận ròng dự kiến* và *Tỷ lệ giá vốn / giá bán*; **Chọn loại món**:
+  - *Món chế biến* — có **Thành phần nguyên liệu**: tìm và thêm nguyên vật liệu trong kho, nhập số lượng cho 1 phần món theo đơn vị cơ bản hoặc đơn vị quy đổi; hệ thống **tự tính giá vốn** (Σ giá vốn nguyên liệu × số lượng) và **tự trừ kho** khi thanh toán.
+  - *Món thường* — hàng nhập sẵn, trừ tồn trực tiếp trên chính món nếu món có quản lý lô.
+  - **Topping (Món thêm):** bật để tích chọn các topping gắn cho món (cập nhật ngược lại danh sách món của topping); *Cho phép bán*.
+  - **Trừ kho khi bán:** mỗi hóa đơn F&B gộp các món chế biến, tính lượng nguyên liệu cần dùng, trừ theo **FEFO** (lô hết hạn sớm nhất trước, không bao giờ âm) và sinh **một phiếu xuất kho** `PXK-…` ghi "Bán hàng HD-…" (có chú thích nếu thiếu tồn; vẫn cho bán). Mã: `utils/recipes.ts` (có test). Dữ liệu: `products.menu_type / dish_kind / recipe` (migration v13); cửa hàng mới có sẵn công thức mẫu cho các món demo.
+  - **Chưa làm:** hoàn lại kho khi hủy hóa đơn, trừ kho theo công thức của topping, tag món, chi nhánh kinh doanh.
 - **Topping món (F&B, mới 2026-10-27):** *Thực đơn → nút + → Topping* mở hộp **Tạo topping** (mã: `ToppingDialog.tsx`): tên, nhóm, giá, ảnh, loại (*chế biến / thường / sản xuất*), *Cho phép bán*, và **Gắn món** — tìm từng món hoặc **Chọn theo nhóm** rồi xóa bớt trong danh sách. Topping là một `Product` có cờ `isTopping`, `toppingKind`, `toppingFor` (id các món được gắn; migration v9). Topping hiện trong Thực đơn kèm nhãn *Topping · n món* và nút *Sửa topping*, **không** hiện trên lưới món ở màn Bán hàng.
   - **Bán hàng:** dòng món có topping được gắn sẽ hiện các nút `+ Trân châu đen 5.000`; bấm để thêm, hiện `− Trân châu đen x2 +` để tăng/giảm. Giá dòng = giá món + tiền topping (cộng vào tạm tính, tổng bàn, thanh toán, hóa đơn, báo cáo). Hai dòng cùng món khác topping là hai dòng riêng. Topping chỉ áp dụng cho các phần **chưa báo bếp** của dòng; nếu đã báo hết thì tách 1 phần mới.
   - Phiếu bếp, hộp thoại thanh toán (`+ 1 Trân châu đen`), hóa đơn / phiếu tạm tính đều hiển thị topping.
@@ -221,6 +232,13 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
 - **Nhập lô với nguyên liệu / sản phẩm mới (2026-10-24):** ô "liên kết" có lựa chọn *+ Thêm … mới* để tạo nguyên liệu (tên, đơn vị) ngay khi nhập lô.
 - **Phiếu xuất kho (mới):** nút *Xuất kho* ở đầu màn hình Kho. Chọn hàng, số lượng, lý do (dùng chế biến / hư hỏng / hết hạn hủy / khác); hệ thống tự trừ tồn theo **FEFO** (lô hết hạn sớm nhất trước), báo thiếu nếu không đủ, sinh phiếu `PXK-…` (lý do hao hụt ghi là phiếu *điều chỉnh*). Có mục *Lịch sử nhập / xuất kho*.
 - Lưu ý: F&B hiện **chưa** tự trừ nguyên liệu khi bán món (cần khai báo công thức/định mức — chưa làm).
+
+- **Quản lý hàng hóa trong kho (F&B, mới 2026-10-28):** màn Kho hàng có 2 chế độ: **Hàng hóa** (danh mục) và **Lô hàng & Lịch sử** (lô, hạn dùng, phiếu nhập / xuất như trước). Mã: `InventoryCatalog.tsx`, `IngredientDialog.tsx`, `UnitPickerDialog.tsx`, `utils/inventoryItems.ts` (có test).
+  - **Danh mục hàng:** bảng Mã hàng · Tên hàng · Nhóm quản lý (*Nguyên vật liệu / Công cụ dụng cụ / Món bán*, kèm Topping) · Giá vốn · Tồn kho (tổng các lô, cảnh báo *Dưới định mức / Hết hàng*) · Định mức tồn (`thấp < cao`); hàng *Tổng tồn* ở đầu bảng; tìm theo mã / tên; bộ lọc Nhóm quản lý, Nhóm hàng, Thương hiệu, Tồn kho (còn / dưới định mức / hết), Vị trí, Trạng thái (đang / ngừng kinh doanh). Món bán chỉ xem (sửa ở Thực đơn).
+  - **Thêm mới ▾:** *Nguyên vật liệu*, *Công cụ dụng cụ* (hộp thoại ngay tại Kho), *Món* và *Topping* (chuyển sang Thực đơn và mở sẵn form).
+  - **Tạo / sửa nguyên vật liệu & công cụ dụng cụ:** mã hàng (tự sinh `NL0001` / `CC0001` nếu để trống), tên, nhóm hàng và thương hiệu (chọn hoặc nhập mới), ảnh, giá vốn, **Quản lý tồn kho** (bật/tắt; tồn kho ban đầu — tạo sẵn lô tồn đầu kỳ; định mức tồn thấp nhất / cao nhất), **đơn vị tính** và **quy đổi đơn vị** (hộp thoại *Chọn đơn vị tính* theo nhóm Đồ ăn / Đồ uống / Dịch vụ & Khác, tạo đơn vị mới, đơn vị cơ bản + tỉ lệ vd 1 Thùng = 24 Chai), vị trí, trọng lượng, mô tả, *Đang kinh doanh*. Xóa hàng còn tồn bị chặn (dùng *Ngừng kinh doanh*).
+  - **Nhập kho theo đơn vị quy đổi:** chọn đơn vị (vd Thùng) khi nhập lô, hệ thống tự đổi về đơn vị cơ bản để cộng tồn. Dữ liệu: các cột mới trên `products` (migration v12).
+  - **Chưa làm:** trừ tồn nguyên liệu tự động khi bán món (công thức / định mức), thuộc tính (size, màu), chi nhánh, xuất kho theo đơn vị quy đổi, nhập / xuất file.
 
 **Trạng thái:** ✅
 

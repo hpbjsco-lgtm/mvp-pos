@@ -18,7 +18,7 @@
  *     không mất order đang gọi (lỗi "không lưu được" của bản cũ).
  */
 
-export const SCHEMA_VERSION = 10;
+export const SCHEMA_VERSION = 13;
 
 /** Các câu lệnh DDL, chạy tuần tự khi khởi tạo / nâng cấp DB. */
 export const MIGRATIONS: { version: number; statements: string[] }[] = [
@@ -548,6 +548,37 @@ export const MIGRATIONS: { version: number; statements: string[] }[] = [
     statements: [
       /* Size / biến thể giá tùy chỉnh theo từng món (JSON [{name, price}]) */
       `ALTER TABLE products ADD COLUMN sizes TEXT NOT NULL DEFAULT '';`,
+    ],
+  },
+  {
+    version: 11,
+    statements: [
+      /* Lịch sử báo bếp: người báo, thời điểm / người hủy món */
+      `ALTER TABLE kitchen_items ADD COLUMN staff_name TEXT NOT NULL DEFAULT '';`,
+      `ALTER TABLE kitchen_items ADD COLUMN cancelled_at TEXT;`,
+      `ALTER TABLE kitchen_items ADD COLUMN cancelled_by TEXT NOT NULL DEFAULT '';`,
+    ],
+  },
+  {
+    version: 12,
+    statements: [
+      /* Quản lý kho hàng: nhóm quản lý, thương hiệu, định mức tồn cao nhất, vị trí, trọng lượng, quy đổi đơn vị, ngừng kinh doanh */
+      `ALTER TABLE products ADD COLUMN item_group TEXT NOT NULL DEFAULT '';`,
+      `ALTER TABLE products ADD COLUMN brand TEXT NOT NULL DEFAULT '';`,
+      `ALTER TABLE products ADD COLUMN max_stock REAL NOT NULL DEFAULT 0;`,
+      `ALTER TABLE products ADD COLUMN location TEXT NOT NULL DEFAULT '';`,
+      `ALTER TABLE products ADD COLUMN weight TEXT NOT NULL DEFAULT '';`,
+      `ALTER TABLE products ADD COLUMN unit_conversions TEXT NOT NULL DEFAULT '';`,
+      `ALTER TABLE products ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1;`,
+    ],
+  },
+  {
+    version: 13,
+    statements: [
+      /* Món: loại thực đơn, loại món (chế biến / thường), công thức nguyên liệu (JSON) */
+      `ALTER TABLE products ADD COLUMN menu_type TEXT NOT NULL DEFAULT '';`,
+      `ALTER TABLE products ADD COLUMN dish_kind TEXT NOT NULL DEFAULT '';`,
+      `ALTER TABLE products ADD COLUMN recipe TEXT NOT NULL DEFAULT '';`,
     ],
   },
 ];
