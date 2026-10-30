@@ -126,7 +126,7 @@ export default function EndOfDayReport({ orders, vouchers, accounts, carts, prod
       </div>
 
       {/* Tab */}
-      <div className="flex border-b border-outline-variant overflow-x-auto scrollbar-none">
+      <div className="flex border-b border-outline-variant overflow-x-auto">
         {tabs.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className={`flex-1 min-w-[5.5rem] min-h-12 text-base font-bold border-b-[3px] -mb-px whitespace-nowrap cursor-pointer ${tab === t.id ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'}`}>{t.label}</button>

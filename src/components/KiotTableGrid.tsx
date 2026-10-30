@@ -163,12 +163,9 @@ export default function KiotTableGrid({ tables, zones, carts, products, selected
                         <span className="text-[13px] font-bold text-center">Gộp</span>
                       ) : (
                         <>
-                          <span className="flex justify-between gap-1 text-[13px] font-bold">
-                            <span>{money(stats.total)}</span>
-                            <span>{elapsed}</span>
-                          </span>
-                          <span className="text-[12px] font-semibold opacity-90">
-                            {stats.itemCount} món{stats.guests > 0 ? ` · ${stats.guests} khách` : ''}
+                          <span className="truncate text-[13px] font-bold">{money(stats.total)}</span>
+                          <span className="truncate text-[12px] font-semibold opacity-90">
+                            {[elapsed, `${stats.itemCount} món`, stats.guests > 0 ? `${stats.guests} khách` : ''].filter(Boolean).join(' · ')}
                           </span>
                         </>
                       )

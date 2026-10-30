@@ -149,6 +149,13 @@ html {
   font-size: 17px;
 }
 
+@media (min-width: 1024px) {
+  html {
+    /* Màn hình máy tính: thu nhỏ khoảng 80% để hiển thị được nhiều nội dung hơn trên cùng một màn hình */
+    font-size: 14px;
+  }
+}
+
 html,
 body,
 #root {
@@ -196,12 +203,36 @@ textarea {
   padding-bottom: var(--safe-bottom);
 }
 
-.scrollbar-none {
-  scrollbar-width: none;
+/* Thanh cuộn luôn hiển thị (kể cả macOS / iOS vốn tự ẩn) để người dùng biết vùng đó cuộn được */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
 }
 
-.scrollbar-none::-webkit-scrollbar {
-  display: none;
+*::-webkit-scrollbar-track {
+  background: var(--color-surface-container);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--color-outline);
+  border-radius: 9999px;
+  border: 2px solid var(--color-surface-container);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--color-on-surface-variant);
+}
+
+*::-webkit-scrollbar-corner {
+  background: var(--color-surface-container);
+}
+
+/* Firefox không có ::-webkit-scrollbar; chỉ dùng thuộc tính chuẩn ở đó vì Chrome bỏ qua ::-webkit-scrollbar khi có scrollbar-color */
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: auto;
+    scrollbar-color: var(--color-outline) var(--color-surface-container);
+  }
 }
 
 @media print {

@@ -6,7 +6,7 @@
 import React, { useEffect, useRef } from 'react';
 
 /**
- * Hàng nút cuộn ngang, ẩn thanh cuộn, có thể "nắm kéo" bằng chuột (máy tính) — cảm ứng vẫn vuốt như bình thường.
+ * Hàng nút cuộn ngang (thanh cuộn luôn hiển thị), có thể "nắm kéo" bằng chuột (máy tính) — cảm ứng vẫn vuốt như bình thường.
  * Tự chặn cú click ngay sau khi kéo để không bấm nhầm vào nút.
  */
 export default function DragScrollRow({ className = '', children }: { className?: string; children: React.ReactNode }) {
@@ -55,7 +55,7 @@ export default function DragScrollRow({ className = '', children }: { className?
   }, []);
 
   return (
-    <div ref={ref} className={`flex min-w-0 overflow-x-auto scrollbar-none cursor-grab active:cursor-grabbing select-none ${className}`}>
+    <div ref={ref} className={`flex min-w-0 overflow-x-auto cursor-grab active:cursor-grabbing select-none ${className}`}>
       {children}
     </div>
   );

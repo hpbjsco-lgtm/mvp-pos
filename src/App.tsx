@@ -829,7 +829,7 @@ export default function App() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.2 }}
-                className="max-w-6xl mx-auto"
+                className="max-w-screen-2xl mx-auto"
               >
                 <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-4">
                   <div className="flex justify-between items-center border-b border-slate-100 pb-3">
@@ -955,7 +955,7 @@ export default function App() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.2 }}
-                className="max-w-4xl mx-auto"
+                className="max-w-6xl mx-auto"
               >
                 <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-5 border-b border-slate-100 gap-4">

@@ -53,6 +53,7 @@ export default function DishDialog({ dish, menuProducts, ingredients, onSave, on
   const [toppingOn, setToppingOn] = useState(!!dish && toppings.some(t => (t.toppingFor || []).includes(dish.id)));
   const [toppingIds, setToppingIds] = useState<string[]>(dish ? toppings.filter(t => (t.toppingFor || []).includes(dish.id)).map(t => t.id) : []);
   const [allowSale, setAllowSale] = useState(dish?.isAvailable ?? true);
+  const [showOnPos, setShowOnPos] = useState(dish?.isActive !== false);
   const [error, setError] = useState('');
 
   const basePrice = sizesOn && sizes[0] ? sizes[0].price : price;
@@ -88,6 +89,7 @@ export default function DishDialog({ dish, menuProducts, ingredients, onSave, on
       dishKind: kind,
       recipe: kind === 'prepared' && recipe.length > 0 ? recipe : undefined,
       isAvailable: allowSale,
+      isActive: showOnPos,
     };
     onSave(product, toppingOn ? toppingIds : []);
     if (andNew) {
@@ -262,9 +264,14 @@ export default function DishDialog({ dish, menuProducts, ingredients, onSave, on
         </div>
 
         <div className="px-6 py-3.5 border-t border-outline-variant shrink-0 flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2 text-base cursor-pointer mr-auto select-none">
-            <input type="checkbox" checked={allowSale} onChange={e => setAllowSale(e.target.checked)} className="w-5 h-5 accent-primary" /> Cho phép bán
-          </label>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mr-auto">
+            <label className="flex items-center gap-2 text-base cursor-pointer select-none">
+              <input type="checkbox" checked={allowSale} onChange={e => setAllowSale(e.target.checked)} className="w-5 h-5 accent-primary" /> Cho phép bán
+            </label>
+            <label className="flex items-center gap-2 text-base cursor-pointer select-none" title="Bỏ chọn để tạm ẩn món khỏi màn hình thu ngân, món vẫn còn trong thực đơn">
+              <input type="checkbox" checked={showOnPos} onChange={e => setShowOnPos(e.target.checked)} className="w-5 h-5 accent-primary" /> Hiện trên màn hình thu ngân
+            </label>
+          </div>
           <button onClick={onClose} className="m3-btn-text !min-h-12">Bỏ qua</button>
           {!dish && <button onClick={() => save(true)} className="m3-btn-outlined !min-h-12">Lưu &amp; Tạo thêm món</button>}
           <button onClick={() => save(false)} className="m3-btn-filled !min-h-12">Lưu</button>

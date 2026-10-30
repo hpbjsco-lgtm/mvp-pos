@@ -4,7 +4,7 @@
  */
 
 import DragScrollRow from './DragScrollRow';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Trash2, Plus, Minus, ScanLine, Printer, X, ClipboardList, Edit3, ChefHat, ChevronDown, Search,
   LayoutGrid, UtensilsCrossed, Landmark, ShoppingCart, ArrowRight,
@@ -30,6 +30,7 @@ import { useMediaQuery } from '../utils/useMediaQuery';
 import { changeTopping, lineUnitPrice, toppingsFor, toppingsText } from '../utils/toppings';
 import { defaultSize, hasSizes, priceLabel } from '../utils/sizes';
 import { isDrinkProduct, planDirectDeduction, planRecipeDeduction } from '../utils/recipes';
+import { sortByBestSeller } from '../utils/salesRanking';
 import {
   lineKey, isVirtualCartId, resolvePrimaryId, getGroupLabel, getGroupTables, getTableStats, formatElapsed,
   mergeLines, mergeTables, unmergeTable, transferTable, moveItems, releaseGroup, type MoveSelection
@@ -207,8 +208,9 @@ export default function POSScreen({
   const groupTables = simStoreType === 'fnb' && !isVirtualCart ? getGroupTables(simTables, currentCartId) : [];
 
   // Products Category parsing
-  // Topping chỉ chọn kèm món, không hiện trên lưới món
-  const sellable = simProducts.filter(p => !p.isTopping);
+  // Topping chỉ chọn kèm món, không hiện trên lưới món; món tạm ẩn (isActive = false) không hiện trên màn hình thu ngân
+  const isSellable = (p: Product) => !p.isTopping && p.isActive !== false;
+  const sellable = simProducts.filter(isSellable);
   const categories = ['Tất cả', ...Array.from(new Set(sellable.map(p => p.category)))];
 
   // Calculated totals
@@ -910,7 +912,10 @@ export default function POSScreen({
   });
 
   // Filtering products catalog
-  const filteredProducts = sellable.filter(p => {
+  // Món bán chạy (30 ngày gần nhất) xếp lên đầu để nhân viên chọn nhanh
+  const rankedProducts = useMemo(() => sortByBestSeller(simProducts, simOrders, Date.now()), [simProducts, simOrders]);
+  const filteredProducts = rankedProducts.filter(p => {
+    if (!isSellable(p)) return false;
     const matchesCategory = activeCategory === 'Tất cả' || p.category === activeCategory;
     const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.sku.includes(searchTerm);
     return matchesCategory && matchesSearch;

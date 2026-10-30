@@ -321,6 +321,7 @@ export default function MenuManagement({
                   {hasSizes(p) ? `từ ${Math.min(...p.sizes.map(z => z.price)).toLocaleString('vi-VN')}` : p.price.toLocaleString('vi-VN')} đ{isRetail && p.unit ? ` / ${p.unit}` : ''}
                 </p>
                 <span className={`m3-badge ${categoryBadgeColor(p.category)}`}>{p.category}</span>
+                {p.isActive === false && <span className="m3-badge m3-badge-warning ml-1.5">Tạm ẩn</span>}
                 {hasSizes(p) && (
                   <span className="block text-sm text-on-surface-variant mt-1">{p.sizes.map(z => `${z.name} ${z.price.toLocaleString('vi-VN')}`).join(' · ')}</span>
                 )}
