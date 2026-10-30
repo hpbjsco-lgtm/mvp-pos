@@ -3,12 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import DragScrollRow from './DragScrollRow';
 import React, { useState } from 'react';
-import { Ban, History, Printer, Receipt, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { Order, InventoryBatch, Customer } from '../types';
 import ReceiptThermal from './ReceiptThermal';
 import { logOperation } from '../utils/logger';
+import { PAYMENT_LABELS, getOrderPayments } from '../utils/payments';
+import PageCard from './ui/PageCard';
+import FilterPills from './ui/FilterPills';
+import DataTable from './ui/DataTable';
 
 interface OrderHistorySectionProps {
   simOrders: Order[];
@@ -40,6 +43,7 @@ export default function OrderHistorySection({
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'void'>('all');
   const [reprintOrder, setReprintOrder] = useState<Order | null>(null);
+  const [selectedId, setSelectedId] = useState('');
 
   const canVoid = simUserRole === 'admin';
 
@@ -92,110 +96,100 @@ export default function OrderHistorySection({
     { id: 'void', label: 'Đã hủy' }
   ];
 
+  const selectedOrder = filteredOrders.find(o => o.id === selectedId) || filteredOrders[0];
+  const selectedVoid = (selectedOrder?.status || 'completed') === 'void';
+  const infoLabel = 'text-sm font-bold text-on-surface';
+  const infoValue = 'text-sm text-on-surface-variant';
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <History className="w-5 h-5 text-primary" />
-        <h2 className="text-lg font-bold text-on-surface">Hóa đơn</h2>
-      </div>
-
-      <div className="relative">
-        <Search className="w-4 h-4 text-on-surface-variant absolute left-3.5 top-1/2 -translate-y-1/2" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Tìm số hóa đơn, khách, thu ngân, số bàn..."
-          className="m3-input !rounded-full pl-10"
-        />
-      </div>
-
-      <DragScrollRow className="gap-2 pb-1">
-        {statusFilters.map(s => (
-          <button
-            key={s.id}
-            onClick={() => setStatusFilter(s.id)}
-            className={`m3-chip !rounded-full whitespace-nowrap ${statusFilter === s.id ? 'm3-chip-selected' : ''}`}
-          >
-            {s.label}
-          </button>
-        ))}
-      </DragScrollRow>
-
-      {filteredOrders.length === 0 ? (
-        <div className="py-16 text-center text-on-surface-variant flex flex-col items-center justify-center gap-2">
-          <History className="w-8 h-8 text-outline-variant" />
-          <p className="text-base font-bold">Không tìm thấy hóa đơn nào</p>
-          <p className="text-sm">Thử đổi từ khóa hoặc bộ lọc trạng thái.</p>
+    <div className="grid grid-cols-1 lg:grid-cols-[minmax(20rem,26rem)_1fr] gap-4 items-start">
+      <PageCard title="Lịch sử hóa đơn">
+        <div className="relative">
+          <Search className="w-4 h-4 text-on-surface-variant absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Tìm số hóa đơn, khách, thu ngân, số bàn..."
+            className="m3-input !min-h-11 !rounded-xl pl-10"
+          />
         </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {filteredOrders.map((o) => {
-            const status = o.status || 'completed';
-            const isVoid = status === 'void';
+        <FilterPills options={statusFilters.map(f => ({ value: f.id, label: f.label }))} value={statusFilter} onChange={setStatusFilter} />
+
+        <div className="space-y-3 lg:max-h-[calc(100dvh-16rem)] overflow-y-auto pr-1">
+          {filteredOrders.length === 0 && <p className="py-10 text-center text-base font-semibold text-on-surface-variant">Không tìm thấy hóa đơn nào</p>}
+          {filteredOrders.map(o => {
+            const isVoid = (o.status || 'completed') === 'void';
+            const selected = o.id === selectedOrder?.id;
             return (
-              <div
+              <button
                 key={o.id}
-                className={`m3-card p-4 flex gap-3 border-l-4 ${
-                  isVoid ? 'border-l-error opacity-60' : 'border-l-secondary'
+                onClick={() => setSelectedId(o.id)}
+                className={`w-full text-left rounded-xl border p-3 space-y-1.5 cursor-pointer transition-colors ${
+                  selected ? 'bg-primary border-primary text-on-primary' : 'border-primary/60 hover:bg-primary-container/40 text-on-surface'
                 }`}
               >
-                <div className="flex-1 min-w-0 space-y-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <h4 className={`text-base font-bold text-on-surface font-mono truncate ${isVoid ? 'line-through' : ''}`}>
-                        #{o.orderNumber}
-                      </h4>
-                      <p className="text-sm text-on-surface-variant flex items-center gap-1">
-                         {new Date(o.createdAt).toLocaleString('vi-VN')}
-                      </p>
-                    </div>
-                    <span className={`m3-badge shrink-0 ${isVoid ? 'm3-badge-error' : 'm3-badge-success'}`}>
-                      {isVoid ? 'Đã hủy' : 'Hoàn thành'}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center shrink-0">
-                        <Receipt className="w-4 h-4 text-on-surface-variant" />
-                      </span>
-                      <div className="min-w-0">
-                        <p className="text-sm font-bold text-on-surface truncate">
-                          {o.tableNumber || o.customerName || 'Khách vãng lai'}
-                        </p>
-                        <p className="text-sm text-on-surface-variant truncate">{o.staffName || '—'}</p>
-                      </div>
-                    </div>
-                    <span className={`text-lg font-bold shrink-0 ${isVoid ? 'text-on-surface-variant' : 'text-primary'}`}>
-                      {o.totalAmount.toLocaleString('vi-VN')} đ
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex flex-col items-center justify-center gap-1.5 border-l border-outline-variant pl-3 shrink-0">
-                  <button
-                    onClick={() => setReprintOrder(o)}
-                    className="m3-icon-btn"
-                    title="In lại hóa đơn"
-                  >
-                    <Printer className="w-4 h-4" />
-                  </button>
-                  {canVoid && !isVoid && (
-                    <button
-                      onClick={() => handleVoidOrder(o)}
-                      className="m3-icon-btn hover:text-error"
-                      title="Hủy hóa đơn"
-                    >
-                      <Ban className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              </div>
+                <span className="flex items-center justify-between gap-2">
+                  <span className={`text-lg font-bold ${isVoid ? 'line-through' : ''}`}>#{o.orderNumber}</span>
+                  <span className={`m3-badge ${isVoid ? 'm3-badge-error' : 'm3-badge-success'}`}>{isVoid ? 'Đã hủy' : 'Hoàn thành'}</span>
+                </span>
+                <span className="block text-sm">{o.tableNumber || o.customerName || 'Khách vãng lai'}</span>
+                <span className="block text-sm">{new Date(o.createdAt).toLocaleString('vi-VN')}{o.staffName ? ` - Bởi ${o.staffName}` : ''}</span>
+                <span className="flex items-center justify-between text-lg font-bold"><span>Tổng</span><span>{o.totalAmount.toLocaleString('vi-VN')}đ</span></span>
+              </button>
             );
           })}
         </div>
-      )}
+      </PageCard>
+
+      <PageCard
+        title="Chi tiết hóa đơn"
+        headerRight={selectedOrder && (
+          <div className="flex items-center gap-2">
+            <button onClick={() => setReprintOrder(selectedOrder)} className="m3-btn-filled !min-h-10 !rounded-xl !px-5 text-sm">In phiếu</button>
+            {canVoid && !selectedVoid && (
+              <button onClick={() => handleVoidOrder(selectedOrder)} className="m3-btn-danger !min-h-10 !rounded-xl !px-5 text-sm">Hủy phiếu</button>
+            )}
+          </div>
+        )}
+      >
+        {!selectedOrder ? (
+          <p className="py-16 text-center text-base font-semibold text-on-surface-variant">Chọn một hóa đơn để xem chi tiết</p>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 rounded-xl bg-surface-container-low p-4">
+              <div><p className={infoLabel}>Số hóa đơn</p><p className={infoValue}>#{selectedOrder.orderNumber}</p></div>
+              <div><p className={infoLabel}>Phương thức thanh toán</p>
+                <p className={infoValue}>{getOrderPayments(selectedOrder).map(p => `${PAYMENT_LABELS[p.method]} ${p.amount.toLocaleString('vi-VN')}đ`).join(' + ')}</p></div>
+              <div><p className={infoLabel}>Ngày</p><p className={infoValue}>{new Date(selectedOrder.createdAt).toLocaleString('vi-VN')}</p></div>
+              <div><p className={infoLabel}>Thu ngân</p><p className={infoValue}>{selectedOrder.staffName || '—'}</p></div>
+              <div><p className={infoLabel}>Bàn ăn</p><p className={infoValue}>{selectedOrder.tableNumber || '—'}</p></div>
+              <div><p className={infoLabel}>Hình thức</p><p className={infoValue}>{selectedOrder.orderType === 'takeaway' ? 'Mang về' : selectedOrder.tableNumber ? 'Ăn tại bàn' : 'Bán trực tiếp'}</p></div>
+              <div><p className={infoLabel}>Khách hàng</p><p className={infoValue}>{selectedOrder.customerName || 'Khách vãng lai'}</p></div>
+              {selectedVoid && <div><p className={infoLabel}>Trạng thái</p><p className="text-sm font-bold text-error">Đã hủy</p></div>}
+            </div>
+
+            <DataTable
+              rows={selectedOrder.items}
+              rowKey={item => `${item.productId}-${item.size || ''}-${item.note || ''}-${item.price}`}
+              emptyMessage="Hóa đơn không có món"
+              columns={[
+                { key: 'name', header: 'Tên món', render: item => {
+                  const options = [item.size && `Size ${item.size}`, item.sugarLevel && `Đường ${item.sugarLevel}`, item.iceLevel && `Đá ${item.iceLevel}`, item.note, ...(item.toppings || []).map(t => `+ ${t.name}`)].filter(Boolean).join(' · ');
+                  return <div><span>{item.name}</span>{options && <span className="block text-sm text-on-surface-variant">Tùy chọn: {options}</span>}</div>;
+                } },
+                { key: 'price', header: 'Đơn giá', className: 'text-right', render: item => item.price.toLocaleString('vi-VN') },
+                { key: 'qty', header: 'SL', className: 'text-right', render: item => item.quantity },
+                { key: 'total', header: 'Thành tiền', className: 'text-right', render: item => (item.price * item.quantity).toLocaleString('vi-VN') },
+              ]}
+            />
+            <div className="flex items-center justify-between border-t-2 border-outline-variant pt-3 text-lg font-bold">
+              <span>Tổng</span>
+              <span className="text-primary">{selectedOrder.totalAmount.toLocaleString('vi-VN')}đ</span>
+            </div>
+          </>
+        )}
+      </PageCard>
 
       {reprintOrder && (
         <ReceiptThermal

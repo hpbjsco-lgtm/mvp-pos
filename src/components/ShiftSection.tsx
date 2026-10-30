@@ -5,8 +5,9 @@
 
 import { getOrderPayments } from '../utils/payments';
 import React, { useState } from 'react';
-import { PlayCircle, Wallet } from 'lucide-react';
 import { Shift, Order } from '../types';
+import PageCard from './ui/PageCard';
+import DataTable from './ui/DataTable';
 
 interface ShiftSectionProps {
   simShifts: Shift[];
@@ -84,161 +85,104 @@ export default function ShiftSection({
 
   const pastShifts = simShifts.filter(s => s.status === 'closed').slice(0, 20);
 
+  const tile = 'rounded-xl border border-primary/60 p-4 space-y-1';
+  const closeDiff = closingCashInput - expectedCash;
+
   return (
-    <div className="space-y-4 max-w-2xl mx-auto">
-      <div className="flex items-center gap-2">
-        <Wallet className="w-5 h-5 text-primary" />
-        <h2 className="text-lg font-bold text-on-surface">Sổ quỹ ca làm việc</h2>
-      </div>
-
-      {!openShift ? (
-        <form onSubmit={handleOpenShift} className="m3-card p-5 space-y-4">
-          <div className="flex items-center gap-2 text-on-surface">
-            <PlayCircle className="w-5 h-5 text-primary" />
-            <h3 className="text-base font-bold">Mở ca làm việc mới</h3>
-          </div>
-          <div className="space-y-1">
-            <label className="text-sm font-semibold text-on-surface-variant">Tiền quỹ đầu ca (đ)</label>
-            <input
-              type="number"
-              min="0"
-              value={openingCashInput || ''}
-              onChange={(e) => setOpeningCashInput(Math.max(0, parseInt(e.target.value) || 0))}
-              placeholder="0"
-              className="m3-input font-mono"
-              required
-            />
-          </div>
-          <button type="submit" className="m3-btn-filled w-full !min-h-12">
-             Mở ca cho {currentUser.name}
+    <div className="grid grid-cols-1 lg:grid-cols-[minmax(20rem,26rem)_1fr] gap-4 items-start">
+      <PageCard title="Ca làm việc">
+        {!openShift ? (
+          <form onSubmit={handleOpenShift} className="space-y-3">
+            <h3 className="text-base font-bold text-on-surface">Mở ca làm việc mới</h3>
+            <div className="space-y-1">
+              <label className="text-sm font-semibold text-on-surface-variant">Tiền quỹ đầu ca (đ)</label>
+              <input
+                type="number"
+                min="0"
+                value={openingCashInput || ''}
+                onChange={(e) => setOpeningCashInput(Math.max(0, parseInt(e.target.value) || 0))}
+                placeholder="0"
+                className="m3-input font-mono"
+                required
+              />
+            </div>
+            <button type="submit" className="m3-btn-filled w-full !rounded-xl !min-h-11">Mở ca cho {currentUser.name}</button>
+          </form>
+        ) : !closeStep ? (
+          <button onClick={() => { setClosingCashInput(expectedCash); setCloseStep(true); }} className="m3-btn-filled w-full !rounded-xl !min-h-11">
+            Đóng ca làm việc
           </button>
-        </form>
-      ) : (
-        <div className="space-y-4">
-          {/* Trạng thái ca hiện tại */}
-          <div className="rounded-3xl bg-primary text-on-primary p-5 space-y-3">
-            <div className="flex justify-between items-center">
-              <div>
-                <span className="text-sm font-semibold opacity-80 block">Trạng thái</span>
-                <span className="text-base font-bold flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                  Đang mở ca
-                </span>
-              </div>
-              <div className="text-right">
-                <span className="text-sm font-semibold opacity-80 block">Thu ngân</span>
-                <span className="text-base font-bold">{openShift.staffName}</span>
-              </div>
+        ) : (
+          <form onSubmit={handleCloseShift} className="space-y-3">
+            <div className="space-y-1">
+              <label className="text-sm font-semibold text-on-surface-variant">Tiền mặt đếm thực tế (đ)</label>
+              <input
+                type="number"
+                min="0"
+                value={closingCashInput || ''}
+                onChange={(e) => setClosingCashInput(Math.max(0, parseInt(e.target.value) || 0))}
+                className="m3-input font-mono"
+                required
+              />
             </div>
-            <div className="pt-3 border-t border-on-primary/20 flex items-center gap-1.5 text-sm font-semibold opacity-90">
-               Bắt đầu: {new Date(openShift.openedAt).toLocaleString('vi-VN')}
+            <div className={`p-3 rounded-xl text-center text-sm font-bold ${closeDiff === 0 ? 'm3-badge-success' : 'm3-badge-error'}`}>
+              Chênh lệch: {closeDiff >= 0 ? '+' : ''}{closeDiff.toLocaleString('vi-VN')}đ
             </div>
-          </div>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setCloseStep(false)} className="m3-btn-tonal flex-1 !rounded-xl !min-h-11">Hủy</button>
+              <button type="submit" className="m3-btn-filled flex-1 !rounded-xl !min-h-11">Xác nhận đóng ca</button>
+            </div>
+          </form>
+        )}
+      </PageCard>
 
-          <div className="space-y-2">
-            <h3 className="text-base font-bold text-on-surface">Tổng kết doanh thu</h3>
-            <div className="m3-card p-4 border-l-4 border-l-primary">
-              <span className="text-sm font-semibold text-on-surface-variant block">Tổng doanh thu tạm tính</span>
-              <span className="text-2xl font-bold text-primary">{totalRevenue.toLocaleString('vi-VN')} đ</span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="m3-card p-3.5 space-y-1">
-                <span className="text-sm text-on-surface-variant flex items-center gap-1.5"> Tiền mặt</span>
-                <span className="text-base font-bold text-on-surface">{cashRevenue.toLocaleString('vi-VN')} đ</span>
-              </div>
-              <div className="m3-card p-3.5 space-y-1">
-                <span className="text-sm text-on-surface-variant flex items-center gap-1.5"> Chuyển khoản / QR</span>
-                <span className="text-base font-bold text-on-surface">{qrRevenue.toLocaleString('vi-VN')} đ</span>
-              </div>
-              <div className="m3-card p-3.5 space-y-1">
-                <span className="text-sm text-on-surface-variant flex items-center gap-1.5"> Thẻ tín dụng</span>
-                <span className="text-base font-bold text-on-surface">{cardRevenue.toLocaleString('vi-VN')} đ</span>
-              </div>
-              <div className="m3-card p-3.5 space-y-1">
-                <span className="text-sm text-on-surface-variant flex items-center gap-1.5"> Quỹ đầu ca</span>
-                <span className="text-base font-bold text-on-surface">{openShift.openingCash.toLocaleString('vi-VN')} đ</span>
-              </div>
+      <PageCard title="Sổ quỹ ca làm việc">
+        {openShift ? (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 rounded-xl bg-primary-container/60 p-4">
+              <div><p className="text-sm font-bold text-on-surface">Trạng thái</p><p className="text-sm text-on-surface-variant">Đang mở ca</p></div>
+              <div><p className="text-sm font-bold text-on-surface">Thu ngân</p><p className="text-sm text-on-surface-variant">{openShift.staffName}</p></div>
+              <div><p className="text-sm font-bold text-on-surface">Bắt đầu</p><p className="text-sm text-on-surface-variant">{new Date(openShift.openedAt).toLocaleString('vi-VN')}</p></div>
             </div>
 
-            <div className="rounded-2xl bg-tertiary-container p-4 flex items-center justify-between gap-2">
-              <div>
-                <span className="text-sm font-semibold text-on-tertiary-container block">Tiền mặt trong két (Dự kiến)</span>
-                <span className="text-sm text-on-tertiary-container/80">Tiền mặt + Quỹ đầu ca</span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className={tile}><p className="text-lg text-on-surface">Tiền mặt</p><p className="text-xl font-bold">{cashRevenue.toLocaleString('vi-VN')}đ</p></div>
+              <div className={tile}><p className="text-lg text-on-surface">Chuyển khoản / QR</p><p className="text-xl font-bold">{qrRevenue.toLocaleString('vi-VN')}đ</p></div>
+              <div className={tile}><p className="text-lg text-on-surface">Thẻ tín dụng</p><p className="text-xl font-bold">{cardRevenue.toLocaleString('vi-VN')}đ</p></div>
+              <div className={tile}><p className="text-lg text-on-surface">Quỹ đầu ca</p><p className="text-xl font-bold">{openShift.openingCash.toLocaleString('vi-VN')}đ</p></div>
+              <div className="rounded-xl bg-primary-container p-4 space-y-1">
+                <p className="text-lg text-on-primary-container">Tổng doanh thu tạm tính</p>
+                <p className="text-xl font-bold text-on-primary-container">{totalRevenue.toLocaleString('vi-VN')}đ</p>
               </div>
-              <span className="text-xl font-bold text-on-tertiary-container shrink-0">{expectedCash.toLocaleString('vi-VN')} đ</span>
+              <div className="rounded-xl bg-secondary-container p-4 space-y-1">
+                <p className="text-lg text-on-secondary-container">Tiền mặt trong két (Dự kiến)</p>
+                <p className="text-sm italic text-on-secondary-container/80">Tiền mặt + Quỹ đầu ca</p>
+                <p className="text-xl font-bold text-on-secondary-container">{expectedCash.toLocaleString('vi-VN')}đ</p>
+              </div>
             </div>
-          </div>
+          </>
+        ) : (
+          <p className="rounded-xl bg-surface-container-low p-4 text-sm text-on-surface-variant">Chưa mở ca. Nhập tiền quỹ đầu ca ở khung bên trái để bắt đầu.</p>
+        )}
 
-          {!closeStep ? (
-            <button
-              onClick={() => { setClosingCashInput(expectedCash); setCloseStep(true); }}
-              className="m3-btn-danger w-full !min-h-12"
-            >
-               Đóng ca làm việc
-            </button>
-          ) : (
-            <form onSubmit={handleCloseShift} className="m3-card p-5 space-y-3">
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-on-surface-variant flex items-center gap-1">
-                   Tiền mặt đếm thực tế (đ)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={closingCashInput || ''}
-                  onChange={(e) => setClosingCashInput(Math.max(0, parseInt(e.target.value) || 0))}
-                  className="m3-input font-mono"
-                  required
-                />
-              </div>
-              <div className={`p-3 rounded-xl text-center text-sm font-bold ${
-                closingCashInput - expectedCash === 0 ? 'm3-badge-success' : 'm3-badge-error'
-              }`}>
-                Chênh lệch: {closingCashInput - expectedCash >= 0 ? '+' : ''}{(closingCashInput - expectedCash).toLocaleString('vi-VN')} đ
-              </div>
-              <div className="flex gap-2">
-                <button type="button" onClick={() => setCloseStep(false)} className="m3-btn-tonal flex-1 !min-h-11">
-                  Hủy
-                </button>
-                <button type="submit" className="m3-btn-danger flex-1 !min-h-11">
-                  Xác nhận đóng ca
-                </button>
-              </div>
-            </form>
-          )}
-        </div>
-      )}
-
-      {pastShifts.length > 0 && (
-        <div className="space-y-2">
-          <h3 className="text-base font-bold text-on-surface flex items-center gap-1.5">
-             Lịch sử ca đã đóng
-          </h3>
-          <div className="space-y-2">
-            {pastShifts.map(s => {
+        <h3 className="text-lg font-bold text-on-surface pt-2">Lịch sử đóng ca</h3>
+        <DataTable
+          rows={pastShifts}
+          rowKey={s => s.id}
+          emptyMessage="Chưa có ca nào được đóng"
+          columns={[
+            { key: 'staff', header: 'Thu ngân', render: s => s.staffName },
+            { key: 'open', header: 'Thời gian mở ca', render: s => new Date(s.openedAt).toLocaleString('vi-VN') },
+            { key: 'close', header: 'Thời gian đóng ca', render: s => (s.closedAt ? new Date(s.closedAt).toLocaleString('vi-VN') : '—') },
+            { key: 'expected', header: 'Kỳ vọng', className: 'text-right', render: s => (s.closingCashExpected || 0).toLocaleString('vi-VN') },
+            { key: 'actual', header: 'Thực tế', className: 'text-right', render: s => (s.closingCashActual || 0).toLocaleString('vi-VN') },
+            { key: 'diff', header: 'Chênh lệch', className: 'text-right', render: s => {
               const diff = (s.closingCashActual || 0) - (s.closingCashExpected || 0);
-              return (
-                <div key={s.id} className={`m3-card p-3.5 border-l-4 ${diff === 0 ? 'border-l-secondary' : 'border-l-error'}`}>
-                  <div className="flex justify-between items-center">
-                    <span className="text-base font-bold text-on-surface">{s.staffName}</span>
-                    <span className={`text-sm font-bold ${diff === 0 ? 'text-secondary' : 'text-error'}`}>
-                      {diff >= 0 ? '+' : ''}{diff.toLocaleString('vi-VN')} đ
-                    </span>
-                  </div>
-                  <p className="text-sm text-on-surface-variant">
-                    {new Date(s.openedAt).toLocaleString('vi-VN')} → {s.closedAt ? new Date(s.closedAt).toLocaleString('vi-VN') : '—'}
-                  </p>
-                  <div className="flex justify-between text-sm text-on-surface-variant pt-1">
-                    <span>Kỳ vọng: {(s.closingCashExpected || 0).toLocaleString('vi-VN')}đ</span>
-                    <span>Thực tế: {(s.closingCashActual || 0).toLocaleString('vi-VN')}đ</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+              return <span className={`font-bold ${diff === 0 ? 'text-secondary' : 'text-error'}`}>{diff >= 0 ? '+' : ''}{diff.toLocaleString('vi-VN')}</span>;
+            } },
+          ]}
+        />
+      </PageCard>
     </div>
   );
 }
