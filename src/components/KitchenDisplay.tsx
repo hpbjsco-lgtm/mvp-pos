@@ -3,10 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import DragScrollRow from './DragScrollRow';
 import React, { useState, useEffect } from 'react';
-import { ChefHat, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { KitchenItem, KitchenStatus } from '../types';
+import PageCard from './ui/PageCard';
+import PageTabs from './ui/PageTabs';
+import FilterPills from './ui/FilterPills';
+import DataTable, { DataTableColumn } from './ui/DataTable';
 
 interface KitchenDisplayProps {
   simKitchenItems: KitchenItem[];
@@ -16,13 +19,23 @@ interface KitchenDisplayProps {
   storeId?: string;
 }
 
-const STATUS_STYLES: Record<KitchenStatus, { bar: string; badge: string; label: string }> = {
-  [KitchenStatus.PENDING]: { bar: 'border-l-error', badge: 'm3-badge-error', label: 'Chờ làm' },
-  [KitchenStatus.PREPARING]: { bar: 'border-l-tertiary', badge: 'm3-badge-warning', label: 'Đang nấu' },
-  [KitchenStatus.COMPLETED]: { bar: 'border-l-primary', badge: 'bg-primary-container text-on-primary-container', label: 'Xong, chờ bưng' },
-  [KitchenStatus.SERVED]: { bar: 'border-l-outline-variant', badge: 'm3-badge-success', label: 'Đã lên bàn' },
-  [KitchenStatus.CANCELLED]: { bar: 'border-l-error', badge: 'm3-badge-error', label: 'Đã hủy' }
+const STATUS_STYLES: Record<KitchenStatus, { badge: string; label: string }> = {
+  [KitchenStatus.PENDING]: { badge: 'm3-badge-error', label: 'Chờ làm' },
+  [KitchenStatus.PREPARING]: { badge: 'm3-badge-warning', label: 'Đang nấu' },
+  [KitchenStatus.COMPLETED]: { badge: 'bg-primary-container text-on-primary-container', label: 'Xong, chờ bưng' },
+  [KitchenStatus.SERVED]: { badge: 'm3-badge-success', label: 'Đã lên bàn' },
+  [KitchenStatus.CANCELLED]: { badge: 'm3-badge-error', label: 'Đã hủy' }
 };
+
+/** Label of the button that moves an item to its next status; absent when the item is closed. */
+const NEXT_ACTION_LABEL: Partial<Record<KitchenStatus, string>> = {
+  [KitchenStatus.PENDING]: 'Làm món',
+  [KitchenStatus.PREPARING]: 'Xong',
+  [KitchenStatus.COMPLETED]: 'Đã bưng'
+};
+
+/** The two ways the kitchen list can be grouped. */
+type KitchenView = 'byDish' | 'byTable';
 
 export default function KitchenDisplay({
   simKitchenItems,
@@ -30,6 +43,7 @@ export default function KitchenDisplay({
   triggerBeep
 }: KitchenDisplayProps) {
   const [filterStatus, setFilterStatus] = useState<string>('active');
+  const [view, setView] = useState<KitchenView>('byDish');
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
 
   // Real-time ticking clock for calculating cooking duration since order creation
@@ -88,104 +102,138 @@ export default function KitchenDisplay({
     { id: 'all', label: `Tất cả (${simKitchenItems.length})` }
   ];
 
+  /** Table label shown for an item ("Mang đi" when it has no table). */
+  const tableLabel = (item: KitchenItem) => item.tableNumber || 'Mang đi';
+
+  /** Columns of the item tables; the table column is only needed when items are not grouped by table. */
+  const buildColumns = (showTable: boolean): DataTableColumn<KitchenItem>[] => {
+    const columns: DataTableColumn<KitchenItem>[] = [
+      {
+        key: 'dish',
+        header: 'Món',
+        render: item => (
+          <div>
+            <p className={`font-semibold ${isClosed(item.status) ? 'line-through text-on-surface-variant' : ''}`}>{item.productName}</p>
+            <p className="text-sm text-on-surface-variant">{new Date(item.createdAt).toLocaleString('vi-VN')}</p>
+          </div>
+        ),
+      },
+      {
+        key: 'note',
+        header: 'Ghi chú',
+        render: item => {
+          const options = [
+            item.size && `Size ${item.size}`,
+            item.sugarLevel && `Đường ${item.sugarLevel}`,
+            item.iceLevel && `Đá ${item.iceLevel}`,
+          ].filter(Boolean).join(' · ');
+          return (
+            <div className="text-sm space-y-0.5">
+              {options && <p>{options}</p>}
+              {item.toppings && <p className="font-bold text-primary">+ {item.toppings}</p>}
+              {item.note && <p className="text-on-surface-variant">{item.note}</p>}
+            </div>
+          );
+        },
+      },
+    ];
+    if (showTable) {
+      columns.push({
+        key: 'table',
+        header: 'Bàn',
+        render: item => {
+          const mins = getElapsedMinutes(item.createdAt);
+          const isLate = mins >= 10 && !isClosed(item.status);
+          return (
+            <div>
+              <p className="font-semibold">{tableLabel(item)}</p>
+              <p className={`text-sm ${isLate ? 'text-error font-bold' : 'text-on-surface-variant'}`}>
+                {mins} phút trước{isLate ? ' · Quá giờ' : ''}
+              </p>
+            </div>
+          );
+        },
+      });
+    }
+    columns.push(
+      { key: 'quantity', header: 'Số lượng', className: 'text-center', render: item => item.quantity },
+      {
+        key: 'status',
+        header: 'Trạng thái',
+        render: item => <span className={`m3-badge ${STATUS_STYLES[item.status].badge}`}>{STATUS_STYLES[item.status].label}</span>,
+      },
+      {
+        key: 'action',
+        header: '',
+        className: 'text-right w-32',
+        render: item => NEXT_ACTION_LABEL[item.status] ? (
+          <button type="button" onClick={() => handleUpdateStatus(item.id, item.status)} className="m3-btn-filled !min-h-9 !px-4 text-sm">
+            {NEXT_ACTION_LABEL[item.status]}
+          </button>
+        ) : null,
+      },
+    );
+    return columns;
+  };
+
+  /** Items of the current filter grouped by table, in order of first appearance. */
+  const itemsByTable = filteredItems.reduce<Map<string, KitchenItem[]>>((groups, item) => {
+    const key = tableLabel(item);
+    groups.set(key, [...(groups.get(key) || []), item]);
+    return groups;
+  }, new Map());
+
   return (
-    <div id="kitchen-display-system" className="space-y-4">
+    <div id="kitchen-display-system">
+      <PageCard
+        title="Màn hình bếp"
+        headerRight={
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-sm text-on-surface-variant font-mono font-bold">{currentTime.toLocaleTimeString('vi-VN')}</span>
+            <button type="button" onClick={handleClearServed} className="m3-icon-btn" title="Dọn món đã phục vụ xong" aria-label="Dọn món đã phục vụ xong">
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+        }
+      >
+        <PageTabs
+          options={[{ value: 'byDish', label: 'Theo món' }, { value: 'byTable', label: 'Theo phòng bàn' }]}
+          value={view}
+          onChange={nextView => { setView(nextView); triggerBeep(true); }}
+        />
+        <FilterPills
+          options={statusFilters.map(f => ({ value: f.id, label: f.label }))}
+          value={filterStatus}
+          onChange={nextFilter => { setFilterStatus(nextFilter); triggerBeep(true); }}
+        />
 
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <ChefHat className="w-5 h-5 text-primary" />
-          <h2 className="text-lg font-bold text-on-surface">Màn hình bếp</h2>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="text-sm text-on-surface-variant font-mono font-bold flex items-center gap-1.5">
-             {currentTime.toLocaleTimeString('vi-VN')}
-          </span>
-          <button onClick={handleClearServed} className="m3-icon-btn" title="Dọn món đã phục vụ xong">
-            <Trash2 className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
-      <DragScrollRow className="gap-2 pb-1">
-        {statusFilters.map(f => (
-          <button
-            key={f.id}
-            onClick={() => { setFilterStatus(f.id); triggerBeep(true); }}
-            className={`m3-chip !rounded-full whitespace-nowrap ${filterStatus === f.id ? 'm3-chip-selected' : ''}`}
-          >
-            {f.label}
-          </button>
-        ))}
-      </DragScrollRow>
-
-      {filteredItems.length === 0 ? (
-        <div className="py-16 text-center text-on-surface-variant flex flex-col items-center justify-center gap-2">
-          <ChefHat className="w-8 h-8 text-outline-variant" />
-          <p className="text-base font-bold">Không có món nào phù hợp bộ lọc</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {filteredItems.map(item => {
-            const mins = getElapsedMinutes(item.createdAt);
-            const isLate = mins >= 10 && !isClosed(item.status);
-            const style = STATUS_STYLES[item.status];
-
-            return (
-              <div key={item.id} className={`m3-card p-4 border-l-4 ${style.bar} space-y-3`}>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-base font-bold text-on-surface">
-                    {item.tableNumber || 'Mang đi'}
-                  </span>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {isLate && (
-                      <span className="m3-badge m3-badge-error">
-                         Quá giờ
-                      </span>
-                    )}
-                    <span className="text-sm text-on-surface-variant font-mono">{mins} phút trước</span>
+        {view === 'byDish' ? (
+          <DataTable
+            columns={buildColumns(true)}
+            rows={filteredItems}
+            rowKey={item => item.id}
+            emptyMessage="Không có món nào phù hợp bộ lọc"
+          />
+        ) : filteredItems.length === 0 ? (
+          <p className="py-12 text-center text-base font-semibold text-on-surface-variant">Không có món nào phù hợp bộ lọc</p>
+        ) : (
+          <div className="space-y-5">
+            {Array.from(itemsByTable.entries()).map(([table, items]) => {
+              const oldestMins = Math.max(...items.map(item => getElapsedMinutes(item.createdAt)));
+              const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
+              return (
+                <div key={table} className="space-y-2">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <h3 className="text-base font-bold text-on-surface">{table}</h3>
+                    <span className="text-sm text-on-surface-variant">{oldestMins} phút trước · Tổng {totalQuantity} phần</span>
                   </div>
+                  <DataTable columns={buildColumns(false)} rows={items} rowKey={item => item.id} emptyMessage="" />
                 </div>
-
-                <div className="space-y-1">
-                  <h4 className={`text-base font-bold ${isClosed(item.status) ? 'line-through text-on-surface-variant' : 'text-on-surface'}`}>
-                    x{item.quantity} {item.productName}
-                  </h4>
-                  {(item.size || item.sugarLevel || item.iceLevel) && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {item.size && <span className="text-sm text-on-surface-variant">· Kích cỡ {item.size}</span>}
-                      {item.sugarLevel && <span className="text-sm text-on-surface-variant">· Đường {item.sugarLevel}</span>}
-                      {item.iceLevel && <span className="text-sm text-on-surface-variant">· Đá {item.iceLevel}</span>}
-                    </div>
-                  )}
-                  {item.toppings && (
-                    <p className="text-base font-bold text-primary">+ {item.toppings}</p>
-                  )}
-                  {item.note && (
-                    <div className="text-sm bg-tertiary-container text-on-tertiary-container px-3 py-2 rounded-xl">
-                      Ghi chú: {item.note}
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between pt-2 border-t border-outline-variant">
-                  <span className={`m3-badge ${style.badge}`}>{style.label}</span>
-                  {!isClosed(item.status) && (
-                    <button
-                      onClick={() => handleUpdateStatus(item.id, item.status)}
-                      className="m3-btn-filled !min-h-10 !px-4 text-sm"
-                    >
-                      {item.status === KitchenStatus.PENDING && 'Làm món'}
-                      {item.status === KitchenStatus.PREPARING && 'Xong'}
-                      {item.status === KitchenStatus.COMPLETED && 'Đã bưng'}
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
+              );
+            })}
+          </div>
+        )}
+      </PageCard>
     </div>
   );
 }

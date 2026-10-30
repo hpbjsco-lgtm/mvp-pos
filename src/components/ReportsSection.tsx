@@ -3,13 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import DragScrollRow from './DragScrollRow';
 import React, { useState, useEffect } from 'react';
-import { BarChart2, CheckCircle2, Clock, RefreshCw, Shield } from 'lucide-react';
+import { CheckCircle2, Clock, RefreshCw, Shield, ShoppingBag, TrendingUp, Wallet } from 'lucide-react';
 import { Order, Product, Attendance } from '../types';
 import { listStores, listAllUsers } from '../db/auth';
 import { loadCollection } from '../db/collections';
-import { categoryPlaceholderColor } from '../utils/categoryColor';
+import PageCard from './ui/PageCard';
+import FilterPills from './ui/FilterPills';
+import DataTable from './ui/DataTable';
 
 interface ReportsSectionProps {
   simOrders: Order[];
@@ -166,11 +167,6 @@ export default function ReportsSection({
   return (
     <div className="space-y-4">
 
-      <div className="flex items-center gap-2">
-        <BarChart2 className="w-5 h-5 text-primary" />
-        <h2 className="text-lg font-bold text-on-surface">Báo cáo</h2>
-      </div>
-
       {/* TRẠM CHẤM CÔNG / TỔNG QUAN HỆ THỐNG (SYSADMIN) */}
       {isSysAdmin ? (
         <div className="m3-card p-5 space-y-4">
@@ -284,120 +280,99 @@ export default function ReportsSection({
         </div>
       )}
 
-      {/* Bộ lọc khoảng thời gian */}
-      <DragScrollRow className="gap-2 pb-1">
-        {(['daily', 'monthly', 'yearly'] as const).map(t => (
-          <button
-            key={t}
-            onClick={() => { setTimeframe(t); triggerBeep(true); }}
-            className={`m3-chip !rounded-full whitespace-nowrap ${timeframe === t ? 'm3-chip-selected' : ''}`}
-          >
-            {t === 'daily' ? 'Hôm nay' : t === 'monthly' ? 'Theo tháng' : 'Theo năm'}
-          </button>
-        ))}
-      </DragScrollRow>
+      <PageCard title="Báo cáo doanh thu">
+        <FilterPills
+          options={[
+            { value: 'daily', label: 'Hôm nay' },
+            { value: 'monthly', label: 'Theo tháng' },
+            { value: 'yearly', label: 'Theo năm' },
+          ]}
+          value={timeframe}
+          onChange={nextTimeframe => { setTimeframe(nextTimeframe); triggerBeep(true); }}
+        />
 
-      {/* Doanh thu tổng quan */}
-      <div className="rounded-3xl bg-primary text-on-primary p-5 space-y-1 relative overflow-hidden">
-        <span className="text-sm font-semibold opacity-90 flex items-center gap-1.5">
-           Doanh thu {timeframeLabel.toLowerCase()}
-        </span>
-        <div className="flex items-end justify-between gap-2 flex-wrap">
-          <span className="text-3xl font-black">{totalRevenue.toLocaleString('vi-VN')} đ</span>
-          <span className="m3-badge !bg-white/15 !text-on-primary shrink-0">
-             +15.4%
-          </span>
+        {/* Three summary tiles */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="rounded-xl bg-tertiary-container text-on-tertiary-container p-4 flex items-center gap-4">
+            <Wallet className="w-9 h-9 shrink-0" />
+            <div>
+              <p className="text-2xl font-bold">{totalRevenue.toLocaleString('vi-VN')}</p>
+              <p className="text-sm">Doanh thu {timeframeLabel.toLowerCase()}</p>
+            </div>
+          </div>
+          <div className="rounded-xl bg-secondary-container text-on-secondary-container p-4 flex items-center gap-4">
+            <ShoppingBag className="w-9 h-9 shrink-0" />
+            <div>
+              <p className="text-2xl font-bold">{totalOrdersCount}</p>
+              <p className="text-sm">Số đơn hàng</p>
+            </div>
+          </div>
+          <div className="rounded-xl bg-primary-container text-on-primary-container p-4 flex items-center gap-4">
+            <TrendingUp className="w-9 h-9 shrink-0" />
+            <div>
+              <p className="text-2xl font-bold">{Math.round(estimatedProfit).toLocaleString('vi-VN')}</p>
+              <p className="text-sm">Lợi nhuận ước tính</p>
+            </div>
+          </div>
         </div>
-      </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="m3-card p-4 space-y-1">
-          <span className="text-sm text-on-surface-variant font-semibold flex items-center gap-1.5">
-             Số đơn hàng
-          </span>
-          <span className="text-xl font-bold text-on-surface">{totalOrdersCount}</span>
-        </div>
-        <div className="m3-card p-4 space-y-1">
-          <span className="text-sm text-on-surface-variant font-semibold flex items-center gap-1.5">
-             Lợi nhuận ước tính
-          </span>
-          <span className="text-xl font-bold text-on-surface">{Math.round(estimatedProfit).toLocaleString('vi-VN')} đ</span>
-        </div>
-      </div>
-
-      {/* Biểu đồ biến động doanh thu */}
-      <div className="m3-card p-4 space-y-3">
-        <h3 className="text-base font-bold text-on-surface">Biến động doanh thu</h3>
-        <div className="h-[180px] w-full flex items-end justify-between gap-1.5 pt-4">
-          {chartPoints.map((point, idx) => {
-            const percentHeight = Math.max(4, (point.value / maxChartValue) * 100);
-            return (
-              <div key={idx} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group relative">
-                <div className="absolute bottom-[calc(100%+4px)] opacity-0 group-hover:opacity-100 transition-opacity bg-inverse-surface text-inverse-on-surface text-sm font-bold px-2 py-1 rounded-lg shadow pointer-events-none z-10 whitespace-nowrap">
-                  {Math.round(point.value).toLocaleString('vi-VN')} đ
-                </div>
-                <div
-                  style={{ height: `${percentHeight}%` }}
-                  className="w-full bg-primary rounded-t-lg transition-all"
-                />
-                <span className="text-sm font-semibold text-on-surface-variant">{point.label}</span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Top sản phẩm bán chạy */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <h3 className="text-base font-bold text-on-surface">Top sản phẩm bán chạy</h3>
-        </div>
-        {bestSellers.length === 0 ? (
-          <div className="py-8 text-center text-on-surface-variant text-sm">Chưa có giao dịch nào được thực hiện để xếp hạng.</div>
-        ) : (
-          <div className="space-y-2">
-            {bestSellers.map((item, idx) => (
-              <div key={idx} className="m3-card p-3 flex items-center gap-3">
-                <span className="w-7 h-7 rounded-full bg-tertiary-container text-on-tertiary-container flex items-center justify-center text-sm font-bold shrink-0">
-                  {idx + 1}
-                </span>
-                {item.imageUrl ? (
-                  <img src={item.imageUrl} alt={item.name} className="w-11 h-11 rounded-xl object-cover shrink-0" />
-                ) : (
-                  <div className={`w-11 h-11 rounded-xl shrink-0 flex items-center justify-center text-base font-black ${categoryPlaceholderColor(item.category)}`}>
-                    {item.name.charAt(0).toUpperCase()}
+        {/* Revenue chart */}
+        <div className="border border-outline-variant rounded-2xl p-4 space-y-3">
+          <h3 className="text-lg font-bold text-on-surface">Biến động doanh thu</h3>
+          <div className="h-[220px] w-full flex items-end justify-between gap-3 pt-6 border-b border-outline-variant">
+            {chartPoints.map((point, idx) => {
+              const percentHeight = Math.max(4, (point.value / maxChartValue) * 100);
+              return (
+                <div key={idx} className="flex-1 max-w-24 mx-auto flex flex-col items-center h-full justify-end group relative">
+                  <div className="absolute bottom-[calc(100%+4px)] opacity-0 group-hover:opacity-100 transition-opacity bg-on-surface text-surface text-sm font-bold px-2 py-1 rounded-lg shadow pointer-events-none z-10 whitespace-nowrap">
+                    {Math.round(point.value).toLocaleString('vi-VN')} đ
                   </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <h4 className="text-base font-bold text-on-surface truncate">{item.name}</h4>
-                  <p className="text-sm text-on-surface-variant">Đã bán: {item.quantity}</p>
+                  <div style={{ height: `${percentHeight}%` }} className="w-full bg-primary rounded-t-lg transition-all" />
                 </div>
-                <span className="text-base font-bold text-primary shrink-0">{item.revenue.toLocaleString('vi-VN')} đ</span>
-              </div>
+              );
+            })}
+          </div>
+          <div className="flex justify-between gap-3">
+            {chartPoints.map((point, idx) => (
+              <span key={idx} className="flex-1 max-w-24 mx-auto text-center text-sm font-semibold text-on-surface-variant">{point.label}</span>
             ))}
           </div>
-        )}
-      </div>
+        </div>
 
-      {/* Sản phẩm bán chậm / tồn nhiều */}
-      <div className="space-y-2">
-        <h3 className="text-base font-bold text-on-surface">Sản phẩm bán chậm / tồn nhiều</h3>
-        {worstSellers.length === 0 ? (
-          <div className="py-8 text-center text-on-surface-variant text-sm">Không tìm thấy dữ liệu tồn đọng.</div>
-        ) : (
-          <div className="space-y-2">
-            {worstSellers.map((item, idx) => (
-              <div key={idx} className="m3-card p-3.5 flex items-center justify-between gap-2 border-l-4 border-l-error">
-                <span className="text-base font-bold text-on-surface truncate">{item.name}</span>
-                <div className="text-right shrink-0">
-                  <span className="text-sm font-bold text-error block">Đã bán: {item.quantity}</span>
-                  <span className="text-sm text-on-surface-variant">{item.category}</span>
-                </div>
-              </div>
-            ))}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Top best sellers */}
+          <div className="border border-outline-variant rounded-2xl p-4 space-y-3">
+            <h3 className="text-lg font-bold text-on-surface">Top sản phẩm bán chạy</h3>
+            <DataTable
+              rows={bestSellers.map((item, idx) => ({ ...item, rank: idx + 1 }))}
+              rowKey={item => item.name}
+              emptyMessage="Chưa có giao dịch nào được thực hiện để xếp hạng."
+              columns={[
+                { key: 'rank', header: 'Hạng', className: 'w-16', render: item => item.rank },
+                { key: 'name', header: 'Tên món', render: item => <span className="font-semibold">{item.name}</span> },
+                { key: 'quantity', header: 'Đã bán', className: 'text-center', render: item => item.quantity },
+                { key: 'revenue', header: 'Thành tiền', className: 'text-right', render: item => item.revenue.toLocaleString('vi-VN') },
+              ]}
+            />
           </div>
-        )}
-      </div>
+
+          {/* Slow sellers */}
+          <div className="border border-outline-variant rounded-2xl p-4 space-y-3">
+            <h3 className="text-lg font-bold text-on-surface">Sản phẩm bán chậm / tồn nhiều</h3>
+            <DataTable
+              rows={worstSellers.map((item, idx) => ({ ...item, rank: idx + 1 }))}
+              rowKey={item => item.name}
+              emptyMessage="Không tìm thấy dữ liệu tồn đọng."
+              columns={[
+                { key: 'rank', header: 'Hạng', className: 'w-16', render: item => item.rank },
+                { key: 'name', header: 'Tên món', render: item => <span className="font-semibold">{item.name}</span> },
+                { key: 'quantity', header: 'Đã bán', className: 'text-center', render: item => item.quantity },
+                { key: 'category', header: 'Loại menu', className: 'text-right', render: item => item.category },
+              ]}
+            />
+          </div>
+        </div>
+      </PageCard>
 
     </div>
   );

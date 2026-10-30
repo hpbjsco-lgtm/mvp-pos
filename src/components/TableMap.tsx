@@ -4,9 +4,10 @@
  */
 
 import React, { useState } from 'react';
-import { Calendar, Edit2, Eye, Grid, Hand, Lock, Trash2, Users, X } from 'lucide-react';
+import { Calendar, Edit2, Eye, Hand, Lock, Trash2, X } from 'lucide-react';
 import { DiningTable, Zone, TableStatus } from '../types';
 import { logOperation } from '../utils/logger';
+import FilterPills from './ui/FilterPills';
 
 interface TableMapProps {
   simTables: DiningTable[];
@@ -247,246 +248,214 @@ export default function TableMap({
   return (
     <div id="table-map-panel" className="bg-surface-container-lowest border border-outline-variant rounded-3xl p-5 space-y-5 shadow-sm" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}>
       
-      {/* Visual map header and Admin toggles */}
+      {/* Screen heading (hidden when embedded in the narrow sales column) */}
       {!compact && (
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-outline-variant pb-4">
         <div className="space-y-1">
-          <h3 className="text-sm font-extrabold text-on-surface uppercase tracking-tight flex items-center gap-2">
-             <Grid className="w-4 h-4 text-primary" /> Sơ đồ bàn F&B Trực quan
-          </h3>
-          <p className="text-xs text-on-surface-variant">Đặt bàn trực tiếp, xem trạng thái phòng bàn thời gian thực</p>
+          <h2 className="text-xl font-bold text-on-surface">Quản lý sơ đồ phòng bàn F&B</h2>
+          <p className="text-sm text-on-surface-variant">Chỉnh sửa khu vực, thêm bàn ăn, kéo thả di chuyển vị trí bàn trực quan trong chế độ thiết kế.</p>
         </div>
-
-        {/* Admin drag action mode toggle */}
-        {simUserRole === 'admin' && (
-          <button
-            onClick={() => { setIsDesignMode(!isDesignMode); triggerBeep(true); }}
-            className={`py-1.5 px-3 rounded-xl text-sm font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-              isDesignMode
-                ? 'bg-tertiary text-on-tertiary shadow-sm'
-                : 'bg-surface-container-high hover:bg-surface-container text-on-surface border border-outline-variant'
-            }`}
-          >
-            {isDesignMode ? (
-              <>
-                 <Hand className="w-3.5 h-3.5 animate-bounce" /> Chế độ Thiết kế (Bật kéo thả)
-              </>
-            ) : (
-              <>
-                 <Lock className="w-3.5 h-3.5" /> Chế độ Khóa sơ đồ (An toàn)
-              </>
-            )}
-          </button>
-        )}
-      </div>
       )}
 
-      {/* Zone Navigator Slider Tabs */}
-      <div className={`flex flex-wrap items-center gap-2 ${compact ? 'text-sm' : ''}`}>
-        <button
-          onClick={() => { setSelectedZoneId('all'); triggerBeep(true); }}
-          className={`${compact ? 'py-1.5 px-2.5 text-sm' : 'py-2 px-3'} rounded-xl font-bold transition-all cursor-pointer ${
-            selectedZoneId === 'all'
-              ? 'bg-primary text-on-primary shadow-md'
-              : 'bg-surface-container hover:bg-surface-container-high text-on-surface-variant border border-outline-variant'
-          }`}
-        >
-          Tất cả khu vực
-        </button>
+      <div className={compact ? 'space-y-4' : 'border border-outline-variant rounded-2xl p-4 space-y-4'}>
+        {!compact && (
+          <div className="flex flex-col sm:flex-row justify-between items-start gap-3">
+            <div className="space-y-1">
+              <h3 className="text-lg font-bold text-on-surface">Sơ đồ bàn F&B Trực quan</h3>
+              <p className="text-sm text-on-surface-variant">Đặt bàn trực tiếp, xem trạng thái phòng bàn thời gian thực</p>
+            </div>
 
-        {simZones.map(z => (
-          <button
-            key={z.id}
-            onClick={() => { setSelectedZoneId(z.id); triggerBeep(true); }}
-            className={`${compact ? 'py-1.5 px-2.5 text-sm' : 'py-2 px-3'} rounded-xl font-bold transition-all cursor-pointer ${
-              selectedZoneId === z.id
-                ? 'bg-primary text-on-primary shadow-md'
-                : 'bg-surface-container hover:bg-surface-container-high text-on-surface-variant border border-outline-variant'
-            }`}
-          >
-            {z.name}
-          </button>
-        ))}
-      </div>
-
-      {/* Main Floor Plan Drawing Board Canvas */}
-      <div
-        className={`${compact ? 'h-[420px]' : 'h-[340px]'} bg-surface-container border border-outline-variant rounded-2xl relative overflow-hidden p-4 select-none`}
-        style={{ backgroundImage: 'radial-gradient(#e2e8f0 1.5px, transparent 1.5px)', bgSize: '24px 24px' }}
-      >
-        {filteredTables.length === 0 ? (
-          <div className="absolute inset-0 flex flex-col justify-center items-center text-center text-on-surface-variant p-4">
-            <Eye className="w-8 h-8 mb-2 text-outline" />
-            <p className="text-xs font-semibold">Chưa có bàn ăn nào được định nghĩa ở khu vực này.</p>
-            <p className="text-[11px] text-on-surface-variant mt-0.5">Sử dụng bảng quản trị phía dưới để thêm bàn ăn.</p>
-          </div>
-        ) : (
-          filteredTables.map(t => {
-            const isSelected = simSelectedTableId === t.id;
-            const isTableServing = t.status === TableStatus.SERVING;
-            
-            return (
-              <div
-                key={t.id}
-                onMouseDown={(e) => handleMouseDown(t.id, e)}
-                onClick={() => { setSimSelectedTableId(t.id); triggerBeep(true); }}
-                style={{
-                  position: 'absolute',
-                  left: `${t.x || 10}%`,
-                  top: `${t.y || 15}%`,
-                  width: `${compact ? Math.min(t.width || 90, 74) : (t.width || 90)}px`,
-                  height: `${compact ? Math.min(t.height || 90, 74) : (t.height || 90)}px`,
-                  touchAction: 'none'
-                }}
-                className={`rounded-2xl border-2 flex flex-col justify-between ${compact ? 'p-2' : 'p-3'} cursor-pointer shadow-sm transition-all select-none ${
-                  isSelected
-                    ? 'border-primary bg-primary-container/95 ring-4 ring-primary-container scale-[1.03] z-20'
-                    : isTableServing
-                      ? 'border-secondary bg-secondary-container/70 hover:bg-secondary-container'
-                      : 'border-outline-variant bg-surface-container-lowest hover:bg-surface-container'
-                } ${isDesignMode && simUserRole === 'admin' ? 'cursor-move active:scale-95' : ''}`}
+            {/* Admin drag action mode toggle */}
+            {simUserRole === 'admin' && (
+              <button
+                type="button"
+                onClick={() => { setIsDesignMode(!isDesignMode); triggerBeep(true); }}
+                className={`min-h-10 px-5 rounded-full text-sm font-bold transition-colors flex items-center gap-2 cursor-pointer ${
+                  isDesignMode ? 'bg-tertiary text-on-tertiary' : 'bg-primary text-on-primary hover:brightness-110'
+                }`}
               >
-                {/* Table Header: Name & capacity */}
-                <div className="flex justify-between items-start">
-                  <span className={`text-xs font-black uppercase tracking-tight ${isSelected ? 'text-on-primary-container' : 'text-on-surface'}`}>
-                    {t.name}
-                  </span>
-
-                  {simUserRole === 'admin' && isDesignMode ? (
-                    <span className="flex items-center gap-0.5" onMouseDown={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={(e) => openEditTable(t, e)}
-                        className="p-1 text-on-surface-variant hover:text-primary rounded-md hover:bg-surface-container-high"
-                        title="Sửa tên / số chỗ"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={(e) => handleDeleteTable(t.id, e)}
-                        className="p-1 text-on-surface-variant hover:text-error rounded-md hover:bg-surface-container-high"
-                        title="Xóa bàn"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </span>
-                  ) : (
-                    <span className="text-[10px] text-on-surface-variant font-bold flex items-center gap-0.5">
-                       <Users className="w-2.5 h-2.5" /> {t.capacity}
-                    </span>
-                  )}
-                </div>
-
-                {/* Reservation badge */}
-                {!compact && t.reservationName && (
-                  <button
-                    onClick={(e) => openReservationModal(t, e)}
-                    className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-tertiary-container text-on-tertiary-container border border-tertiary-container flex items-center gap-1 self-start"
-                    title="Xem / sửa thông tin đặt bàn trước"
-                  >
-                     <Calendar className="w-2.5 h-2.5" /> Đã đặt: {t.reservationName}
-                  </button>
+                {isDesignMode ? (
+                  <>
+                    <Hand className="w-4 h-4" /> Chế độ thiết kế (bật kéo thả)
+                  </>
+                ) : (
+                  <>
+                    <Lock className="w-4 h-4" /> Chế độ khóa sơ đồ (an toàn)
+                  </>
                 )}
+              </button>
+            )}
+          </div>
+        )}
 
-                {/* Table Status trigger */}
-                <div className="flex justify-between items-end gap-1">
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold uppercase ${
-                    isTableServing
-                      ? 'bg-secondary/15 text-on-secondary-container border border-secondary/25'
-                      : 'bg-surface-container-high text-on-surface-variant border border-outline-variant'
-                  }`}>
-                    {isTableServing ? 'Phục vụ' : 'Trống'}
-                  </span>
+        {/* Zone filter */}
+        <FilterPills
+          options={[
+            { value: 'all', label: 'Tất cả khu vực' },
+            ...simZones.map(z => ({ value: z.id, label: z.name })),
+          ]}
+          value={selectedZoneId}
+          onChange={zoneId => { setSelectedZoneId(zoneId); triggerBeep(true); }}
+        />
 
-                  {!compact && !isDesignMode && (
-                    <div className="flex items-center gap-1">
-                      {!t.reservationName && (
+        {/* Floor plan canvas */}
+        <div className={`h-[420px] bg-surface-container-low rounded-2xl relative overflow-hidden select-none`}>
+          {filteredTables.length === 0 ? (
+            <div className="absolute inset-0 flex flex-col justify-center items-center text-center text-on-surface-variant p-4">
+              <Eye className="w-8 h-8 mb-2 text-outline" />
+              <p className="text-sm font-semibold">Chưa có bàn ăn nào được định nghĩa ở khu vực này.</p>
+              <p className="text-sm mt-0.5">Sử dụng bảng quản trị phía dưới để thêm bàn ăn.</p>
+            </div>
+          ) : (
+            filteredTables.map(t => {
+              const isSelected = simSelectedTableId === t.id;
+              const isTableServing = t.status === TableStatus.SERVING;
+              const isDesigning = isDesignMode && simUserRole === 'admin';
+              const tableWidth = compact ? Math.min(t.width || 90, 74) : Math.max(t.width || 90, 110);
+              const tableHeight = compact ? Math.min(t.height || 90, 74) : Math.max(t.height || 90, 105);
+              const cardTone = isSelected
+                ? 'border-primary bg-primary-container'
+                : isTableServing
+                  ? 'border-secondary bg-secondary-container'
+                  : t.reservationName
+                    ? 'border-tertiary bg-tertiary-container'
+                    : 'border-outline-variant bg-surface-container-lowest';
+              const chairTone = isSelected ? 'bg-primary' : isTableServing ? 'bg-secondary' : t.reservationName ? 'bg-tertiary' : 'bg-outline-variant';
+
+              return (
+                <div
+                  key={t.id}
+                  onMouseDown={(e) => handleMouseDown(t.id, e)}
+                  onClick={() => { setSimSelectedTableId(t.id); triggerBeep(true); }}
+                  style={{
+                    position: 'absolute',
+                    left: `${t.x || 10}%`,
+                    top: `${t.y || 15}%`,
+                    width: `${tableWidth}px`,
+                    height: `${tableHeight}px`,
+                    touchAction: 'none'
+                  }}
+                  className={`cursor-pointer select-none transition-transform ${isSelected ? 'z-20 scale-[1.03]' : ''} ${isDesigning ? 'cursor-move active:scale-95' : ''}`}
+                >
+                  {/* Chairs: two on top and bottom, one on each side */}
+                  <span aria-hidden className={`absolute top-0 left-[18%] w-[22%] h-1.5 rounded-full ${chairTone}`} />
+                  <span aria-hidden className={`absolute top-0 right-[18%] w-[22%] h-1.5 rounded-full ${chairTone}`} />
+                  <span aria-hidden className={`absolute left-0 top-[30%] h-[28%] w-1.5 rounded-full ${chairTone}`} />
+                  <span aria-hidden className={`absolute right-0 top-[30%] h-[28%] w-1.5 rounded-full ${chairTone}`} />
+
+                  <div className={`absolute inset-x-2 top-2 ${compact ? 'bottom-5' : 'bottom-6'} rounded-xl border-2 flex flex-col items-center justify-center gap-0.5 ${cardTone}`}>
+                    <span className="text-sm text-on-surface-variant">{t.capacity} chỗ</span>
+                    {isTableServing && <span className="text-sm font-bold text-on-secondary-container">Phục vụ</span>}
+
+                    {isDesigning ? (
+                      <span className="flex items-center gap-0.5" onMouseDown={(e) => e.stopPropagation()}>
                         <button
-                          onClick={(e) => openReservationModal(t, e)}
-                          className="p-1 bg-surface-container-lowest hover:bg-tertiary-container hover:text-tertiary rounded-lg text-[9px] font-bold border border-outline-variant hover:border-tertiary-container shadow-sm"
-                          title="Đặt bàn trước"
+                          type="button"
+                          onClick={(e) => openEditTable(t, e)}
+                          className="p-1 text-on-surface-variant hover:text-primary rounded-md hover:bg-surface-container-high"
+                          title="Sửa tên / số chỗ"
                         >
-                          <Calendar className="w-3 h-3" />
+                          <Edit2 className="w-4 h-4" />
                         </button>
-                      )}
-                      <button
-                        onClick={(e) => handleToggleTableStatus(t.id, e)}
-                        className="p-1 bg-surface-container-lowest hover:bg-surface-container-high rounded-lg text-[10px] font-bold border border-outline-variant hover:border-outline shadow-sm"
-                        title="Chuyển trạng thái bàn"
-                      >
-                        {isTableServing ? 'Trả bàn' : 'Gọi khách'}
-                      </button>
-                    </div>
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteTable(t.id, e)}
+                          className="p-1 text-on-surface-variant hover:text-error rounded-md hover:bg-surface-container-high"
+                          title="Xóa bàn"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </span>
+                    ) : (
+                      !compact && (
+                        <button
+                          type="button"
+                          onClick={(e) => handleToggleTableStatus(t.id, e)}
+                          className="px-2 py-0.5 bg-surface-container-lowest hover:bg-surface-container-high rounded-md text-sm font-bold border border-outline-variant"
+                          title="Chuyển trạng thái bàn"
+                        >
+                          {isTableServing ? 'Trả bàn' : 'Gọi khách'}
+                        </button>
+                      )
+                    )}
+                  </div>
+
+                  {/* Reservation icon in the top-right corner of the card */}
+                  {!compact && !isDesigning && (
+                    <button
+                      type="button"
+                      onClick={(e) => openReservationModal(t, e)}
+                      className={`absolute top-2.5 right-3 p-0.5 rounded ${t.reservationName ? 'text-tertiary' : 'text-outline hover:text-tertiary'}`}
+                      title={t.reservationName ? `Đã đặt: ${t.reservationName} (bấm để xem / sửa)` : 'Đặt bàn trước'}
+                    >
+                      <Calendar className="w-4 h-4" />
+                    </button>
+                  )}
+
+                  <span className="absolute bottom-0 inset-x-0 text-center text-sm font-semibold text-on-surface truncate">{t.name}</span>
+
+                  {/* Visual indicator of dragging state */}
+                  {draggingId === t.id && (
+                    <div className="absolute inset-0 bg-primary/10 border-2 border-dashed border-primary rounded-2xl pointer-events-none animate-pulse"></div>
                   )}
                 </div>
+              );
+            })
+          )}
+        </div>
 
-                {/* Visual indicator of dragging state */}
-                {draggingId === t.id && (
-                  <div className="absolute inset-0 bg-primary/10 border-2 border-dashed border-primary rounded-2xl pointer-events-none animate-pulse"></div>
-                )}
+        {/* Control console for custom design adding */}
+        {!compact && simUserRole === 'admin' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            {/* Form 1: Add new table */}
+            <form onSubmit={handleAddTable} className="space-y-3 bg-surface-container-low p-4 rounded-2xl">
+              <h4 className="text-sm font-bold text-on-surface">Thêm bàn ăn mới</h4>
+              <div className="grid grid-cols-3 gap-2">
+                <input
+                  type="text"
+                  value={newTableName}
+                  onChange={(e) => setNewTableName(e.target.value)}
+                  placeholder="Bàn 06"
+                  className="col-span-2 m3-input"
+                  required
+                />
+                <input
+                  type="number"
+                  value={newTableCapacity}
+                  onChange={(e) => setNewTableCapacity(parseInt(e.target.value) || 4)}
+                  placeholder="Ghế"
+                  className="m3-input text-center"
+                  min="1"
+                  max="24"
+                  required
+                />
               </div>
-            );
-          })
+              <button type="submit" className="m3-btn-filled w-full !rounded-xl !min-h-11">
+                Tạo bàn ăn
+              </button>
+            </form>
+
+            {/* Form 2: Add new zone */}
+            <form onSubmit={handleAddZone} className="space-y-3 bg-surface-container-low p-4 rounded-2xl flex flex-col justify-between">
+              <div className="space-y-3">
+                <h4 className="text-sm font-bold text-on-surface">Thêm khu vực sơ đồ mới</h4>
+                <input
+                  type="text"
+                  value={newZoneName}
+                  onChange={(e) => setNewZoneName(e.target.value)}
+                  placeholder="Tầng lửng ngoài trời"
+                  className="m3-input"
+                  required
+                />
+              </div>
+              <button type="submit" className="m3-btn-filled w-full !rounded-xl !min-h-11">
+                Thêm khu vực
+              </button>
+            </form>
+
+          </div>
         )}
       </div>
-
-      {/* Control console for custom design adding */}
-      {!compact && simUserRole === 'admin' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-outline-variant pt-4">
-          
-          {/* Form 1: Add new table */}
-          <form onSubmit={handleAddTable} className="space-y-2 bg-surface-container border border-outline-variant p-3.5 rounded-2xl">
-            <h5 className="text-xs font-black text-on-surface uppercase tracking-wide">Thêm bàn ăn mới</h5>
-            <div className="grid grid-cols-3 gap-2">
-              <input
-                type="text"
-                value={newTableName}
-                onChange={(e) => setNewTableName(e.target.value)}
-                placeholder="Bàn 06"
-                className="col-span-2 m3-input !py-1.5 !text-sm"
-                required
-              />
-              <input
-                type="number"
-                value={newTableCapacity}
-                onChange={(e) => setNewTableCapacity(parseInt(e.target.value) || 4)}
-                placeholder="Ghế"
-                className="m3-input !py-1.5 !text-sm font-semibold text-center"
-                min="1"
-                max="24"
-                required
-              />
-            </div>
-            <button
-              type="submit"
-              className="m3-btn-filled w-full !py-1.5 !text-sm"
-            >
-              + Tạo bàn ăn
-            </button>
-          </form>
-
-          {/* Form 2: Add new zone */}
-          <form onSubmit={handleAddZone} className="space-y-2 bg-surface-container border border-outline-variant p-3.5 rounded-2xl flex flex-col justify-between">
-            <div>
-              <h5 className="text-xs font-black text-on-surface uppercase tracking-wide">Thêm khu vực sơ đồ mới</h5>
-              <input
-                type="text"
-                value={newZoneName}
-                onChange={(e) => setNewZoneName(e.target.value)}
-                placeholder="Tầng lửng ngoài trời"
-                className="w-full m3-input !py-1.5 !text-sm mt-2"
-                required
-              />
-            </div>
-            <button
-              type="submit"
-              className="m3-btn-filled w-full !py-1.5 !text-sm mt-2"
-            >
-              + Thêm khu vực
-            </button>
-          </form>
-
-        </div>
-      )}
 
       {/* Modal sửa tên / số chỗ bàn */}
       {editTableId && (
