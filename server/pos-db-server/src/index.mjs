@@ -6,7 +6,7 @@
  *
  *   API_TOKEN=<16+ chars> ADMIN_TOKEN=<16+ chars, different> DATA_DIR=/var/lib/mvp-pos node src/index.mjs
  *
- * Optional: PORT (8790), HOST (127.0.0.1), CORS_ORIGIN.
+ * Optional: PORT (8790), HOST (127.0.0.1), STATIC_DIR (built web app to serve at /), CORS_ORIGIN.
  */
 
 import { mkdirSync } from 'node:fs';
@@ -27,6 +27,7 @@ const app = createApp({
   manager,
   apiToken: config.apiToken,
   adminToken: config.adminToken,
+  staticDir: config.staticDir,
   corsOrigin: config.corsOrigin,
 });
 

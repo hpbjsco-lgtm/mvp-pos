@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+dist
+.git
+.claude
+logs
+coverage
+server/pos-db-server/data
+data
+.env
+.env.*
+!.env.example
+ios
+android

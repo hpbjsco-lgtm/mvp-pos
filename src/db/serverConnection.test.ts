@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   clearServerConnection, getServerConnection, normalizeServerUrl, saveServerConnection,
 } from './serverConnection';
@@ -38,8 +38,15 @@ describe('normalizeServerUrl', () => {
 describe('server connection storage', () => {
   let values: Map<string, string>;
 
-  beforeEach(() => { values = installFakeLocalStorage(); });
-  afterEach(() => { delete (globalThis as any).localStorage; });
+  beforeEach(() => {
+    values = installFakeLocalStorage();
+    // A developer's .env.local may fix a connection; these tests cover the saved one.
+    vi.stubEnv('VITE_SERVER_API_TOKEN', '');
+  });
+  afterEach(() => {
+    delete (globalThis as any).localStorage;
+    vi.unstubAllEnvs();
+  });
 
   it('returns null when nothing was saved', () => {
     expect(getServerConnection()).toBeNull();
@@ -63,5 +70,16 @@ describe('server connection storage', () => {
   it('fails loudly on a damaged saved value instead of using another database', () => {
     values.set('smartpos.serverConnection', '{not json');
     expect(() => getServerConnection()).toThrow('bị hỏng');
+  });
+
+  it('prefers the connection fixed by VITE_SERVER_* over the saved one', () => {
+    saveServerConnection({ url: 'https://saved.example.com', token: 'saved-token-123456' });
+    vi.stubEnv('VITE_SERVER_URL', 'http://127.0.0.1:8790/');
+    vi.stubEnv('VITE_SERVER_API_TOKEN', ' fixed-token-123456 ');
+    try {
+      expect(getServerConnection()).toEqual({ url: 'http://127.0.0.1:8790', token: 'fixed-token-123456' });
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });

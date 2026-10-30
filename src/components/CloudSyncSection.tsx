@@ -18,7 +18,6 @@ import {
 } from '../cloud/cloudSync';
 import { getDatabaseStats, type DatabaseStats } from '../db/stats';
 import { logOperation } from '../utils/logger';
-import ServerConnectionSettings from './ServerConnectionSettings';
 
 interface CloudSyncSectionProps {
   storeId: string;
@@ -113,8 +112,6 @@ export default function CloudSyncSection({
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
-      <ServerConnectionSettings />
-
       {/* Banner trạng thái */}
       <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-emerald-950 rounded-3xl p-6 text-white shadow-xl border border-emerald-900/30">
         <div className="flex flex-col md:flex-row justify-between gap-4">

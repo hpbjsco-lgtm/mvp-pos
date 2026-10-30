@@ -13,7 +13,6 @@ import KitchenDisplay from './components/KitchenDisplay';
 
 // Clean screen imports
 import LoginScreen from './components/LoginScreen';
-import ServerConnectionSettings from './components/ServerConnectionSettings';
 import POSScreen from './components/POSScreen';
 import InventoryScreen from './components/InventoryScreen';
 import ReportsSection from './components/ReportsSection';
@@ -313,7 +312,7 @@ export default function App() {
     );
   }
 
-  // The database could not start (for example the database server is unreachable): show why and let the person fix the connection
+  // The database could not start (for example the database server is unreachable): show why
   if (initError) {
     return (
       <div className="min-h-screen bg-surface flex items-center justify-center p-4">
@@ -322,7 +321,6 @@ export default function App() {
             <h2 className="text-lg font-bold">Không mở được cơ sở dữ liệu</h2>
             <p className="text-sm">{initError}</p>
           </div>
-          <ServerConnectionSettings />
           <button type="button" onClick={() => window.location.reload()} className="m3-btn-filled !rounded-xl">Thử lại</button>
         </div>
       </div>

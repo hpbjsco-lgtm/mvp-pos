@@ -4,7 +4,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createApp } from './app.mjs';
@@ -313,5 +313,49 @@ describe('Admin API', () => {
     const response = await call('/restore', { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: Buffer.from('not a database at all, just text') });
     expect(response.status).toBe(400);
     expect((await (await call('/tables/products')).json()).total).toBe(3);
+  });
+});
+
+describe('Static web app', () => {
+  let dataDir;
+  let manager;
+  let server;
+  let baseUrl;
+
+  beforeEach(async () => {
+    dataDir = mkdtempSync(path.join(os.tmpdir(), 'pos-static-test-'));
+    mkdirSync(path.join(dataDir, 'web'));
+    writeFileSync(path.join(dataDir, 'web', 'index.html'), '<html>app shell</html>');
+    writeFileSync(path.join(dataDir, 'web', 'app.js'), 'console.log(1)');
+    manager = new DatabaseManager(path.join(dataDir, 'pos.db'), path.join(dataDir, 'backups'));
+    const getDatabase = () => manager.database;
+    const app = createApp({
+      sqlService: new SqlService(getDatabase),
+      explorer: new TableExplorer(getDatabase),
+      manager,
+      apiToken: TOKEN,
+      adminToken: ADMIN_TOKEN,
+      staticDir: path.join(dataDir, 'web'),
+    });
+    await new Promise((resolve) => { server = app.listen(0, '127.0.0.1', resolve); });
+    baseUrl = `http://127.0.0.1:${server.address().port}`;
+  });
+
+  afterEach(async () => {
+    await new Promise((resolve) => server.close(resolve));
+    manager.close();
+    rmSync(dataDir, { recursive: true, force: true });
+  });
+
+  it('serves the app shell and its files', async () => {
+    expect(await (await fetch(`${baseUrl}/`)).text()).toContain('app shell');
+    expect(await (await fetch(`${baseUrl}/app.js`)).text()).toBe('console.log(1)');
+    expect(await (await fetch(`${baseUrl}/some/unknown/path`)).text()).toContain('app shell');
+  });
+
+  it('keeps the API and admin routes ahead of the app shell', async () => {
+    expect((await (await fetch(`${baseUrl}/api/health`)).json()).ok).toBe(true);
+    expect(await (await fetch(`${baseUrl}/admin/db`)).text()).toContain('Quản lý cơ sở dữ liệu');
+    expect((await fetch(`${baseUrl}/api/unknown`)).status).toBe(404);
   });
 });

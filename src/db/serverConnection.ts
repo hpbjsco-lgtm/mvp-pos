@@ -30,12 +30,28 @@ export function normalizeServerUrl(input: string): string {
 }
 
 /**
- * Reads the saved server connection.
+ * Reads the connection fixed at build time through `VITE_SERVER_API_TOKEN` (and `VITE_SERVER_URL`, which
+ * defaults to the address the app is served from).
  *
- * @returns The saved connection, or null when the app is set to use the database in this browser.
+ * @returns The fixed connection, or null when no API token is configured.
+ * @throws Error when `VITE_SERVER_URL` is not an http(s) address.
+ */
+function getConfiguredConnection(): ServerConnection | null {
+  const token = ((import.meta.env.VITE_SERVER_API_TOKEN as string | undefined) ?? '').trim();
+  if (!token) return null;
+  const url = ((import.meta.env.VITE_SERVER_URL as string | undefined) ?? '').trim() || window.location.origin;
+  return { url: normalizeServerUrl(url), token };
+}
+
+/**
+ * Reads the server connection: the one fixed at build time wins over the one saved in this browser.
+ *
+ * @returns The connection, or null when the app is set to use the database in this browser.
  * @throws Error when the saved value is damaged, so the app does not silently fall back to another database.
  */
 export function getServerConnection(): ServerConnection | null {
+  const configured = getConfiguredConnection();
+  if (configured) return configured;
   if (typeof localStorage === 'undefined') return null;
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) return null;

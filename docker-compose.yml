@@ -1,0 +1,23 @@
+# Database server + web app.
+#   1. Copy deploy/docker.env.example to .env and fill in the two tokens.
+#   2. docker compose up -d --build
+# The SQLite file is stored in POS_DATA_DIR on the host, outside the image, so rebuilding never touches it.
+services:
+  pos:
+    build:
+      context: .
+      args:
+        # Fixed into the web bundle so the app connects to this server without a settings screen.
+        VITE_SERVER_URL: ${VITE_SERVER_URL:-}
+        VITE_SERVER_API_TOKEN: ${API_TOKEN}
+    image: mvp-pos:latest
+    container_name: mvp-pos
+    restart: unless-stopped
+    ports:
+      # Only the local machine can reach the container; Apache is the public entry point.
+      - "127.0.0.1:${POS_PORT:-8790}:8790"
+    environment:
+      API_TOKEN: ${API_TOKEN:?API_TOKEN is required}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:?ADMIN_TOKEN is required}
+    volumes:
+      - ${POS_DATA_DIR:-./data}:/data

@@ -4,6 +4,7 @@
  */
 
 import express from 'express';
+import path from 'node:path';
 import { createAdminRouter } from './adminRouter.mjs';
 import { requireBearerToken } from './auth.mjs';
 
@@ -26,10 +27,11 @@ const MAX_BODY_SIZE = '32mb';
  * @param {import('./tableExplorer.mjs').TableExplorer} options.explorer Reads and edits table rows for the admin page.
  * @param {import('./databaseManager.mjs').DatabaseManager} options.manager Takes backups and restores them for the admin page.
  * @param {string} options.adminToken Secret required by the admin routes.
+ * @param {string} [options.staticDir] Folder with the built web app; when set it is served at `/` (the app has no URL routes, so `index.html` answers unknown paths).
  * @param {string} [options.corsOrigin] Origin allowed to call the API from a browser; empty means no CORS headers.
  * @returns {import('express').Express} Configured application.
  */
-export function createApp({ sqlService, apiToken, explorer, manager, adminToken, corsOrigin = '' }) {
+export function createApp({ sqlService, apiToken, explorer, manager, adminToken, staticDir = '', corsOrigin = '' }) {
   const app = express();
   app.disable('x-powered-by');
   app.use(express.json({ limit: MAX_BODY_SIZE }));
@@ -87,6 +89,14 @@ export function createApp({ sqlService, apiToken, explorer, manager, adminToken,
   });
 
   app.use('/admin', createAdminRouter({ explorer, manager, adminToken }));
+
+  if (staticDir) {
+    app.use(express.static(staticDir));
+    // Unknown paths outside /api and /admin return the app shell instead of a 404 page.
+    app.get(/^\/(?!api\/|admin\/).*/, (request, response) => {
+      response.sendFile(path.join(staticDir, 'index.html'));
+    });
+  }
 
   return app;
 }
