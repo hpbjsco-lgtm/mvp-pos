@@ -4,9 +4,12 @@
  */
 
 import React, { useState } from 'react';
-import { Edit2, Plus, Search, Trash2, Truck, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { Supplier } from '../types';
 import { logOperation } from '../utils/logger';
+import PageCard from './ui/PageCard';
+import ListToolbar from './ui/ListToolbar';
+import DataTable, { RowActions } from './ui/DataTable';
 
 interface SuppliersSectionProps {
   isOffline: boolean;
@@ -122,68 +125,29 @@ export default function SuppliersSection({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Truck className="w-5 h-5 text-primary" />
-          <h2 className="text-lg font-bold text-on-surface">Nhà cung cấp</h2>
-        </div>
-        <button onClick={handleOpenAdd} className="m3-btn-filled !min-h-10 !px-4 text-sm">
-          <Plus className="w-4 h-4" /> Thêm NCC
-        </button>
-      </div>
-
-      <div className="relative">
-        <Search className="w-4 h-4 text-on-surface-variant absolute left-3.5 top-1/2 -translate-y-1/2" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Tìm kiếm nhà cung cấp..."
-          className="m3-input !rounded-full pl-10"
+      <PageCard title="Quản lý nhà cung cấp">
+        <ListToolbar
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Tìm nhà cung cấp..."
+          addLabel="Thêm mới"
+          onAdd={handleOpenAdd}
         />
-      </div>
-
-      {filteredSuppliers.length === 0 ? (
-        <div className="py-16 text-center text-on-surface-variant flex flex-col items-center justify-center gap-2">
-          <Truck className="w-8 h-8 text-outline-variant" />
-          <p className="text-base font-bold">Không tìm thấy nhà cung cấp nào</p>
-          <p className="text-sm">Thử đổi từ khóa tìm kiếm.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {filteredSuppliers.map((s) => (
-            <div key={s.id} className="m3-card p-4 flex items-start gap-3">
-              <span className="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center shrink-0">
-                <Truck className="w-4 h-4 text-on-surface-variant" />
-              </span>
-              <div className="flex-1 min-w-0 space-y-1">
-                <h4 className="text-base font-bold text-on-surface truncate">{s.name}</h4>
-                <p className="text-sm text-on-surface-variant flex items-center gap-1.5 font-mono">
-                   {s.phone || 'Chưa bổ sung'}
-                </p>
-                {s.email && (
-                  <p className="text-sm text-on-surface-variant flex items-center gap-1.5 truncate">
-                     {s.email}
-                  </p>
-                )}
-                {s.address && (
-                  <p className="text-sm text-on-surface-variant flex items-center gap-1.5 truncate" title={s.address}>
-                     {s.address}
-                  </p>
-                )}
-              </div>
-              <div className="flex flex-col gap-1.5 shrink-0">
-                <button onClick={() => handleOpenEdit(s)} className="m3-icon-btn" title="Sửa thông tin NCC">
-                  <Edit2 className="w-4 h-4" />
-                </button>
-                <button onClick={() => handleDelete(s)} className="m3-icon-btn hover:text-error" title="Xóa nhà cung cấp">
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+        <DataTable
+          rows={filteredSuppliers}
+          rowKey={s => s.id}
+          emptyMessage="Không tìm thấy nhà cung cấp nào"
+          columns={[
+            { key: 'name', header: 'Tên nhà cung cấp', render: s => <span className="font-semibold">{s.name}</span> },
+            { key: 'phone', header: 'Số điện thoại', render: s => s.phone || 'Chưa bổ sung' },
+            { key: 'email', header: 'Email', render: s => s.email },
+            { key: 'address', header: 'Địa chỉ', render: s => s.address },
+          ]}
+          renderActions={s => (
+            <RowActions onEdit={() => handleOpenEdit(s)} onDelete={() => handleDelete(s)} editLabel="Sửa thông tin NCC" deleteLabel="Xóa nhà cung cấp" />
+          )}
+        />
+      </PageCard>
 
       {/* Modal Dialog Form */}
       {modalOpen && (
