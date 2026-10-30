@@ -3,9 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import DragScrollRow from './DragScrollRow';
 import React, { useMemo, useState } from 'react';
-import { Coffee, Plus, Search, ShoppingBasket, Trash2, X } from 'lucide-react';
+import { Plus, Trash2, X } from 'lucide-react';
 import { Product, ProductSize } from '../types';
 import { cleanSizes, hasSizes } from '../utils/sizes';
 import { logOperation } from '../utils/logger';
@@ -13,6 +12,10 @@ import { categoryBadgeColor } from '../utils/categoryColor';
 import { fileToResizedDataUrl } from '../utils/imageUpload';
 import ToppingDialog from './ToppingDialog';
 import DishDialog from './DishDialog';
+import PageCard from './ui/PageCard';
+import FilterPills from './ui/FilterPills';
+import ListToolbar from './ui/ListToolbar';
+import DataTable, { RoundThumb, RowActions } from './ui/DataTable';
 
 const CATEGORIES_BY_STORE_TYPE: Record<'fnb' | 'retail', string[]> = {
   fnb: ['Đồ uống', 'Món ăn', 'Khác'],
@@ -254,126 +257,63 @@ export default function MenuManagement({
 
   return (
     <div id="menu-management-panel" className="space-y-4 pb-20">
-
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          {isRetail ? <ShoppingBasket className="w-5 h-5 text-primary" /> : <Coffee className="w-5 h-5 text-primary" />}
-          <h2 className="text-lg font-bold text-on-surface">{isRetail ? 'Sản phẩm' : 'Thực đơn'}</h2>
-        </div>
-        <span className="m3-badge m3-badge-neutral">{simProducts.length} {isRetail ? 'sản phẩm' : 'món'}</span>
-      </div>
-
-      <div className="relative">
-        <Search className="w-4 h-4 text-on-surface-variant absolute left-3.5 top-1/2 -translate-y-1/2" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder={isRetail ? 'Tìm theo tên sản phẩm hoặc mã SKU/Barcode...' : 'Tìm theo tên món hoặc mã SKU...'}
-          className="m3-input !rounded-full pl-10"
+      <PageCard title={isRetail ? 'Quản lý sản phẩm' : 'Thực đơn & Menu'}>
+        <ListToolbar
+          filters={<FilterPills options={['all', ...existingCategories].map(cat => ({ value: cat, label: cat === 'all' ? 'Tất cả' : cat }))} value={selectedCategory} onChange={setSelectedCategory} />}
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder={isRetail ? 'Tìm theo tên sản phẩm hoặc mã SKU/Barcode...' : 'Tìm tên món hoặc mã món...'}
+          addLabel="Thêm mới"
+          onAdd={() => { if (isRetail) openNewItem(); else setChooserOpen(true); triggerBeep(true); }}
         />
-      </div>
-
-      <DragScrollRow className="gap-2 pb-1">
-        {['all', ...existingCategories].map(cat => (
-          <button
-            key={cat}
-            onClick={() => setSelectedCategory(cat)}
-            className={`m3-chip !rounded-full whitespace-nowrap ${selectedCategory === cat ? 'm3-chip-selected' : ''}`}
-          >
-            {cat === 'all' ? 'Tất cả' : cat}
-          </button>
-        ))}
-      </DragScrollRow>
-
-      {filteredProducts.length === 0 ? (
-        <div className="py-16 text-center text-on-surface-variant flex flex-col items-center justify-center gap-2">
-          <Search className="w-8 h-8 text-outline-variant" />
-          <p className="text-base font-bold">Không tìm thấy {isRetail ? 'sản phẩm' : 'món ăn'} nào</p>
-          <p className="text-sm">Thử đổi từ khóa hoặc danh mục lọc.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {filteredProducts.map(p => (
-            <div
-              key={p.id}
-              className={`m3-card p-3.5 flex items-center gap-3 ${!p.isAvailable ? 'opacity-60' : ''}`}
-            >
-              <label className="relative w-16 h-16 rounded-xl shrink-0 overflow-hidden cursor-pointer block border border-outline-variant" title="Chạm để đổi ảnh">
-                {p.imageUrl ? (
-                  <img src={p.imageUrl} alt={p.name} className="absolute inset-0 w-full h-full object-cover" />
-                ) : (
-                  <span className={`absolute inset-0 flex items-center justify-center text-sm font-bold ${categoryBadgeColor(p.category)}`}>
-                    + Ảnh
-                  </span>
-                )}
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => { void handleReplaceImage(p.id, e.target.files?.[0]); e.target.value = ''; }}
-                />
-              </label>
-
-              <div className="flex-1 min-w-0 space-y-1">
-                <h4 className={`text-base font-bold text-on-surface truncate ${!p.isAvailable ? 'line-through' : ''}`}>{p.name}</h4>
-                <p className="text-base font-bold text-primary">
-                  {hasSizes(p) ? `từ ${Math.min(...p.sizes.map(z => z.price)).toLocaleString('vi-VN')}` : p.price.toLocaleString('vi-VN')} đ{isRetail && p.unit ? ` / ${p.unit}` : ''}
-                </p>
-                <span className={`m3-badge ${categoryBadgeColor(p.category)}`}>{p.category}</span>
-                {p.isActive === false && <span className="m3-badge m3-badge-warning ml-1.5">Tạm ẩn</span>}
-                {hasSizes(p) && (
-                  <span className="block text-sm text-on-surface-variant mt-1">{p.sizes.map(z => `${z.name} ${z.price.toLocaleString('vi-VN')}`).join(' · ')}</span>
-                )}
-                {!p.isTopping && (
-                  <button onClick={() => openEditItem(p)} className="block text-sm font-bold text-primary underline underline-offset-2 cursor-pointer">Sửa món</button>
-                )}
-                {p.isTopping && (
-                  <>
-                    <span className="m3-badge m3-badge-warning ml-1.5">Topping · {(p.toppingFor || []).length} món</span>
-                    <button onClick={() => setToppingDialog({ topping: p })} className="block text-sm font-bold text-primary underline underline-offset-2 cursor-pointer">Sửa topping</button>
-                  </>
-                )}
-              </div>
-
-              <div className="flex flex-col items-end gap-2 shrink-0">
+        <DataTable
+          rows={filteredProducts}
+          rowKey={p => p.id}
+          emptyMessage={`Không tìm thấy ${isRetail ? 'sản phẩm' : 'món ăn'} nào`}
+          columns={[
+            { key: 'available', header: '', className: 'w-28', render: p => (
+              <div className="flex flex-col items-center gap-1">
                 <button
                   onClick={() => handleToggleAvailability(p.id)}
                   role="switch"
                   aria-checked={p.isAvailable}
                   title="Bấm để đổi trạng thái"
-                  className={`relative w-12 h-7 rounded-full transition-colors cursor-pointer shrink-0 ${
-                    p.isAvailable ? 'bg-primary' : 'bg-outline-variant'
-                  }`}
+                  className={`relative w-12 h-7 rounded-full transition-colors cursor-pointer shrink-0 ${p.isAvailable ? 'bg-primary' : 'bg-outline-variant'}`}
                 >
-                  <span className={`absolute left-0 top-1 w-5 h-5 rounded-full bg-white shadow transition-transform ${
-                    p.isAvailable ? 'translate-x-6' : 'translate-x-1'
-                  }`} />
+                  <span className={`absolute left-0 top-1 w-5 h-5 rounded-full bg-white shadow transition-transform ${p.isAvailable ? 'translate-x-6' : 'translate-x-1'}`} />
                 </button>
-                <span className="text-sm font-semibold text-on-surface-variant">
-                  {p.isAvailable ? (isRetail ? 'Còn hàng' : 'Còn món') : (isRetail ? 'Hết hàng' : 'Hết món')}
-                </span>
-                <button
-                  onClick={() => handleDeleteItem(p.id)}
-                  className="m3-icon-btn !w-8 !h-8 hover:text-error"
-                  title={isRetail ? 'Xóa khỏi danh mục sản phẩm' : 'Xóa khỏi thực đơn'}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <span className="text-sm font-semibold text-on-surface-variant">{p.isAvailable ? (isRetail ? 'Còn hàng' : 'Còn món') : (isRetail ? 'Hết hàng' : 'Hết món')}</span>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Nút nổi thêm món / sản phẩm mới */}
-      <button
-        onClick={() => { if (isRetail) openNewItem(); else setChooserOpen(true); triggerBeep(true); }}
-        className="fixed right-5 bottom-[calc(5.5rem+var(--safe-bottom))] lg:bottom-8 z-30 w-14 h-14 rounded-2xl bg-primary text-on-primary shadow-xl flex items-center justify-center cursor-pointer active:scale-95 transition-transform"
-        title={isRetail ? 'Thêm sản phẩm mới' : 'Thêm món mới'}
-      >
-        <Plus className="w-6 h-6" />
-      </button>
+            ) },
+            { key: 'image', header: 'Ảnh', className: 'w-16', render: p => (
+              <label className="relative block w-10 h-10 cursor-pointer" title="Chạm để đổi ảnh">
+                <RoundThumb imageUrl={p.imageUrl} name={p.name} />
+                <input type="file" accept="image/*" className="hidden" onChange={e => { void handleReplaceImage(p.id, e.target.files?.[0]); e.target.value = ''; }} />
+              </label>
+            ) },
+            { key: 'sku', header: 'Mã món', render: p => <span className="font-bold">{p.sku}</span> },
+            { key: 'name', header: 'Tên món', render: p => (
+              <div>
+                <span className={`font-bold ${!p.isAvailable ? 'line-through' : ''}`}>{p.name}</span>
+                {hasSizes(p) && <span className="block text-sm text-on-surface-variant">{p.sizes.map(z => `${z.name} ${z.price.toLocaleString('vi-VN')}`).join(' · ')}</span>}
+                {p.isTopping && <span className="m3-badge m3-badge-warning mt-1">Topping · {(p.toppingFor || []).length} món</span>}
+              </div>
+            ) },
+            { key: 'category', header: 'Loại menu', render: p => <span className={`m3-badge ${categoryBadgeColor(p.category)}`}>{p.category}</span> },
+            { key: 'cost', header: 'Giá vốn', className: 'text-right', render: p => (p.cost || 0).toLocaleString('vi-VN') },
+            { key: 'price', header: 'Giá bán', className: 'text-right font-bold', render: p => `${hasSizes(p) ? 'từ ' : ''}${(hasSizes(p) ? Math.min(...p.sizes.map(z => z.price)) : p.price).toLocaleString('vi-VN')}${isRetail && p.unit ? ` / ${p.unit}` : ''}` },
+            { key: 'status', header: 'Trạng thái', render: p => <span className="font-bold">{p.isActive === false ? 'Tạm ẩn' : 'Đang kinh doanh'}</span> },
+          ]}
+          renderActions={p => (
+            <RowActions
+              onEdit={() => (p.isTopping ? setToppingDialog({ topping: p }) : openEditItem(p))}
+              editLabel={p.isTopping ? 'Sửa topping' : isRetail ? 'Sửa sản phẩm' : 'Sửa món'}
+              onDelete={() => handleDeleteItem(p.id)}
+              deleteLabel={isRetail ? 'Xóa khỏi danh mục sản phẩm' : 'Xóa khỏi thực đơn'}
+            />
+          )}
+        />
+      </PageCard>
 
       {/* Chọn loại cần thêm (F&B): Món hoặc Topping */}
       {chooserOpen && (

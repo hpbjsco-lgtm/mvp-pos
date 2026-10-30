@@ -119,7 +119,7 @@
     @apply w-full text-left border-collapse text-base;
   }
   .m3-table thead tr {
-    @apply bg-surface-container text-on-surface-variant text-sm font-bold uppercase tracking-wide;
+    @apply bg-primary text-on-primary text-sm font-bold;
   }
   .m3-table th {
     @apply p-3.5;

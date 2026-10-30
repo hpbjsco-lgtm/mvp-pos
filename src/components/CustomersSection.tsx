@@ -3,11 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import DragScrollRow from './DragScrollRow';
 import React, { useState } from 'react';
-import { Edit2, Plus, Search, Trash2, Users, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { Customer } from '../types';
 import { logOperation } from '../utils/logger';
+import PageCard from './ui/PageCard';
+import FilterPills from './ui/FilterPills';
+import ListToolbar from './ui/ListToolbar';
+import DataTable, { RoundThumb, RowActions } from './ui/DataTable';
 
 interface CustomersSectionProps {
   isOffline: boolean;
@@ -154,102 +157,31 @@ export default function CustomersSection({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Users className="w-5 h-5 text-primary" />
-          <h2 className="text-lg font-bold text-on-surface">Khách hàng</h2>
-        </div>
-        <button onClick={handleOpenAdd} className="m3-btn-filled !bg-secondary !text-on-secondary !min-h-10 !px-4 text-sm">
-          <Plus className="w-4 h-4" /> Thêm mới
-        </button>
-      </div>
-
-      <div className="relative">
-        <Search className="w-4 h-4 text-on-surface-variant absolute left-3.5 top-1/2 -translate-y-1/2" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Tìm theo Tên hoặc Số điện thoại..."
-          className="m3-input !rounded-full pl-10"
+      <PageCard title="Quản lý khách hàng">
+        <ListToolbar
+          filters={<FilterPills options={tierFilters.map(t => ({ value: t.id, label: t.label }))} value={tierFilter} onChange={setTierFilter} />}
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Tìm tên hoặc số điện thoại..."
+          addLabel="Thêm mới"
+          onAdd={handleOpenAdd}
         />
-      </div>
-
-      <DragScrollRow className="gap-2 pb-1">
-        {tierFilters.map(t => (
-          <button
-            key={t.id}
-            onClick={() => setTierFilter(t.id)}
-            className={`m3-chip !rounded-full whitespace-nowrap ${tierFilter === t.id ? 'm3-chip-selected' : ''}`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </DragScrollRow>
-
-      {/* Danh sách khách hàng */}
-      {filteredCustomers.length === 0 ? (
-        <div className="py-16 text-center text-on-surface-variant flex flex-col items-center justify-center gap-2">
-          <Users className="w-8 h-8 text-outline-variant" />
-          <p className="text-base font-bold">Không tìm thấy khách hàng nào</p>
-          <p className="text-sm">Thử đổi từ khóa tìm kiếm hoặc bộ lọc hạng thẻ.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {filteredCustomers.map((c) => {
-            const isWalkin = c.id === 'khach-vang-lai';
-            const tier = getTier(c.points);
-
-            return (
-              <div key={c.id} className={`m3-card p-4 border-l-4 ${tier.barClass} ${isWalkin ? 'opacity-70' : ''}`}>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-10 h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold text-sm uppercase shrink-0">
-                      {c.name.slice(0, 2)}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-base font-bold text-on-surface truncate">{c.name}</p>
-                      <p className="text-sm text-on-surface-variant font-mono truncate">{c.phone || 'Chưa cập nhật SĐT'}</p>
-                    </div>
-                  </div>
-                  {!isWalkin && (
-                    <span className={`m3-badge shrink-0 ${tier.badgeClass}`}>
-                       {tier.name}
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between pt-3 mt-3 border-t border-outline-variant">
-                  <div>
-                    <p className="text-sm text-on-surface-variant">Điểm tích lũy</p>
-                    <p className="text-lg font-bold text-on-surface flex items-center gap-1">
-                       {c.points}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => handleOpenEdit(c)}
-                      disabled={isWalkin}
-                      className={`m3-icon-btn ${isWalkin ? 'opacity-30 cursor-not-allowed' : ''}`}
-                      title="Chỉnh sửa thông tin"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(c)}
-                      disabled={isWalkin}
-                      className={`m3-icon-btn hover:text-error ${isWalkin ? 'opacity-30 cursor-not-allowed' : ''}`}
-                      title="Xóa khách hàng"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+        <DataTable
+          rows={filteredCustomers}
+          rowKey={c => c.id}
+          emptyMessage="Không tìm thấy khách hàng nào"
+          columns={[
+            { key: 'avatar', header: 'Ảnh', className: 'w-16', render: c => <RoundThumb name={c.name} /> },
+            { key: 'name', header: 'Tên khách hàng', render: c => <span className="font-semibold">{c.name}</span> },
+            { key: 'phone', header: 'Số điện thoại', render: c => c.phone || 'Chưa cập nhật SĐT' },
+            { key: 'tier', header: 'Hạng', render: c => (c.id === 'khach-vang-lai' ? '' : getTier(c.points).name) },
+            { key: 'points', header: 'Điểm tích lũy', className: 'text-right', render: c => c.points },
+          ]}
+          renderActions={c => (c.id === 'khach-vang-lai' ? null : (
+            <RowActions onEdit={() => handleOpenEdit(c)} onDelete={() => handleDelete(c)} editLabel="Chỉnh sửa thông tin" deleteLabel="Xóa khách hàng" />
+          ))}
+        />
+      </PageCard>
 
       {/* Modal Dialog Form */}
       {modalOpen && (

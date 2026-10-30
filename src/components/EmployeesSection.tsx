@@ -4,10 +4,14 @@
  */
 
 import React, { useState } from 'react';
-import { Briefcase, ChevronLeft, ChevronRight, Edit2, KeyRound, Search, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, KeyRound, X } from 'lucide-react';
 import { UserProfile, Attendance, UserRole } from '../types';
 import { logOperation } from '../utils/logger';
 import { ROLE_LABELS, normalizeRole } from '../utils/permissions';
+import PageCard from './ui/PageCard';
+import PageTabs from './ui/PageTabs';
+import ListToolbar from './ui/ListToolbar';
+import DataTable, { RoundThumb, RowActions } from './ui/DataTable';
 
 interface EmployeesSectionProps {
   isOffline: boolean;
@@ -30,13 +34,6 @@ const roleLabel = (role: UserRole | string) => {
   const r = normalizeRole(role);
   return r ? ROLE_LABELS[r] : 'Nhân viên';
 };
-
-const roleBadgeClass = (role: UserRole | string) => (
-  role === 'owner' ? 'm3-badge-warning'
-    : role === 'manager' ? 'm3-badge-success'
-      : role === 'kitchen' ? 'bg-tertiary-container text-on-tertiary-container'
-        : 'bg-primary-container text-on-primary-container'
-);
 
 export default function EmployeesSection({
   triggerBeep,
@@ -187,74 +184,43 @@ export default function EmployeesSection({
 
   return (
     <div className="space-y-4">
-
-      <div className="flex items-center gap-2">
-        <Briefcase className="w-5 h-5 text-primary" />
-        <h2 className="text-lg font-bold text-on-surface flex-1">Nhân viên</h2>
-        {onCreateEmployee && (
-          <button onClick={openCreate} className="m3-btn-filled !min-h-11">
-             Thêm nhân viên
-          </button>
-        )}
-      </div>
-
-      <div className="flex bg-surface-container-high p-1 rounded-2xl border border-outline-variant gap-1">
-        <button
-          onClick={() => { setActiveTab('list'); triggerBeep(true); }}
-          className={`flex-1 flex items-center justify-center gap-1.5 min-h-10 rounded-xl text-sm font-bold transition-colors cursor-pointer ${
-            activeTab === 'list' ? 'bg-surface-container-lowest text-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'
-          }`}
-        >
-           Danh sách
-        </button>
-        <button
-          onClick={() => { setActiveTab('schedule'); triggerBeep(true); }}
-          className={`flex-1 flex items-center justify-center gap-1.5 min-h-10 rounded-xl text-sm font-bold transition-colors cursor-pointer ${
-            activeTab === 'schedule' ? 'bg-surface-container-lowest text-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'
-          }`}
-        >
-           Chấm công tuần
-        </button>
-      </div>
+      <PageCard title="Quản lý nhân viên">
+        <PageTabs
+          options={[{ value: 'list', label: 'Danh sách' }, { value: 'schedule', label: 'Chấm công tuần' }]}
+          value={activeTab}
+          onChange={tab => { setActiveTab(tab); triggerBeep(true); }}
+        />
 
       {activeTab === 'list' && (
-        <div className="space-y-3">
-          <div className="relative">
-            <Search className="w-4 h-4 text-on-surface-variant absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm nhân viên theo tên, tài khoản hoặc email..."
-              className="m3-input !rounded-full pl-10"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            {filteredEmployees.map((emp) => (
-              <div key={emp.uid} className="m3-card p-4 flex items-center gap-3">
-                <div className="w-11 h-11 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold text-sm uppercase shrink-0">
-                  {emp.name.slice(0, 2)}
-                </div>
-                <div className="flex-1 min-w-0 space-y-1">
-                  <h4 className="text-base font-bold text-on-surface truncate">{emp.name}</h4>
-                  <p className="text-sm text-on-surface-variant truncate">@{emp.username || emp.email}</p>
-                  <div className="flex items-center gap-2">
-                    <span className={`m3-badge ${roleBadgeClass(emp.role)}`}>{roleLabel(emp.role)}</span>
-                    <span className="text-sm font-bold text-on-surface font-mono">{(emp.hourlyRate || 25000).toLocaleString('vi-VN')} đ/h</span>
-                  </div>
-                </div>
+        <div className="space-y-4">
+          <ListToolbar
+            searchValue={searchQuery}
+            onSearchChange={setSearchQuery}
+            searchPlaceholder="Tìm nhân viên theo tên, tài khoản hoặc email..."
+            addLabel={onCreateEmployee ? 'Thêm mới' : undefined}
+            onAdd={openCreate}
+          />
+          <DataTable
+            rows={filteredEmployees}
+            rowKey={emp => emp.uid}
+            emptyMessage="Không tìm thấy nhân viên nào"
+            columns={[
+              { key: 'avatar', header: 'Ảnh', className: 'w-16', render: emp => <RoundThumb name={emp.name} /> },
+              { key: 'name', header: 'Tên nhân viên', render: emp => <span className="font-semibold">{emp.name}</span> },
+              { key: 'username', header: 'Tài khoản đăng nhập', render: emp => emp.username || emp.email },
+              { key: 'role', header: 'Chức vụ', render: emp => roleLabel(emp.role) },
+              { key: 'rate', header: 'Mức lương mỗi giờ (đ/giờ)', className: 'text-right', render: emp => (emp.hourlyRate || 25000).toLocaleString('vi-VN') },
+            ]}
+            renderActions={emp => (
+              <RowActions onEdit={() => handleOpenEdit(emp)} editLabel="Thiết lập lương & vai trò">
                 {canResetPassword(emp) && (
-                  <button onClick={() => { setPwTarget(emp); setPwValue(''); setPwError(''); triggerBeep(true); }} className="m3-icon-btn shrink-0" title="Đặt lại mật khẩu" aria-label="Đặt lại mật khẩu">
-                    <KeyRound className="w-4 h-4" />
+                  <button onClick={() => { setPwTarget(emp); setPwValue(''); setPwError(''); triggerBeep(true); }} className="m3-icon-btn !w-9 !h-9 text-primary hover:bg-primary-container" title="Đặt lại mật khẩu" aria-label="Đặt lại mật khẩu">
+                    <KeyRound className="w-4.5 h-4.5" />
                   </button>
                 )}
-                <button onClick={() => handleOpenEdit(emp)} className="m3-icon-btn shrink-0" title="Thiết lập lương & vai trò">
-                  <Edit2 className="w-4 h-4" />
-                </button>
-              </div>
-            ))}
-          </div>
+              </RowActions>
+            )}
+          />
         </div>
       )}
 
@@ -363,6 +329,7 @@ export default function EmployeesSection({
 
         </div>
       )}
+      </PageCard>
 
       {/* Modal to configure Employee wage / hourlyRate */}
       {modalOpen && editingEmployee && (

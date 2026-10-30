@@ -3,13 +3,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import DragScrollRow from './DragScrollRow';
 import React, { useState } from 'react';
-import { Layers, Package, Plus, Search, Trash2, X, ArrowUpFromLine } from 'lucide-react';
+import { Plus, X, ArrowUpFromLine } from 'lucide-react';
 import { Product, InventoryBatch, InventoryTransaction, InventoryTransactionType } from '../types';
 import { stockOf, toBaseQuantity, unitChoices } from '../utils/inventoryItems';
 import InventoryCatalog from './InventoryCatalog';
 import IngredientDialog from './IngredientDialog';
+import PageCard from './ui/PageCard';
+import PageTabs from './ui/PageTabs';
+import FilterPills from './ui/FilterPills';
+import ListToolbar from './ui/ListToolbar';
+import DataTable, { RoundThumb, RowActions } from './ui/DataTable';
 import { logOperation } from '../utils/logger';
 
 interface InventoryScreenProps {
@@ -312,10 +316,9 @@ export default function InventoryScreen({
 
   return (
     <div id="inventory-screen-panel" className="space-y-4 pb-20">
+      <PageCard title={isFnB ? 'Quản lý kho nguyên vật liệu (FIFO/FEFO)' : 'Quản lý kho hàng'}>
 
-      <div className="flex items-center gap-2 flex-wrap">
-        <Layers className="w-5 h-5 text-primary" />
-        <h2 className="text-lg font-bold text-on-surface flex-1 min-w-[8rem]">{isFnB ? 'Kho hàng' : 'Kho hàng'}</h2>
+      <div className="flex items-center justify-end gap-2 flex-wrap">
 
         {isFnB && (
           <div className="relative">
@@ -351,12 +354,7 @@ export default function InventoryScreen({
       </div>
 
       {isFnB && (
-        <div className="flex border-b border-outline-variant">
-          {([['catalog', 'Hàng hóa'], ['batches', 'Lô hàng & Lịch sử']] as const).map(([k, label]) => (
-            <button key={k} onClick={() => setView(k)}
-              className={`flex-1 sm:flex-none sm:px-8 min-h-12 text-base font-bold border-b-[3px] -mb-px cursor-pointer ${view === k ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'}`}>{label}</button>
-          ))}
-        </div>
+        <PageTabs options={[{ value: 'catalog', label: 'Hàng hóa' }, { value: 'batches', label: 'Lô hàng & Lịch sử' }]} value={view} onChange={setView} />
       )}
 
       {isFnB && view === 'catalog' && (
@@ -387,88 +385,38 @@ export default function InventoryScreen({
         </div>
       </div>
 
-      <div className="relative">
-        <Search className="w-4 h-4 text-on-surface-variant absolute left-3.5 top-1/2 -translate-y-1/2" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder={isFnB ? 'Tìm theo tên nguyên liệu hoặc mã lô...' : 'Tìm theo tên sản phẩm hoặc mã lô...'}
-          className="m3-input !rounded-full pl-10"
-        />
-      </div>
+      <ListToolbar
+        filters={<FilterPills options={statusFilters.map(f => ({ value: f.id, label: f.label }))} value={statusFilter} onChange={setStatusFilter} />}
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder={isFnB ? 'Tìm theo tên nguyên liệu hoặc mã lô...' : 'Tìm theo tên sản phẩm hoặc mã lô...'}
+      />
 
-      <DragScrollRow className="gap-2 pb-1">
-        {statusFilters.map(f => (
-          <button
-            key={f.id}
-            onClick={() => setStatusFilter(f.id)}
-            className={`m3-chip !rounded-full whitespace-nowrap ${statusFilter === f.id ? 'm3-chip-selected' : ''}`}
-          >
-            {f.label}
-          </button>
-        ))}
-      </DragScrollRow>
-
-      {/* Danh sách lô hàng đang lưu kho */}
-      {filteredBatches.length === 0 ? (
-        <div className="py-16 text-center text-on-surface-variant flex flex-col items-center justify-center gap-2">
-          <Package className="w-8 h-8 text-outline-variant" />
-          <p className="text-base font-bold">Không tìm thấy lô hàng nào</p>
-          <p className="text-sm">Thử đổi từ khóa hoặc bộ lọc trạng thái hạn dùng.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {filteredBatches.map(b => {
-            const prod = simProducts.find(p => p.id === b.productId);
+      <DataTable
+        rows={filteredBatches}
+        rowKey={b => b.id}
+        emptyMessage="Không tìm thấy lô hàng nào"
+        columns={[
+          { key: 'image', header: 'Ảnh', className: 'w-16', render: b => { const prod = simProducts.find(p => p.id === b.productId); return <RoundThumb imageUrl={prod?.imageUrl} name={prod?.name || '?'} />; } },
+          { key: 'sku', header: isFnB ? 'Mã NVL' : 'Mã SP', render: b => <span className="font-mono">{simProducts.find(p => p.id === b.productId)?.sku}</span> },
+          { key: 'name', header: isFnB ? 'Tên NVL' : 'Tên sản phẩm', render: b => <span className="font-semibold">{simProducts.find(p => p.id === b.productId)?.name || 'Sản phẩm lỗi'}</span> },
+          { key: 'status', header: 'Trạng thái', render: b => {
             const status = getExpiryStatus(b.expiryDate);
-            const ratio = Math.max(0, Math.min(100, (b.quantity / b.originalQuantity) * 100));
-
-            const statusBadge = status === 'expired' ? 'm3-badge-error' : status === 'near_expiry' ? 'm3-badge-warning' : 'm3-badge-success';
-            const statusLabel = status === 'expired' ? 'Đã hết hạn' : status === 'near_expiry' ? 'Cận hạn' : 'An toàn';
-            const barColor = status === 'expired' ? 'border-l-error' : status === 'near_expiry' ? 'border-l-tertiary' : 'border-l-secondary';
-            const meterColor = status === 'expired' ? 'bg-error' : status === 'near_expiry' ? 'bg-tertiary' : 'bg-primary';
-
-            return (
-              <div key={b.id} className={`m3-card p-4 border-l-4 ${barColor} space-y-2.5`}>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <h4 className="text-base font-bold text-on-surface truncate">{prod?.name || 'Sản phẩm lỗi'}</h4>
-                    <span className="text-sm text-on-surface-variant font-mono">Lô: {b.batchCode}</span>
-                  </div>
-                  <span className={`m3-badge shrink-0 ${statusBadge}`}>{statusLabel}</span>
-                </div>
-
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-on-surface-variant">
-                  <span className="flex items-center gap-1"> HSD: {b.expiryDate}</span>
-                  {b.manufactureDate && <span className="flex items-center gap-1"> NSX: {b.manufactureDate}</span>}
-                  <span className="font-semibold text-on-surface">{(b.importPrice || 10000).toLocaleString('vi-VN')} đ/{isFnB ? 'đv' : 'sp'}</span>
-                </div>
-
-                <div className="space-y-1">
-                  <div className="flex justify-between text-sm text-on-surface-variant">
-                    <span>Tồn: {b.quantity}/{b.originalQuantity}</span>
-                    <span>{Math.round(ratio)}% còn lại</span>
-                  </div>
-                  <div className="h-1.5 w-full bg-surface-container-high rounded-full overflow-hidden">
-                    <div className={`h-full rounded-full ${meterColor}`} style={{ width: `${ratio}%` }} />
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-base font-bold text-on-surface">{b.quantity} {isFnB ? 'đơn vị' : 'sản phẩm'}</span>
-                  <button onClick={() => handleDeleteBatch(b.id)} className="m3-icon-btn hover:text-error" title="Xóa lô hàng lỗi">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+            const badge = status === 'expired' ? 'm3-badge-error' : status === 'near_expiry' ? 'm3-badge-warning' : 'm3-badge-success';
+            return <span className={`m3-badge ${badge}`}>{status === 'expired' ? 'Đã hết hạn' : status === 'near_expiry' ? 'Cận hạn' : 'An toàn'}</span>;
+          } },
+          { key: 'batch', header: 'Lô', render: b => <span className="font-mono">{b.batchCode}</span> },
+          { key: 'mfg', header: 'NSX', render: b => b.manufactureDate || '' },
+          { key: 'exp', header: 'HSD', render: b => b.expiryDate },
+          { key: 'price', header: 'Giá nhập (đ)', className: 'text-right', render: b => (b.importPrice || 10000).toLocaleString('vi-VN') },
+          { key: 'qty', header: 'SL nhập/Tồn', className: 'text-right', render: b => `${b.originalQuantity}/${b.quantity}` },
+        ]}
+        renderActions={b => <RowActions onDelete={() => handleDeleteBatch(b.id)} deleteLabel="Xóa lô hàng lỗi" />}
+      />
 
       </>
       )}
+      </PageCard>
 
       {/* Nút nổi nhập kho lô mới (chỉ ở chế độ xem lô hàng) */}
       {view === 'batches' && <button
