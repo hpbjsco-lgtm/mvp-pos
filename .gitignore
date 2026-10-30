@@ -8,3 +8,6 @@ coverage/
 !.env.example
 .claude/settings.local.json
 .claude/data-touch.log
+
+# Local SQLite data of the database server
+server/pos-db-server/data/
