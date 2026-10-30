@@ -788,14 +788,6 @@ export default function App() {
                   simProducts={simProducts}
                   triggerBeep={triggerBeep}
                   isOffline={isLocalOnly}
-                  storeId={storeId}
-                  currentUser={{
-                    uid: fbUser?.uid || '',
-                    name: fbUserProfile?.name || 'Quản trị viên'
-                  }}
-                  attendanceLogs={simAttendance}
-                  onCheckIn={handleCheckIn}
-                  onCheckOut={handleCheckOut}
                 />
               </motion.div>
             )}

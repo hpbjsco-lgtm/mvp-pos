@@ -5,8 +5,8 @@
 | Trường | Nội dung |
 |---|---|
 | Tên hệ thống | SmartPOS — Phần mềm quản lý bán hàng cho quán cà phê / nhà hàng / bán lẻ |
-| Phiên bản tài liệu | 3.9 |
-| Ngày cập nhật | 2026-10-27 |
+| Phiên bản tài liệu | 4.0 |
+| Ngày cập nhật | 2026-10-30 |
 | Loại tài liệu | Functional Specification Document (Đặc tả chức năng) |
 | Trạng thái | Đang phát triển — các mục có cột "Trạng thái" bên dưới phản ánh mức độ hoàn thiện thực tế trong source code |
 
@@ -16,6 +16,7 @@
 |---|---|---|
 | 1.0 | 2026-07-02 | Bản đặc tả đầu tiên, mô tả hệ thống trên nền Firebase/Firestore (đã lỗi thời) |
 | 2.0 | 2026-08-13 | Viết lại toàn bộ theo cấu trúc BA chuẩn; cập nhật kiến trúc thực tế (SQLite local-first); bổ sung 6 chức năng mới: Đặt bàn trước, Tùy chọn món (size/đường/đá), Giảm giá & Thuế VAT, Lịch sử hóa đơn (hủy/in lại), Sổ quỹ ca làm việc, Dữ liệu mẫu demo |
+| 4.0 | 2026-10-30 | Làm lại bố cục các màn hình PC (trừ Bán hàng) theo Figma; ẩn món khỏi màn thu ngân; xếp món bán chạy lên đầu (5.5, 11) |
 | 3.9 | 2026-10-28 | Tạo món kiểu KiotViet, công thức nguyên liệu, tự trừ kho khi bán (5.5) |
 | 3.8 | 2026-10-28 | Quản lý hàng hóa trong kho: danh mục, định mức tồn, đơn vị quy đổi (5.6) |
 | 3.7 | 2026-10-28 | Lịch sử báo bếp kiểu KiotViet (5.4) |
@@ -208,6 +209,8 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
   - **Topping (Món thêm):** bật để tích chọn các topping gắn cho món (cập nhật ngược lại danh sách món của topping); *Cho phép bán*.
   - **Trừ kho khi bán:** mỗi hóa đơn F&B gộp các món chế biến, tính lượng nguyên liệu cần dùng, trừ theo **FEFO** (lô hết hạn sớm nhất trước, không bao giờ âm) và sinh **một phiếu xuất kho** `PXK-…` ghi "Bán hàng HD-…" (có chú thích nếu thiếu tồn; vẫn cho bán). Mã: `utils/recipes.ts` (có test). Dữ liệu: `products.menu_type / dish_kind / recipe` (migration v13); cửa hàng mới có sẵn công thức mẫu cho các món demo.
   - **Chưa làm:** hoàn lại kho khi hủy hóa đơn, trừ kho theo công thức của topping, tag món, chi nhánh kinh doanh.
+- **Ẩn món khỏi màn thu ngân (mới 2026-10-30):** trong hộp **Tạo món**, ô *Hiện trên màn hình thu ngân* (lưu vào `Product.isActive`) tắt thì món không xuất hiện trên lưới Bán hàng nhưng vẫn còn trong Thực đơn. Khác với *Cho phép bán* (`isAvailable`, món hết hàng vẫn hiện nhưng không bán được).
+- **Món bán chạy xếp đầu (mới 2026-10-30):** lưới món ở màn Bán hàng xếp theo số lượng bán trong 30 ngày gần nhất, nhiều nhất trước; đơn đã hủy không tính, món bằng nhau giữ thứ tự cũ. Mã: `utils/salesRanking.ts` (có test).
 - **Topping món (F&B, mới 2026-10-27):** *Thực đơn → nút + → Topping* mở hộp **Tạo topping** (mã: `ToppingDialog.tsx`): tên, nhóm, giá, ảnh, loại (*chế biến / thường / sản xuất*), *Cho phép bán*, và **Gắn món** — tìm từng món hoặc **Chọn theo nhóm** rồi xóa bớt trong danh sách. Topping là một `Product` có cờ `isTopping`, `toppingKind`, `toppingFor` (id các món được gắn; migration v9). Topping hiện trong Thực đơn kèm nhãn *Topping · n món* và nút *Sửa topping*, **không** hiện trên lưới món ở màn Bán hàng.
   - **Bán hàng:** dòng món có topping được gắn sẽ hiện các nút `+ Trân châu đen 5.000`; bấm để thêm, hiện `− Trân châu đen x2 +` để tăng/giảm. Giá dòng = giá món + tiền topping (cộng vào tạm tính, tổng bàn, thanh toán, hóa đơn, báo cáo). Hai dòng cùng món khác topping là hai dòng riêng. Topping chỉ áp dụng cho các phần **chưa báo bếp** của dòng; nếu đã báo hết thì tách 1 phần mới.
   - Phiếu bếp, hộp thoại thanh toán (`+ 1 Trân châu đen`), hóa đơn / phiếu tạm tính đều hiển thị topping.
@@ -478,6 +481,12 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
 
 - Từ 1024px trở lên **không còn thanh bên**: các chức năng nằm trên **thanh menu ở đầu trang** dạng ô màu có icon + tên (`TopNavBar.tsx`), cuộn ngang / nắm kéo, có nút *Thu gọn / Mở rộng* (nhớ lựa chọn), kèm ô tên người dùng (mở "Tài khoản của tôi") và *Đăng xuất*. Màn hình nhỏ vẫn dùng thanh dưới + menu trượt.
 - Khung chiếm trọn chiều cao màn hình (`h-dvh`); riêng màn Bán hàng PC mỗi khung tự cuộn.
+- **Cỡ chữ và độ rộng (2026-10-30):** từ 1024px cỡ chữ gốc là 14px (tương đương thu nhỏ 80%) để hiển thị nhiều nội dung hơn; nội dung các màn hình rộng tối đa `max-w-6xl` (Sơ đồ bàn `max-w-screen-2xl`). Thanh cuộn ngang / dọc luôn hiển thị (kiểu dáng trong `index.css`).
+- **Bố cục các màn hình quản lý (2026-10-30, theo file Figma "POS APP"):** mọi màn ngoài Bán hàng dùng bộ thành phần chung trong `src/components/ui/`: `PageCard` (thẻ trắng + tiêu đề), `FilterPills` (nút lọc bo tròn), `ListToolbar` (lọc + tìm kiếm + nút thêm), `DataTable` (bảng đầu cam, nút sửa / xóa ở cuối dòng), `PageTabs`. Giữ nguyên bảng màu cam, thanh menu trên và icon; chỉ đổi bố cục, không thêm trường dữ liệu.
+  - Đã áp dụng: Thực đơn, Kho, Khách hàng, Nhân viên, Nhà cung cấp, Lịch sử hóa đơn (hai khung: danh sách / chi tiết), Sổ quỹ ca (hai khung), Báo cáo doanh thu, Màn hình bếp (tab *Theo món* / *Theo phòng bàn*), Sơ đồ bàn (thẻ bàn có ghế), Sổ quỹ & Dòng tiền, Báo cáo cuối ngày, Quản trị (Cửa hàng, Tài khoản).
+  - Màn đăng nhập dùng ảnh quán cafe (`src/assets/login-cafe.png`) làm nền khung trái.
+  - Chấm công nằm trong hộp *Tài khoản của tôi* (bấm tên người dùng trên thanh menu), không còn ở màn Báo cáo.
+  - **Chưa áp dụng:** Tổng quan hệ thống (SysAdminDashboard), Đồng bộ Cloud.
 
 ## 10. Giới hạn đã biết: dữ liệu theo từng trình duyệt / thiết bị (ghi nhận 2026-10-24)
 

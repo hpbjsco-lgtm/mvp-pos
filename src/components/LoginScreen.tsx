@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from 'react';
+import loginCafeImage from '../assets/login-cafe.png';
 import {
   Lock, Mail, Store, User, Phone, MapPin, Coffee, ShoppingBag,
   ArrowRight, ShieldCheck, HelpCircle, HardDrive, LogIn, Sparkles, UserCheck, Key
@@ -81,13 +82,14 @@ export default function LoginScreen({
   };
 
   return (
-    <div id="login-screen-container" className="grid grid-cols-1 lg:grid-cols-12 min-h-[640px] bg-slate-900 rounded-3xl overflow-hidden shadow-2xl">
+    <div id="login-screen-container" className="grid grid-cols-1 lg:grid-cols-12 min-h-[640px] bg-surface-container-lowest rounded-3xl overflow-hidden border border-outline-variant shadow-xl">
 
-      {/* Decorative branding sidebar (Left) */}
-      <div className="lg:col-span-5 bg-slate-950 p-8 lg:p-12 flex flex-col justify-between text-white">
+      {/* Branding panel (left): cafe photo under a dark overlay so the text stays readable */}
+      <div className="lg:col-span-5 relative p-8 lg:p-12 flex flex-col justify-between text-white bg-cover bg-center" style={{ backgroundImage: `url(${loginCafeImage})` }}>
+        <div aria-hidden className="absolute inset-0 bg-black/60" />
 
         {/* Header Logo */}
-        <div className="space-y-2">
+        <div className="space-y-2 relative">
           <div className="flex items-center gap-2.5">
             <div className="p-2.5 bg-primary rounded-2xl shadow-lg">
               <Store className="w-6 h-6 text-on-primary" />
@@ -97,46 +99,46 @@ export default function LoginScreen({
               <h1 className="text-2xl font-bold tracking-tight text-white">SmartPOS</h1>
             </div>
           </div>
-          <p className="text-base text-slate-400 font-medium max-w-sm">
+          <p className="text-base text-white/80 font-medium max-w-sm">
             Hệ thống quản lý điểm bán hàng chuyên dụng. Định danh cửa hàng để tự động tải phân hệ làm việc tối ưu.
           </p>
         </div>
 
         {/* Feature Cards Showcase */}
-        <div className="space-y-4 py-8">
-          <div className="flex gap-3 p-3.5 bg-white/5 rounded-2xl">
-            <div className="p-2 bg-primary/20 rounded-xl text-primary-container h-fit">
+        <div className="space-y-4 py-8 relative">
+          <div className="flex gap-3 p-3.5 bg-white/10 backdrop-blur-sm border border-white/15 rounded-2xl">
+            <div className="p-2 bg-white/15 rounded-xl text-white h-fit">
               <Coffee className="w-4 h-4" />
             </div>
             <div>
-              <h4 className="text-base font-bold text-slate-200">Giao diện chuyên F&amp;B (Nhà hàng)</h4>
-              <p className="text-sm text-slate-400 leading-normal">Quản lý sơ đồ bàn trực quan, gộp/tách đơn, thanh toán tại bàn và màn hình bếp KDS chuyên biệt.</p>
+              <h4 className="text-base font-bold text-white">Giao diện chuyên F&amp;B (Nhà hàng)</h4>
+              <p className="text-sm text-white/75 leading-normal">Quản lý sơ đồ bàn trực quan, gộp/tách đơn, thanh toán tại bàn và màn hình bếp KDS chuyên biệt.</p>
             </div>
           </div>
 
-          <div className="flex gap-3 p-3.5 bg-white/5 rounded-2xl">
-            <div className="p-2 bg-secondary/20 rounded-xl text-secondary-container h-fit">
+          <div className="flex gap-3 p-3.5 bg-white/10 backdrop-blur-sm border border-white/15 rounded-2xl">
+            <div className="p-2 bg-white/15 rounded-xl text-white h-fit">
               <ShoppingBag className="w-4 h-4" />
             </div>
             <div>
-              <h4 className="text-base font-bold text-slate-200">Giao diện chuyên bán lẻ</h4>
-              <p className="text-sm text-slate-400 leading-normal">Quét mã vạch bán lẻ siêu tốc, tìm kiếm nhanh hàng hóa, theo dõi tồn kho theo số lô hạn dùng.</p>
+              <h4 className="text-base font-bold text-white">Giao diện chuyên bán lẻ</h4>
+              <p className="text-sm text-white/75 leading-normal">Quét mã vạch bán lẻ siêu tốc, tìm kiếm nhanh hàng hóa, theo dõi tồn kho theo số lô hạn dùng.</p>
             </div>
           </div>
 
-          <div className="flex gap-3 p-3.5 bg-white/5 rounded-2xl">
-            <div className="p-2 bg-tertiary/20 rounded-xl text-tertiary-container h-fit">
+          <div className="flex gap-3 p-3.5 bg-white/10 backdrop-blur-sm border border-white/15 rounded-2xl">
+            <div className="p-2 bg-white/15 rounded-xl text-white h-fit">
               <HardDrive className="w-4 h-4" />
             </div>
             <div>
-              <h4 className="text-base font-bold text-slate-200">Hoạt động local-first ổn định</h4>
-              <p className="text-sm text-slate-400 leading-normal">Dữ liệu lưu trực tiếp trên thiết bị (SQLite), bán hàng và thao tác vẫn mượt mà kể cả khi mất mạng hoàn toàn.</p>
+              <h4 className="text-base font-bold text-white">Hoạt động local-first ổn định</h4>
+              <p className="text-sm text-white/75 leading-normal">Dữ liệu lưu trực tiếp trên thiết bị (SQLite), bán hàng và thao tác vẫn mượt mà kể cả khi mất mạng hoàn toàn.</p>
             </div>
           </div>
         </div>
 
         {/* Bottom Credits */}
-        <div className="text-sm text-slate-500 flex items-center gap-1.5 pt-4 border-t border-white/5">
+        <div className="relative text-sm text-white/70 flex items-center gap-1.5 pt-4 border-t border-white/20">
           <ShieldCheck className="w-4 h-4 text-primary-container" /> Kiến trúc Multi-Tenant Local-First bảo mật
         </div>
       </div>

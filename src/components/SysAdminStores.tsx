@@ -4,12 +4,14 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, Coffee, Lock, LockOpen, MapPin, Pencil, Phone, Plus, ShoppingBag, Store, Trash2, Users } from 'lucide-react';
+import { AlertTriangle, Lock, LockOpen } from 'lucide-react';
 import {
   adminCreateStore, adminCreateUser, adminDeleteStore, adminListStores, adminUpdateStore, wipeAllData,
   type AdminStore, type StoreInput,
 } from '../db/admin';
 import { AdminModal, ErrorBox, Field } from './SysAdminShared';
+import PageCard from './ui/PageCard';
+import DataTable, { RowActions } from './ui/DataTable';
 
 interface Props {
   triggerBeep: (success: boolean) => void;
@@ -110,60 +112,51 @@ export default function SysAdminStores({ triggerBeep, onWiped }: Props) {
   };
 
   return (
-    <div className="space-y-4 max-w-5xl mx-auto">
-      <div className="flex items-center gap-3">
-        <Store className="w-6 h-6 text-primary" />
-        <div className="flex-1">
-          <h2 className="text-xl font-bold text-on-surface">Cửa hàng</h2>
-          <p className="text-sm text-on-surface-variant">{stores.length} cửa hàng trên thiết bị này</p>
-        </div>
-        <button onClick={openNew} className="m3-btn-filled !min-h-12"><Plus className="w-5 h-5" /> Thêm cửa hàng</button>
-      </div>
+    <div className="space-y-4">
+      <PageCard
+        title={`Cửa hàng (${stores.length})`}
+        headerRight={<button onClick={openNew} className="m3-btn-filled !min-h-11 !rounded-xl !px-5 text-sm">Thêm cửa hàng</button>}
+      >
+        <ErrorBox message={error} />
 
-      <ErrorBox message={error} />
-
-      {loading ? (
-        <p className="py-12 text-center text-on-surface-variant font-semibold">Đang tải...</p>
-      ) : stores.length === 0 ? (
-        <div className="m3-card py-14 text-center text-on-surface-variant">
-          <Store className="w-10 h-10 mx-auto mb-2 text-outline-variant" />
-          <p className="text-base font-bold">Chưa có cửa hàng nào</p>
-          <p className="text-sm">Nhấn "Thêm cửa hàng" để tạo cửa hàng đầu tiên.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {stores.map(s => (
-            <div key={s.id} className="m3-card p-4 space-y-3">
-              <div className="flex items-start gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-primary-container text-on-primary-container flex items-center justify-center shrink-0">
-                  {s.storeType === 'fnb' ? <Coffee className="w-5 h-5" /> : <ShoppingBag className="w-5 h-5" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-base font-bold text-on-surface truncate">{s.name}</h3>
+        {loading ? (
+          <p className="py-12 text-center text-on-surface-variant font-semibold">Đang tải...</p>
+        ) : (
+          <DataTable<AdminStore>
+            rows={stores}
+            rowKey={s => s.id}
+            emptyMessage='Chưa có cửa hàng nào. Nhấn "Thêm cửa hàng" để tạo cửa hàng đầu tiên.'
+            columns={[
+              { key: 'name', header: 'Tên cửa hàng', render: s => (
+                <div className="min-w-0">
+                  <p className="font-semibold truncate">{s.name}</p>
                   <p className="text-sm text-on-surface-variant font-mono truncate">{s.id}</p>
                 </div>
-                <span className={`m3-badge ${s.status === 'active' ? 'm3-badge-success' : 'm3-badge-error'}`}>
-                  {s.status === 'active' ? 'Hoạt động' : 'Tạm khóa'}
-                </span>
-              </div>
-
-              <div className="space-y-1 text-sm text-on-surface-variant">
-                <p className="flex items-center gap-2"><span className="m3-badge m3-badge-neutral">{s.storeType === 'fnb' ? 'F&B' : 'Bán lẻ'}</span><Users className="w-4 h-4" /> {s.userCount} tài khoản</p>
-                {s.phone && <p className="flex items-center gap-2"><Phone className="w-4 h-4" /> {s.phone}</p>}
-                {s.address && <p className="flex items-center gap-2"><MapPin className="w-4 h-4" /> {s.address}</p>}
-              </div>
-
-              <div className="grid grid-cols-3 gap-2 pt-1">
-                <button onClick={() => openEdit(s)} className="m3-btn-tonal !min-h-11 text-sm"><Pencil className="w-4 h-4" /> Sửa</button>
-                <button onClick={() => toggleLock(s)} className="m3-btn-tonal !min-h-11 text-sm">
-                  {s.status === 'active' ? <><Lock className="w-4 h-4" /> Khóa</> : <><LockOpen className="w-4 h-4" /> Mở khóa</>}
+              ) },
+              { key: 'type', header: 'Mô hình', render: s => <span className="m3-badge m3-badge-neutral">{s.storeType === 'fnb' ? 'F&B' : 'Bán lẻ'}</span> },
+              { key: 'users', header: 'Tài khoản', className: 'text-center', render: s => s.userCount },
+              { key: 'phone', header: 'Điện thoại', render: s => s.phone || '—' },
+              { key: 'address', header: 'Địa chỉ', render: s => s.address || '—' },
+              { key: 'status', header: 'Trạng thái', render: s => (
+                <span className={`m3-badge ${s.status === 'active' ? 'm3-badge-success' : 'm3-badge-error'}`}>{s.status === 'active' ? 'Hoạt động' : 'Tạm khóa'}</span>
+              ) },
+            ]}
+            renderActions={s => (
+              <RowActions onEdit={() => openEdit(s)} onDelete={() => setDeleting(s)} editLabel="Sửa cửa hàng" deleteLabel="Xóa cửa hàng">
+                <button
+                  type="button"
+                  onClick={() => toggleLock(s)}
+                  title={s.status === 'active' ? 'Khóa cửa hàng' : 'Mở khóa cửa hàng'}
+                  aria-label={s.status === 'active' ? 'Khóa cửa hàng' : 'Mở khóa cửa hàng'}
+                  className="m3-icon-btn !w-9 !h-9 text-primary hover:bg-primary-container"
+                >
+                  {s.status === 'active' ? <Lock className="w-4.5 h-4.5" /> : <LockOpen className="w-4.5 h-4.5" />}
                 </button>
-                <button onClick={() => setDeleting(s)} className="m3-btn-danger !min-h-11 text-sm"><Trash2 className="w-4 h-4" /> Xóa</button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+              </RowActions>
+            )}
+          />
+        )}
+      </PageCard>
 
       {/* Vùng nguy hiểm */}
       <div className="m3-card p-4 border-error/40 space-y-2">

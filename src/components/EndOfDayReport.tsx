@@ -6,7 +6,9 @@
 import React, { useMemo, useState } from 'react';
 import { BankAccount, CashVoucher, DiningTable, Order, Product, Zone } from '../types';
 import { computeEndOfDay, eodRange, type EodPreset } from '../utils/endOfDay';
-import DragScrollRow from './DragScrollRow';
+import PageCard from './ui/PageCard';
+import PageTabs from './ui/PageTabs';
+import FilterPills from './ui/FilterPills';
 import type { CartLine } from './POSScreen';
 
 interface EndOfDayReportProps {
@@ -90,16 +92,9 @@ export default function EndOfDayReport({ orders, vouchers, accounts, carts, prod
   };
 
   return (
-    <div className="max-w-3xl mx-auto pb-10 space-y-3">
-      <h2 className="text-xl font-bold text-on-surface">Báo cáo cuối ngày</h2>
-
+    <PageCard title="Báo cáo cuối ngày" className="pb-6">
       <div className="flex flex-wrap items-center gap-2">
-        <DragScrollRow className="gap-1.5">
-          {presets.map(p => (
-            <button key={p.id} onClick={() => setPreset(p.id)}
-              className={`shrink-0 min-h-10 px-4 rounded-full text-sm font-bold whitespace-nowrap cursor-pointer ${preset === p.id ? 'bg-primary text-on-primary' : 'bg-surface-container text-on-surface-variant hover:bg-surface-container-high'}`}>{p.label}</button>
-          ))}
-        </DragScrollRow>
+        <FilterPills options={presets.map(p => ({ value: p.id, label: p.label }))} value={preset} onChange={setPreset} />
         {preset === 'custom' && (
           <div className="flex items-center gap-1.5">
             <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="m3-input !min-h-10 !w-40" />
@@ -110,7 +105,7 @@ export default function EndOfDayReport({ orders, vouchers, accounts, carts, prod
       </div>
 
       {/* Chỉ số nhanh */}
-      <div className="m3-card p-4 grid grid-cols-2 gap-y-4 gap-x-6">
+      <div className="border border-outline-variant rounded-2xl p-4 grid grid-cols-2 lg:grid-cols-4 gap-y-4 gap-x-6">
         <div><p className="text-sm text-on-surface-variant">Hóa đơn</p><p className="text-2xl font-black text-primary">{r.orderCount} <span className="text-base font-semibold text-on-surface-variant">đơn · {money(r.revenue)}đ</span></p></div>
         {isFnb ? (
           <div><p className="text-sm text-on-surface-variant">{r.openOrders} đơn đang phục vụ</p><p className="text-2xl font-black text-secondary">{money(r.openValue)}<span className="text-base font-semibold text-on-surface-variant"> đ</span></p></div>
@@ -125,13 +120,7 @@ export default function EndOfDayReport({ orders, vouchers, accounts, carts, prod
         )}
       </div>
 
-      {/* Tab */}
-      <div className="flex border-b border-outline-variant overflow-x-auto">
-        {tabs.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)}
-            className={`flex-1 min-w-[5.5rem] min-h-12 text-base font-bold border-b-[3px] -mb-px whitespace-nowrap cursor-pointer ${tab === t.id ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'}`}>{t.label}</button>
-        ))}
-      </div>
+      <PageTabs options={tabs.map(t => ({ value: t.id, label: t.label }))} value={tab} onChange={setTab} />
 
       {tab === 'summary' && (
         <>
@@ -204,6 +193,6 @@ export default function EndOfDayReport({ orders, vouchers, accounts, carts, prod
           </Section>
         </>
       )}
-    </div>
+    </PageCard>
   );
 }

@@ -4,14 +4,17 @@
  */
 
 import React, { useMemo, useState } from 'react';
-import { Plus, Search, Wallet, X } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import { BankAccount, CashVoucher, FundType, Order } from '../types';
 import {
   FUND_LABELS, PAYMENT_CATEGORIES, RECEIPT_CATEGORIES, breakdownByCategory, buildLedger, entriesInRange,
   nextVoucherCode, presetRange, summarize, type RangePreset,
 } from '../utils/cashbook';
 import BankAccountsDialog from './BankAccountsDialog';
-import DragScrollRow from './DragScrollRow';
+import PageCard from './ui/PageCard';
+import FilterPills from './ui/FilterPills';
+import ListToolbar from './ui/ListToolbar';
+import DataTable from './ui/DataTable';
 
 interface CashbookSectionProps {
   simOrders: Order[];
@@ -121,26 +124,24 @@ export default function CashbookSection({ simOrders, bankAccounts, setBankAccoun
   ];
 
   return (
-    <div className="space-y-4 max-w-6xl mx-auto pb-10">
-      <div className="flex items-center gap-2 flex-wrap">
-        <Wallet className="w-6 h-6 text-primary" />
-        <div className="flex-1 min-w-[10rem]">
-          <h2 className="text-xl font-bold text-on-surface">Sổ quỹ &amp; Dòng tiền</h2>
-          <p className="text-sm text-on-surface-variant">Theo dõi thu / chi theo từng quỹ và từng loại thu chi</p>
-        </div>
-        <button onClick={() => openForm('receipt')} className="m3-btn-filled !min-h-11 text-sm"><Plus className="w-4 h-4" /> Lập phiếu thu</button>
-        <button onClick={() => openForm('payment')} className="m3-btn-tonal !min-h-11 text-sm"><Plus className="w-4 h-4" /> Lập phiếu chi</button>
-        <button onClick={() => setBankOpen(true)} className="m3-btn-outlined !min-h-11 text-sm">Tài khoản ngân hàng ({bankAccounts.length})</button>
-      </div>
+    <div className="space-y-4 pb-10">
+      <PageCard
+        title="Sổ quỹ & Dòng tiền"
+        headerRight={
+          <div className="flex flex-wrap items-center gap-2">
+            <button onClick={() => openForm('receipt')} className="m3-btn-filled !min-h-11 !rounded-xl text-sm"><Plus className="w-4 h-4" /> Lập phiếu thu</button>
+            <button onClick={() => openForm('payment')} className="m3-btn-tonal !min-h-11 !rounded-xl text-sm"><Plus className="w-4 h-4" /> Lập phiếu chi</button>
+            <button onClick={() => setBankOpen(true)} className="m3-btn-outlined !min-h-11 !rounded-xl text-sm">Tài khoản ngân hàng ({bankAccounts.length})</button>
+          </div>
+        }
+      >
+        <p className="text-sm text-on-surface-variant -mt-2">Theo dõi thu / chi theo từng quỹ và từng loại thu chi</p>
 
-      {/* Bộ lọc */}
-      <div className="m3-card p-4 space-y-3">
-        <DragScrollRow className="gap-2">
-          {funds.map(f => (
-            <button key={f.id} onClick={() => { setFund(f.id); if (f.id !== 'bank') setAccountId(''); }}
-              className={`m3-chip !rounded-full whitespace-nowrap ${fund === f.id ? 'm3-chip-selected' : ''}`}>{f.label}</button>
-          ))}
-        </DragScrollRow>
+        <FilterPills
+          options={funds.map(f => ({ value: f.id, label: f.label }))}
+          value={fund}
+          onChange={fundId => { setFund(fundId); if (fundId !== 'bank') setAccountId(''); }}
+        />
 
         <div className="flex flex-wrap items-center gap-2">
           {fund === 'bank' && (
@@ -149,12 +150,7 @@ export default function CashbookSection({ simOrders, bankAccounts, setBankAccoun
               {bankAccounts.map(a => <option key={a.id} value={a.id}>{a.accountName} ({a.bankCode})</option>)}
             </select>
           )}
-          <DragScrollRow className="gap-1.5">
-            {presets.map(p => (
-              <button key={p.id} onClick={() => setPreset(p.id)}
-                className={`shrink-0 min-h-10 px-3.5 rounded-full text-sm font-bold whitespace-nowrap cursor-pointer ${preset === p.id ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:bg-surface-container'}`}>{p.label}</button>
-            ))}
-          </DragScrollRow>
+          <FilterPills options={presets.map(p => ({ value: p.id, label: p.label }))} value={preset} onChange={setPreset} />
           {preset === 'custom' && (
             <div className="flex items-center gap-1.5">
               <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="m3-input !min-h-10 !w-40" />
@@ -164,86 +160,82 @@ export default function CashbookSection({ simOrders, bankAccounts, setBankAccoun
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative flex-1 min-w-[12rem]">
-            <Search className="w-4 h-4 text-on-surface-variant absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm mã phiếu, người nộp/nhận, loại thu chi..." className="m3-input !rounded-full pl-10 !min-h-10" />
-          </div>
-          <select value={kind} onChange={e => setKind(e.target.value as any)} className="m3-input !min-h-10 !w-36" aria-label="Loại phiếu">
-            <option value="all">Thu &amp; chi</option><option value="receipt">Chỉ thu</option><option value="payment">Chỉ chi</option>
-          </select>
-          <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
-            <input type="checkbox" checked={showCancelled} onChange={e => setShowCancelled(e.target.checked)} className="w-4.5 h-4.5 accent-primary" /> Hiện phiếu đã hủy
-          </label>
+        <ListToolbar
+          filters={
+            <div className="flex flex-wrap items-center gap-3">
+              <select value={kind} onChange={e => setKind(e.target.value as any)} className="m3-input !min-h-10 !w-36" aria-label="Loại phiếu">
+                <option value="all">Thu &amp; chi</option><option value="receipt">Chỉ thu</option><option value="payment">Chỉ chi</option>
+              </select>
+              <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                <input type="checkbox" checked={showCancelled} onChange={e => setShowCancelled(e.target.checked)} className="w-4.5 h-4.5 accent-primary" /> Hiện phiếu đã hủy
+              </label>
+            </div>
+          }
+          searchValue={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Tìm mã phiếu, người nộp/nhận, loại thu chi..."
+        />
+
+        {/* Tổng hợp */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[
+            ['Quỹ đầu kỳ', summary.opening, 'text-on-surface'],
+            ['Tổng thu', summary.totalIn, 'text-secondary'],
+            ['Tổng chi', summary.totalOut, 'text-error'],
+            ['Tồn quỹ', summary.closing, 'text-primary'],
+          ].map(([label, value, tone]) => (
+            <div key={label as string} className="border border-outline-variant rounded-2xl p-4">
+              <p className="text-sm font-semibold text-on-surface-variant">{label}</p>
+              <p className={`text-2xl font-black ${tone}`}>{money(value as number)}</p>
+            </div>
+          ))}
         </div>
-      </div>
 
-      {/* Tổng hợp */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {[
-          ['Quỹ đầu kỳ', summary.opening, 'text-on-surface'],
-          ['Tổng thu', summary.totalIn, 'text-secondary'],
-          ['Tổng chi', summary.totalOut, 'text-error'],
-          ['Tồn quỹ', summary.closing, 'text-primary'],
-        ].map(([label, value, tone]) => (
-          <div key={label as string} className="m3-card p-4">
-            <p className="text-sm font-semibold text-on-surface-variant">{label}</p>
-            <p className={`text-2xl font-black ${tone}`}>{money(value as number)}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Dòng tiền theo loại */}
-      <div className="m3-card p-4 space-y-3">
-        <h3 className="text-base font-bold text-on-surface">Dòng tiền theo loại thu chi</h3>
-        {breakdown.length === 0 ? (
-          <p className="text-sm text-on-surface-variant">Chưa có khoản thu chi nào trong kỳ này.</p>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-2.5">
-            {breakdown.map(b => (
-              <div key={`${b.kind}-${b.category}`} className="space-y-1">
-                <div className="flex justify-between gap-3 text-sm">
-                  <span className="font-semibold text-on-surface truncate">{b.kind === 'receipt' ? 'Thu' : 'Chi'} · {b.category} <span className="text-on-surface-variant font-normal">({b.count})</span></span>
-                  <span className={`font-bold shrink-0 ${b.kind === 'receipt' ? 'text-secondary' : 'text-error'}`}>{b.kind === 'receipt' ? '+' : '-'}{money(b.total)}</span>
+        {/* Dòng tiền theo loại */}
+        <div className="border border-outline-variant rounded-2xl p-4 space-y-3">
+          <h3 className="text-lg font-bold text-on-surface">Dòng tiền theo loại thu chi</h3>
+          {breakdown.length === 0 ? (
+            <p className="text-sm text-on-surface-variant">Chưa có khoản thu chi nào trong kỳ này.</p>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-2.5">
+              {breakdown.map(b => (
+                <div key={`${b.kind}-${b.category}`} className="space-y-1">
+                  <div className="flex justify-between gap-3 text-sm">
+                    <span className="font-semibold text-on-surface truncate">{b.kind === 'receipt' ? 'Thu' : 'Chi'} · {b.category} <span className="text-on-surface-variant font-normal">({b.count})</span></span>
+                    <span className={`font-bold shrink-0 ${b.kind === 'receipt' ? 'text-secondary' : 'text-error'}`}>{b.kind === 'receipt' ? '+' : '-'}{money(b.total)}</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-surface-container-high overflow-hidden">
+                    <div className={`h-full rounded-full ${b.kind === 'receipt' ? 'bg-secondary' : 'bg-error'}`} style={{ width: `${(b.total / maxBreak) * 100}%` }} />
+                  </div>
                 </div>
-                <div className="h-2 rounded-full bg-surface-container-high overflow-hidden">
-                  <div className={`h-full rounded-full ${b.kind === 'receipt' ? 'bg-secondary' : 'bg-error'}`} style={{ width: `${(b.total / maxBreak) * 100}%` }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+              ))}
+            </div>
+          )}
+        </div>
 
-      {/* Danh sách */}
-      <div className="m3-card overflow-x-auto">
-        <table className="m3-table min-w-[760px]">
-          <thead>
-            <tr><th>Mã phiếu</th><th>Thời gian</th><th>Loại thu chi</th><th>Người nộp / nhận</th><th>Quỹ</th><th className="text-right">Giá trị</th><th></th></tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 && (
-              <tr><td colSpan={7} className="text-center text-on-surface-variant py-10 font-semibold">Không có khoản nào phù hợp</td></tr>
-            )}
-            {rows.map(e => (
-              <tr key={e.id} className={e.status === 'cancelled' ? 'opacity-50' : ''}>
-                <td className="font-mono font-bold">{e.code}{e.status === 'cancelled' && <span className="m3-badge m3-badge-error ml-2">Đã hủy</span>}</td>
-                <td className="whitespace-nowrap">{new Date(e.time).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' })}</td>
-                <td>{e.category}{e.note ? <span className="block text-sm text-on-surface-variant">{e.note}</span> : null}</td>
-                <td>{e.counterparty || '—'}</td>
-                <td>{FUND_LABELS[e.fund]}{e.fund === 'bank' && accountName(e.bankAccountId) ? <span className="block text-sm text-on-surface-variant">{accountName(e.bankAccountId)}</span> : null}</td>
-                <td className={`text-right font-bold whitespace-nowrap ${e.kind === 'receipt' ? 'text-secondary' : 'text-error'}`}>{e.kind === 'receipt' ? '+' : '-'}{money(e.amount)}</td>
-                <td className="text-right">
-                  {e.source === 'voucher' && e.status === 'paid' && (
-                    <button onClick={() => cancelVoucher(e.id)} className="text-sm font-bold text-error hover:underline cursor-pointer">Hủy phiếu</button>
-                  )}
-                  {e.source === 'sale' && <span className="text-sm text-on-surface-variant">Bán hàng</span>}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+        {/* Danh sách */}
+        <DataTable
+          rows={rows}
+          rowKey={e => e.id}
+          emptyMessage="Không có khoản nào phù hợp"
+          columns={[
+            { key: 'code', header: 'Mã phiếu', render: e => <span className={`font-mono font-bold ${e.status === 'cancelled' ? 'opacity-50' : ''}`}>{e.code}{e.status === 'cancelled' && <span className="m3-badge m3-badge-error ml-2">Đã hủy</span>}</span> },
+            { key: 'time', header: 'Thời gian', className: 'whitespace-nowrap', render: e => new Date(e.time).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }) },
+            { key: 'category', header: 'Loại thu chi', render: e => <>{e.category}{e.note ? <span className="block text-sm text-on-surface-variant">{e.note}</span> : null}</> },
+            { key: 'counterparty', header: 'Người nộp / nhận', render: e => e.counterparty || '—' },
+            { key: 'fund', header: 'Quỹ', render: e => <>{FUND_LABELS[e.fund]}{e.fund === 'bank' && accountName(e.bankAccountId) ? <span className="block text-sm text-on-surface-variant">{accountName(e.bankAccountId)}</span> : null}</> },
+            { key: 'amount', header: 'Giá trị', className: 'text-right whitespace-nowrap', render: e => <span className={`font-bold ${e.kind === 'receipt' ? 'text-secondary' : 'text-error'}`}>{e.kind === 'receipt' ? '+' : '-'}{money(e.amount)}</span> },
+            { key: 'action', header: '', className: 'text-right', render: e => (
+              <>
+                {e.source === 'voucher' && e.status === 'paid' && (
+                  <button onClick={() => cancelVoucher(e.id)} className="text-sm font-bold text-error hover:underline cursor-pointer">Hủy phiếu</button>
+                )}
+                {e.source === 'sale' && <span className="text-sm text-on-surface-variant">Bán hàng</span>}
+              </>
+            ) },
+          ]}
+        />
+      </PageCard>
 
       {form && (
         <div className="fixed inset-0 z-[60] bg-black/50 flex items-end sm:items-center justify-center sm:p-4" onClick={() => setForm(null)}>

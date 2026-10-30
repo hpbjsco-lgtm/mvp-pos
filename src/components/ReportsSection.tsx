@@ -4,8 +4,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { CheckCircle2, Clock, RefreshCw, Shield, ShoppingBag, TrendingUp, Wallet } from 'lucide-react';
-import { Order, Product, Attendance } from '../types';
+import { RefreshCw, Shield, ShoppingBag, TrendingUp, Wallet } from 'lucide-react';
+import { Order, Product } from '../types';
 import { listStores, listAllUsers } from '../db/auth';
 import { loadCollection } from '../db/collections';
 import PageCard from './ui/PageCard';
@@ -16,13 +16,7 @@ interface ReportsSectionProps {
   simOrders: Order[];
   simProducts: Product[];
   triggerBeep: (success: boolean) => void;
-  // Employee check-in/out states
   isOffline: boolean;
-  storeId: string;
-  currentUser: { uid: string; name: string };
-  attendanceLogs: Attendance[];
-  onCheckIn: (userId: string, userName: string) => Promise<void>;
-  onCheckOut: (userId: string) => Promise<void>;
   isSysAdmin?: boolean;
 }
 
@@ -31,11 +25,6 @@ export default function ReportsSection({
   simProducts,
   triggerBeep,
   isOffline,
-  storeId,
-  currentUser,
-  attendanceLogs,
-  onCheckIn,
-  onCheckOut,
   isSysAdmin = false
 }: ReportsSectionProps) {
 
@@ -159,16 +148,13 @@ export default function ReportsSection({
   const chartPoints = getChartData();
   const maxChartValue = Math.max(...chartPoints.map(p => p.value), 100000);
 
-  const todayStr = new Date().toLocaleDateString('sv-SE');
-  const todayLog = attendanceLogs.find(log => log.userId === currentUser.uid && log.date === todayStr);
-
   const timeframeLabel = timeframe === 'daily' ? 'Hôm nay' : timeframe === 'monthly' ? 'Tháng này' : 'Năm nay';
 
   return (
     <div className="space-y-4">
 
-      {/* TRẠM CHẤM CÔNG / TỔNG QUAN HỆ THỐNG (SYSADMIN) */}
-      {isSysAdmin ? (
+      {/* Tổng quan hệ thống (chỉ SysAdmin); chấm công nằm ở menu tài khoản trên thanh đầu trang */}
+      {isSysAdmin && (
         <div className="m3-card p-5 space-y-4">
           <div className="flex items-center gap-2">
             <Shield className="w-5 h-5 text-primary" />
@@ -219,64 +205,6 @@ export default function ReportsSection({
               </div>
             )}
           </div>
-        </div>
-      ) : (
-        <div className="m3-card p-5 space-y-3">
-          <div className="flex items-center gap-2">
-            <Clock className="w-5 h-5 text-primary" />
-            <div>
-              <h3 className="text-base font-bold text-on-surface flex items-center gap-1.5">
-                 {currentUser.name}
-              </h3>
-              <p className="text-sm text-on-surface-variant">
-                Mã cửa hàng: <span className="font-mono">{storeId}</span>
-              </p>
-            </div>
-          </div>
-
-          {todayLog ? (
-            todayLog.status === 'working' ? (
-              <div className="flex flex-col sm:flex-row items-center gap-3 bg-tertiary-container p-3.5 rounded-2xl">
-                <div className="flex-1 text-center sm:text-left">
-                  <p className="text-sm font-bold text-on-tertiary-container">Đang ghi nhận giờ công</p>
-                  <p className="text-sm text-on-tertiary-container/80">
-                    Check-in: <strong className="font-mono">{new Date(todayLog.checkIn).toLocaleTimeString('vi-VN')}</strong>
-                  </p>
-                </div>
-                <button
-                  onClick={() => {
-                    if (confirm('Xác nhận CHECK-OUT ra ca làm việc hôm nay và chốt tính lương ngày?')) {
-                      onCheckOut(currentUser.uid);
-                    }
-                  }}
-                  className="m3-btn-danger !min-h-11 text-sm w-full sm:w-auto"
-                >
-                   Check-out ra ca
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-3 bg-secondary-container p-3.5 rounded-2xl">
-                <CheckCircle2 className="w-6 h-6 text-secondary" />
-                <div>
-                  <p className="text-sm font-bold text-on-secondary-container">Đã hoàn thành ca hôm nay</p>
-                  <p className="text-sm text-on-secondary-container/80">
-                    Công làm: <strong>{todayLog.hoursWorked.toFixed(2)} giờ</strong> · Thực nhận: <strong>+{todayLog.dailyWage.toLocaleString('vi-VN')}đ</strong>
-                  </p>
-                </div>
-              </div>
-            )
-          ) : (
-            <button
-              onClick={() => {
-                if (confirm('Xác nhận CHECK-IN bắt đầu ca làm việc hôm nay?')) {
-                  onCheckIn(currentUser.uid, currentUser.name);
-                }
-              }}
-              className="m3-btn-filled w-full !min-h-12"
-            >
-               Bắt đầu check-in vào ca
-            </button>
-          )}
         </div>
       )}
 

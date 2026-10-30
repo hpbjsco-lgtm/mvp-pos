@@ -4,7 +4,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { KeyRound, Pencil, Plus, Search, Trash2, UserCircle, Users } from 'lucide-react';
+import { KeyRound } from 'lucide-react';
 import {
   adminCreateUser, adminDeleteUser, adminListStores, adminListUsers, adminSetPassword, adminUpdateUser,
   type AdminStore, type AdminUser,
@@ -12,6 +12,9 @@ import {
 import type { StoreRole } from '../db/auth';
 import { ROLE_LABELS } from '../utils/permissions';
 import { AdminModal, ErrorBox, Field } from './SysAdminShared';
+import PageCard from './ui/PageCard';
+import ListToolbar from './ui/ListToolbar';
+import DataTable, { RowActions, RoundThumb } from './ui/DataTable';
 
 interface Props {
   triggerBeep: (success: boolean) => void;
@@ -136,63 +139,60 @@ export default function SysAdminAccounts({ triggerBeep }: Props) {
   const formStoreType = stores.find(s => s.id === form?.storeId)?.storeType;
 
   return (
-    <div className="space-y-4 max-w-5xl mx-auto">
-      <div className="flex items-center gap-3">
-        <Users className="w-6 h-6 text-primary" />
-        <div className="flex-1">
-          <h2 className="text-xl font-bold text-on-surface">Tài khoản</h2>
-          <p className="text-sm text-on-surface-variant">{users.length} tài khoản trên thiết bị này</p>
-        </div>
-        <button onClick={openNew} className="m3-btn-filled !min-h-12"><Plus className="w-5 h-5" /> Thêm tài khoản</button>
-      </div>
+    <div className="space-y-4">
+      <PageCard title={`Tài khoản (${users.length})`}>
+        <ErrorBox message={error} />
 
-      <ErrorBox message={error} />
+        <ListToolbar
+          filters={
+            <select value={storeFilter} onChange={e => setStoreFilter(e.target.value)} className="m3-input !min-h-11 sm:max-w-xs" aria-label="Lọc theo cửa hàng">
+              <option value="all">Tất cả cửa hàng</option>
+              {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          }
+          searchValue={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Tìm theo tên, tài khoản, email..."
+          addLabel="Thêm tài khoản"
+          onAdd={openNew}
+        />
 
-      <div className="flex flex-col sm:flex-row gap-2">
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 text-on-surface-variant absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm theo tên, tài khoản, email..." className="m3-input !rounded-full pl-10" />
-        </div>
-        <select value={storeFilter} onChange={e => setStoreFilter(e.target.value)} className="m3-input sm:max-w-xs">
-          <option value="all">Tất cả cửa hàng</option>
-          {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
-      </div>
-
-      {loading ? (
-        <p className="py-12 text-center text-on-surface-variant font-semibold">Đang tải...</p>
-      ) : visible.length === 0 ? (
-        <div className="m3-card py-14 text-center text-on-surface-variant">
-          <UserCircle className="w-10 h-10 mx-auto mb-2 text-outline-variant" />
-          <p className="text-base font-bold">Không có tài khoản phù hợp</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {visible.map(u => (
-            <div key={u.uid} className={`m3-card p-4 space-y-3 ${u.isActive ? '' : 'opacity-60'}`}>
-              <div className="flex items-start gap-3">
-                <div className="w-11 h-11 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold uppercase shrink-0">
-                  {u.name.slice(0, 2)}
+        {loading ? (
+          <p className="py-12 text-center text-on-surface-variant font-semibold">Đang tải...</p>
+        ) : (
+          <DataTable<AdminUser>
+            rows={visible}
+            rowKey={u => u.uid}
+            emptyMessage="Không có tài khoản phù hợp"
+            columns={[
+              { key: 'name', header: 'Tên', render: u => (
+                <div className={`flex items-center gap-3 ${u.isActive ? '' : 'opacity-60'}`}>
+                  <RoundThumb name={u.name} />
+                  <div className="min-w-0">
+                    <p className="font-semibold truncate">{u.name}</p>
+                    <p className="text-sm text-on-surface-variant truncate">@{u.username}</p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-base font-bold text-on-surface truncate">{u.name}</h3>
-                  <p className="text-sm text-on-surface-variant truncate">@{u.username} · {u.email}</p>
-                  <p className="text-sm text-on-surface-variant truncate">{u.storeName}</p>
-                </div>
-                <div className="flex flex-col items-end gap-1">
+              ) },
+              { key: 'email', header: 'Email', render: u => u.email },
+              { key: 'store', header: 'Cửa hàng', render: u => u.storeName },
+              { key: 'role', header: 'Vai trò', render: u => (
+                <div className="flex flex-wrap gap-1">
                   <span className={`m3-badge ${roleBadge(u.role)}`}>{ROLE_LABELS[u.role as StoreRole] ?? u.role}</span>
                   {!u.isActive && <span className="m3-badge m3-badge-error">Đã khóa</span>}
                 </div>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <button onClick={() => openEdit(u)} className="m3-btn-tonal !min-h-11 text-sm"><Pencil className="w-4 h-4" /> Sửa</button>
-                <button onClick={() => { setPwTarget(u); setPwValue(''); setPwError(''); }} className="m3-btn-tonal !min-h-11 text-sm"><KeyRound className="w-4 h-4" /> Mật khẩu</button>
-                <button onClick={() => setDeleting(u)} className="m3-btn-danger !min-h-11 text-sm"><Trash2 className="w-4 h-4" /> Xóa</button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+              ) },
+            ]}
+            renderActions={u => (
+              <RowActions onEdit={() => openEdit(u)} onDelete={() => setDeleting(u)} editLabel="Sửa tài khoản" deleteLabel="Xóa tài khoản">
+                <button type="button" onClick={() => { setPwTarget(u); setPwValue(''); setPwError(''); }} title="Đổi mật khẩu" aria-label="Đổi mật khẩu" className="m3-icon-btn !w-9 !h-9 text-primary hover:bg-primary-container">
+                  <KeyRound className="w-4.5 h-4.5" />
+                </button>
+              </RowActions>
+            )}
+          />
+        )}
+      </PageCard>
 
       {editing && form && (
         <AdminModal
