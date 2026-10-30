@@ -4,6 +4,7 @@
  */
 
 import express from 'express';
+import { createAdminRouter } from './adminRouter.mjs';
 import { requireBearerToken } from './auth.mjs';
 
 /** Largest JSON body accepted; product photos are stored as data URLs inside SQL parameters. */
@@ -11,6 +12,8 @@ const MAX_BODY_SIZE = '32mb';
 
 /**
  * Builds the HTTP application. It is separate from `index.mjs` so tests can start it on a random port.
+ *
+ * Admin page and its API are mounted at `/admin` (see `adminRouter.mjs`).
  *
  * Routes (all except `/api/health` need the Bearer token):
  *  - GET  /api/health  liveness check
@@ -20,10 +23,13 @@ const MAX_BODY_SIZE = '32mb';
  * @param {Object} options Dependencies and settings.
  * @param {import('./sqlService.mjs').SqlService} options.sqlService Executes the SQL.
  * @param {string} options.apiToken Secret required by the protected routes.
+ * @param {import('./tableExplorer.mjs').TableExplorer} options.explorer Reads and edits table rows for the admin page.
+ * @param {import('./databaseManager.mjs').DatabaseManager} options.manager Takes backups and restores them for the admin page.
+ * @param {string} options.adminToken Secret required by the admin routes.
  * @param {string} [options.corsOrigin] Origin allowed to call the API from a browser; empty means no CORS headers.
  * @returns {import('express').Express} Configured application.
  */
-export function createApp({ sqlService, apiToken, corsOrigin = '' }) {
+export function createApp({ sqlService, apiToken, explorer, manager, adminToken, corsOrigin = '' }) {
   const app = express();
   app.disable('x-powered-by');
   app.use(express.json({ limit: MAX_BODY_SIZE }));
@@ -79,6 +85,8 @@ export function createApp({ sqlService, apiToken, corsOrigin = '' }) {
       response.status(400).json({ error: error.message });
     }
   });
+
+  app.use('/admin', createAdminRouter({ explorer, manager, adminToken }));
 
   return app;
 }

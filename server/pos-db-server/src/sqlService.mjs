@@ -38,10 +38,11 @@ export function openDatabase(filePath) {
  */
 export class SqlService {
   /**
-   * @param {import('better-sqlite3').Database} database Open connection used for every call.
+   * @param {() => import('better-sqlite3').Database} getDatabase Returns the current connection; called on every
+   *   request so the connection can be replaced after a restore.
    */
-  constructor(database) {
-    this.database = database;
+  constructor(getDatabase) {
+    this.getDatabase = getDatabase;
   }
 
   /**
@@ -52,7 +53,7 @@ export class SqlService {
    */
   exec(sql) {
     this.assertAllowed(sql);
-    this.database.exec(sql);
+    this.getDatabase().exec(sql);
   }
 
   /**
@@ -64,7 +65,7 @@ export class SqlService {
    */
   run(sql, params = []) {
     this.assertAllowed(sql);
-    this.database.prepare(sql).run(...this.normalizeParams(params));
+    this.getDatabase().prepare(sql).run(...this.normalizeParams(params));
   }
 
   /**
@@ -77,7 +78,7 @@ export class SqlService {
    */
   all(sql, params = []) {
     this.assertAllowed(sql);
-    return this.database.prepare(sql).all(...this.normalizeParams(params));
+    return this.getDatabase().prepare(sql).all(...this.normalizeParams(params));
   }
 
   /**
@@ -88,9 +89,10 @@ export class SqlService {
    */
   batch(statements) {
     for (const statement of statements) this.assertAllowed(statement.sql);
-    const runAll = this.database.transaction((items) => {
+    const database = this.getDatabase();
+    const runAll = database.transaction((items) => {
       for (const item of items) {
-        this.database.prepare(item.sql).run(...this.normalizeParams(item.params));
+        database.prepare(item.sql).run(...this.normalizeParams(item.params));
       }
     });
     runAll(statements);

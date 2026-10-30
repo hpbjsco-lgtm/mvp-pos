@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quản lý cơ sở dữ liệu</title>
+<style>
+  :root {
+    --primary: #c15f3c;
+    --primary-container: #f8e3d8;
+    --surface: #faf9f5;
+    --card: #ffffff;
+    --text: #1f1e1d;
+    --muted: #55524b;
+    --line: #dad6ca;
+    --error: #ba1a1a;
+    --error-container: #ffdad6;
+    --ok: #3f7d4e;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--surface); color: var(--text); }
+  button { font: inherit; cursor: pointer; }
+  .hidden { display: none !important; }
+
+  .btn { border: 0; border-radius: 10px; padding: 8px 14px; font-weight: 600; background: var(--primary); color: #fff; }
+  .btn:hover { filter: brightness(1.08); }
+  .btn.tonal { background: var(--primary-container); color: #3a1507; }
+  .btn.danger { background: var(--error); }
+  .btn.small { padding: 4px 10px; font-size: 13px; }
+  .btn:disabled { opacity: .45; cursor: default; }
+  input, textarea, select { font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; width: 100%; }
+
+  #login { max-width: 380px; margin: 12vh auto; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 24px; }
+  #login h1 { margin: 0 0 4px; font-size: 20px; }
+  #login p { margin: 0 0 16px; color: var(--muted); }
+  #login .btn { width: 100%; margin-top: 12px; }
+
+  header.top { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: var(--primary); color: #fff; flex-wrap: wrap; }
+  header.top h1 { margin: 0; font-size: 18px; flex: 1; }
+  header.top .btn { background: rgba(255,255,255,.2); }
+  main { display: grid; grid-template-columns: 240px 1fr; gap: 16px; padding: 16px; align-items: start; }
+  @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+  #tableList { list-style: none; margin: 0; padding: 0; max-height: 78vh; overflow: auto; }
+  #tableList li button { display: flex; justify-content: space-between; width: 100%; border: 0; background: none; padding: 7px 8px; border-radius: 8px; text-align: left; color: var(--text); }
+  #tableList li button:hover { background: var(--primary-container); }
+  #tableList li button.active { background: var(--primary); color: #fff; }
+  #tableList .count { opacity: .7; font-size: 13px; }
+
+  .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+  .toolbar h2 { margin: 0; font-size: 18px; flex: 1; min-width: 140px; }
+  .toolbar input { max-width: 260px; }
+  .scroll { overflow: auto; max-height: 68vh; border: 1px solid var(--line); border-radius: 10px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th { position: sticky; top: 0; background: var(--primary); color: #fff; text-align: left; padding: 8px 10px; white-space: nowrap; }
+  td { padding: 7px 10px; border-top: 1px solid var(--line); max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: top; }
+  td.actions { white-space: nowrap; width: 1%; }
+  td .null { color: var(--muted); font-style: italic; }
+  td .blob { color: var(--muted); }
+  .pager { display: flex; gap: 8px; align-items: center; margin-top: 10px; color: var(--muted); }
+  .empty { padding: 28px; text-align: center; color: var(--muted); }
+
+  #message { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); padding: 10px 16px; border-radius: 10px; background: var(--ok); color: #fff; max-width: 90vw; z-index: 30; }
+  #message.error { background: var(--error); }
+
+  dialog { border: 0; border-radius: 16px; padding: 0; width: min(640px, 94vw); }
+  dialog::backdrop { background: rgba(0,0,0,.45); }
+  dialog form { padding: 18px; display: grid; gap: 10px; max-height: 88vh; overflow: auto; }
+  dialog h3 { margin: 0; }
+  .field label.name { display: block; font-weight: 600; margin-bottom: 3px; }
+  .field .type { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: 6px; }
+  .field .row { display: flex; gap: 8px; align-items: center; }
+  .field .nullbox { display: flex; gap: 4px; align-items: center; white-space: nowrap; font-size: 13px; color: var(--muted); }
+  .field .nullbox input { width: auto; }
+  .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+  .confirm-row { background: var(--error-container); padding: 10px; border-radius: 8px; font-size: 13px; max-height: 160px; overflow: auto; white-space: pre-wrap; word-break: break-all; }
+</style>
+</head>
+<body>
+
+<section id="login" class="hidden">
+  <h1>Quản lý cơ sở dữ liệu</h1>
+  <p>Nhập mã quản trị (ADMIN_TOKEN) của máy chủ.</p>
+  <input id="tokenInput" type="password" placeholder="Mã quản trị" autocomplete="current-password">
+  <button id="loginButton" class="btn">Đăng nhập</button>
+  <p id="loginError" style="color:var(--error);margin-top:10px"></p>
+</section>
+
+<section id="app" class="hidden">
+  <header class="top">
+    <h1>Cơ sở dữ liệu SQLite</h1>
+    <button id="backupButton" class="btn">Tải file .db về</button>
+    <button id="restoreButton" class="btn">Nạp file .db lên</button>
+    <input id="restoreFile" type="file" accept=".db,.sqlite,.sqlite3" class="hidden">
+    <button id="logoutButton" class="btn">Đăng xuất</button>
+  </header>
+  <main>
+    <aside class="card">
+      <ul id="tableList"></ul>
+    </aside>
+    <section class="card">
+      <div id="placeholder" class="empty">Chọn một bảng ở bên trái.</div>
+      <div id="tableView" class="hidden">
+        <div class="toolbar">
+          <h2 id="tableTitle"></h2>
+          <input id="searchInput" type="search" placeholder="Tìm trong bảng...">
+          <button id="addButton" class="btn">Thêm dòng</button>
+        </div>
+        <div class="scroll"><table id="dataTable"></table></div>
+        <div class="pager">
+          <button id="prevButton" class="btn tonal small">Trang trước</button>
+          <span id="pageInfo"></span>
+          <button id="nextButton" class="btn tonal small">Trang sau</button>
+        </div>
+      </div>
+    </section>
+  </main>
+</section>
+
+<dialog id="rowDialog"><form id="rowForm" method="dialog"></form></dialog>
+<dialog id="deleteDialog"><form id="deleteForm" method="dialog"></form></dialog>
+<div id="message" class="hidden"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  const PAGE_SIZE = 50;
+  const TOKEN_KEY = 'pos-admin-token';
+
+  const state = { token: '', table: '', columns: [], primaryKey: [], offset: 0, total: 0, search: '' };
+  const $ = (id) => document.getElementById(id);
+
+  /** Creates an element, sets plain text (never HTML) and optional attributes. */
+  function el(tag, text, attributes) {
+    const node = document.createElement(tag);
+    if (text !== undefined && text !== null) node.textContent = text;
+    if (attributes) Object.entries(attributes).forEach(([key, value]) => node.setAttribute(key, value));
+    return node;
+  }
+
+  /** Shows a short message at the bottom of the page. */
+  function notify(text, isError) {
+    const box = $('message');
+    box.textContent = text;
+    box.classList.toggle('error', Boolean(isError));
+    box.classList.remove('hidden');
+    clearTimeout(notify.timer);
+    notify.timer = setTimeout(() => box.classList.add('hidden'), isError ? 6000 : 3000);
+  }
+
+  /** Calls the admin API; throws an Error with the server message on failure. */
+  async function api(path, options = {}) {
+    const response = await fetch(`/admin/api${path}`, {
+      ...options,
+      headers: { Authorization: `Bearer ${state.token}`, ...(options.headers || {}) },
+    });
+    if (response.status === 401) {
+      logout('Mã quản trị không đúng hoặc đã hết hiệu lực.');
+      throw new Error('Unauthorized');
+    }
+    if (options.raw) {
+      if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || `Lỗi ${response.status}`);
+      return response;
+    }
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.error || `Lỗi ${response.status}`);
+    return body;
+  }
+
+  const jsonOptions = (method, body) => ({ method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+
+  function showLogin(errorText) {
+    $('app').classList.add('hidden');
+    $('login').classList.remove('hidden');
+    $('loginError').textContent = errorText || '';
+  }
+
+  function logout(errorText) {
+    sessionStorage.removeItem(TOKEN_KEY);
+    state.token = '';
+    showLogin(errorText);
+  }
+
+  async function login(token) {
+    state.token = token;
+    try {
+      await loadTables();
+    } catch (error) {
+      if (error.message !== 'Unauthorized') showLogin(error.message);
+      return;
+    }
+    sessionStorage.setItem(TOKEN_KEY, token);
+    $('login').classList.add('hidden');
+    $('app').classList.remove('hidden');
+  }
+
+  async function loadTables() {
+    const { tables } = await api('/tables');
+    const list = $('tableList');
+    list.replaceChildren();
+    tables.forEach((table) => {
+      const item = el('li');
+      const button = el('button', null, { type: 'button' });
+      if (table.name === state.table) button.classList.add('active');
+      button.append(el('span', table.name), el('span', String(table.rowCount), { class: 'count' }));
+      button.addEventListener('click', () => openTable(table.name));
+      item.append(button);
+      list.append(item);
+    });
+  }
+
+  async function openTable(name) {
+    state.table = name;
+    state.offset = 0;
+    state.search = '';
+    $('searchInput').value = '';
+    await loadRows();
+    await loadTables();
+  }
+
+  async function loadRows() {
+    const query = new URLSearchParams({ limit: PAGE_SIZE, offset: state.offset, search: state.search });
+    const data = await api(`/tables/${encodeURIComponent(state.table)}?${query}`);
+    state.columns = data.columns;
+    state.primaryKey = data.primaryKey;
+    state.total = data.total;
+    renderRows(data.rows);
+  }
+
+  function renderRows(rows) {
+    $('placeholder').classList.add('hidden');
+    $('tableView').classList.remove('hidden');
+    $('tableTitle').textContent = `${state.table} (${state.total} dòng)`;
+
+    const table = $('dataTable');
+    table.replaceChildren();
+    const head = el('tr');
+    state.columns.forEach((column) => head.append(el('th', column.name)));
+    head.append(el('th', ''));
+    table.append(head);
+
+    if (rows.length === 0) {
+      const empty = el('tr');
+      const cell = el('td', 'Không có dòng nào.', { colspan: state.columns.length + 1 });
+      cell.className = 'empty';
+      empty.append(cell);
+      table.append(empty);
+    }
+
+    rows.forEach((row) => {
+      const tr = el('tr');
+      state.columns.forEach((column) => {
+        const value = row[column.name];
+        const td = el('td');
+        if (value === null) {
+          td.append(el('span', 'NULL', { class: 'null' }));
+        } else if (typeof value === 'object') {
+          td.append(el('span', `[nhị phân ${value.__blob} byte]`, { class: 'blob' }));
+        } else {
+          td.textContent = String(value);
+          td.title = String(value);
+        }
+        tr.append(td);
+      });
+      const actions = el('td', null, { class: 'actions' });
+      const edit = el('button', 'Sửa', { type: 'button', class: 'btn tonal small' });
+      const remove = el('button', 'Xóa', { type: 'button', class: 'btn danger small' });
+      edit.addEventListener('click', () => openRowForm(row.__key));
+      remove.addEventListener('click', () => openDeleteConfirm(row));
+      actions.append(edit, document.createTextNode(' '), remove);
+      tr.append(actions);
+      table.append(tr);
+    });
+
+    const from = state.total === 0 ? 0 : state.offset + 1;
+    $('pageInfo').textContent = `${from}–${Math.min(state.offset + PAGE_SIZE, state.total)} / ${state.total}`;
+    $('prevButton').disabled = state.offset === 0;
+    $('nextButton').disabled = state.offset + PAGE_SIZE >= state.total;
+  }
+
+  /** Opens the add / edit dialog. `key` is null when adding a row. */
+  async function openRowForm(key) {
+    let current = null;
+    if (key) {
+      try {
+        current = (await api(`/tables/${encodeURIComponent(state.table)}/row?key=${encodeURIComponent(JSON.stringify(key))}`)).row;
+      } catch (error) {
+        notify(error.message, true);
+        return;
+      }
+    }
+
+    const form = $('rowForm');
+    form.replaceChildren(el('h3', key ? `Sửa dòng — ${state.table}` : `Thêm dòng — ${state.table}`));
+    const inputs = [];
+
+    state.columns.forEach((column) => {
+      const originalValue = current ? current[column.name] : undefined;
+      if (originalValue !== null && typeof originalValue === 'object') return; // binary data cannot be edited here
+
+      const field = el('div', null, { class: 'field' });
+      const label = el('label', column.name, { class: 'name' });
+      label.append(el('span', `${column.type || 'ANY'}${column.primaryKeyOrder ? ' · khóa chính' : ''}${column.notNull ? ' · bắt buộc' : ''}`, { class: 'type' }));
+      const row = el('div', null, { class: 'row' });
+      const input = el('textarea', null, { rows: '1' });
+      input.value = originalValue === null || originalValue === undefined ? '' : String(originalValue);
+      const nullBox = el('input', null, { type: 'checkbox' });
+      nullBox.checked = originalValue === null || (!key && !column.notNull && column.primaryKeyOrder === 0);
+      const nullLabel = el('label', null, { class: 'nullbox' });
+      nullLabel.append(nullBox, document.createTextNode('NULL'));
+      input.disabled = nullBox.checked;
+      nullBox.addEventListener('change', () => { input.disabled = nullBox.checked; });
+      row.append(input, nullLabel);
+      field.append(label, row);
+      form.append(field);
+      inputs.push({ column, input, nullBox, originalValue });
+    });
+
+    const actions = el('div', null, { class: 'dialog-actions' });
+    const cancel = el('button', 'Hủy', { type: 'button', class: 'btn tonal' });
+    const save = el('button', 'Lưu', { type: 'submit', class: 'btn' });
+    cancel.addEventListener('click', () => $('rowDialog').close());
+    actions.append(cancel, save);
+    form.append(actions);
+
+    form.onsubmit = async (event) => {
+      event.preventDefault();
+      const values = {};
+      inputs.forEach(({ column, input, nullBox, originalValue }) => {
+        const value = nullBox.checked ? null : input.value;
+        if (!key) {
+          // Adding: leave untouched NULL columns out so the table default applies.
+          if (value !== null) values[column.name] = value;
+        } else if (value !== (originalValue === undefined ? null : originalValue === null ? null : String(originalValue))) {
+          values[column.name] = value; // editing: send only what changed
+        }
+      });
+      try {
+        if (key) {
+          if (Object.keys(values).length === 0) { $('rowDialog').close(); return; }
+          await api(`/tables/${encodeURIComponent(state.table)}/rows`, jsonOptions('PUT', { key, values }));
+        } else {
+          await api(`/tables/${encodeURIComponent(state.table)}/rows`, jsonOptions('POST', { values }));
+        }
+        $('rowDialog').close();
+        notify('Đã lưu.');
+        await loadRows();
+        await loadTables();
+      } catch (error) {
+        notify(error.message, true);
+      }
+    };
+    $('rowDialog').showModal();
+  }
+
+  function openDeleteConfirm(row) {
+    const form = $('deleteForm');
+    const summary = state.columns
+      .filter((column) => typeof row[column.name] !== 'object' || row[column.name] === null)
+      .slice(0, 8)
+      .map((column) => `${column.name}: ${row[column.name] === null ? 'NULL' : row[column.name]}`)
+      .join('\n');
+    form.replaceChildren(
+      el('h3', `Xóa dòng khỏi bảng ${state.table}?`),
+      el('div', summary, { class: 'confirm-row' }),
+      el('p', 'Thao tác này không thể hoàn tác. Nên tải file .db về sao lưu trước.'),
+    );
+    const actions = el('div', null, { class: 'dialog-actions' });
+    const cancel = el('button', 'Hủy', { type: 'button', class: 'btn tonal' });
+    const confirm = el('button', 'Xóa dòng', { type: 'submit', class: 'btn danger' });
+    cancel.addEventListener('click', () => $('deleteDialog').close());
+    actions.append(cancel, confirm);
+    form.append(actions);
+    form.onsubmit = async (event) => {
+      event.preventDefault();
+      try {
+        await api(`/tables/${encodeURIComponent(state.table)}/rows`, jsonOptions('DELETE', { key: row.__key }));
+        $('deleteDialog').close();
+        notify('Đã xóa.');
+        await loadRows();
+        await loadTables();
+      } catch (error) {
+        notify(error.message, true);
+      }
+    };
+    $('deleteDialog').showModal();
+  }
+
+  async function downloadBackup() {
+    try {
+      const response = await api('/backup', { raw: true });
+      const blob = await response.blob();
+      const link = el('a', null, { href: URL.createObjectURL(blob), download: `pos-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.db` });
+      document.body.append(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(link.href);
+    } catch (error) {
+      notify(error.message, true);
+    }
+  }
+
+  async function restoreFromFile(file) {
+    if (!file) return;
+    const ok = window.confirm(
+      `Thay TOÀN BỘ dữ liệu trên máy chủ bằng file "${file.name}"?\n\nDữ liệu hiện tại được tự lưu thành một bản sao trong thư mục backups của máy chủ trước khi thay.`);
+    if (!ok) return;
+    try {
+      const result = await api('/restore', { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: file });
+      notify(`Đã nạp xong. Dữ liệu cũ được lưu ở backups/${result.previousDataSavedAs}`);
+      state.table = '';
+      $('tableView').classList.add('hidden');
+      $('placeholder').classList.remove('hidden');
+      await loadTables();
+    } catch (error) {
+      notify(error.message, true);
+    }
+  }
+
+  $('loginButton').addEventListener('click', () => login($('tokenInput').value.trim()));
+  $('tokenInput').addEventListener('keydown', (event) => { if (event.key === 'Enter') login($('tokenInput').value.trim()); });
+  $('logoutButton').addEventListener('click', () => logout(''));
+  $('backupButton').addEventListener('click', downloadBackup);
+  $('restoreButton').addEventListener('click', () => $('restoreFile').click());
+  $('restoreFile').addEventListener('change', (event) => { restoreFromFile(event.target.files[0]); event.target.value = ''; });
+  $('addButton').addEventListener('click', () => openRowForm(null));
+  $('prevButton').addEventListener('click', () => { state.offset = Math.max(0, state.offset - PAGE_SIZE); loadRows().catch((e) => notify(e.message, true)); });
+  $('nextButton').addEventListener('click', () => { state.offset += PAGE_SIZE; loadRows().catch((e) => notify(e.message, true)); });
+  let searchTimer;
+  $('searchInput').addEventListener('input', (event) => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      state.search = event.target.value.trim();
+      state.offset = 0;
+      loadRows().catch((error) => notify(error.message, true));
+    }, 300);
+  });
+
+  const savedToken = sessionStorage.getItem(TOKEN_KEY);
+  if (savedToken) login(savedToken); else showLogin('');
+})();
+</script>
+</body>
+</html>
