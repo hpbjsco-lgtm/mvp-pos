@@ -11,9 +11,13 @@
  *   - Trình duyệt (npm run dev / bản web)
  *        -> sql.js (SQLite biên dịch sang WebAssembly), dữ liệu được lưu bền vững
  *           xuống IndexedDB sau mỗi lần ghi (debounce 250ms).
+ *   - Trình duyệt đã cấu hình máy chủ dữ liệu (xem serverConnection.ts)
+ *        -> RemoteSqlDriver: mọi câu lệnh chạy trên file SQLite của máy chủ.
  */
 
 import { Capacitor } from '@capacitor/core';
+import { RemoteSqlDriver } from './remoteDriver';
+import { getServerConnection } from './serverConnection';
 
 export interface SqlStatement {
   sql: string;
@@ -274,12 +278,35 @@ class NativeSqlDriver implements SqlDriver {
 
 let driverPromise: Promise<SqlDriver> | null = null;
 
-/** Lấy driver SQLite phù hợp với nền tảng đang chạy (singleton). */
+/**
+ * Lấy driver SQLite phù hợp với nền tảng đang chạy (singleton).
+ * Trên web, nếu đã lưu cấu hình máy chủ dữ liệu thì dùng máy chủ, ngược lại dùng DB trong trình duyệt.
+ */
 export function getDriver(): Promise<SqlDriver> {
   if (!driverPromise) {
-    driverPromise = Capacitor.isNativePlatform()
-      ? (NativeSqlDriver.create() as Promise<SqlDriver>)
-      : (WebSqlDriver.create() as Promise<SqlDriver>);
+    if (Capacitor.isNativePlatform()) {
+      driverPromise = NativeSqlDriver.create() as Promise<SqlDriver>;
+    } else {
+      const connection = getServerConnection();
+      driverPromise = connection
+        ? Promise.resolve(new RemoteSqlDriver(connection))
+        : (WebSqlDriver.create() as Promise<SqlDriver>);
+    }
   }
   return driverPromise;
+}
+
+/**
+ * Reads the database stored in this browser (IndexedDB) as a SQLite file, whether or not the app currently
+ * uses it. Used to move the data of a browser to the database server.
+ *
+ * @returns The file content, or null when this browser holds no database.
+ */
+export async function readBrowserDatabaseBytes(): Promise<Uint8Array | null> {
+  if (driverPromise) {
+    const driver = await driverPromise;
+    if (driver instanceof WebSqlDriver) await driver.flush();
+  }
+  const bytes = await idbGet();
+  return bytes && bytes.length > 0 ? bytes : null;
 }

@@ -13,6 +13,7 @@ import KitchenDisplay from './components/KitchenDisplay';
 
 // Clean screen imports
 import LoginScreen from './components/LoginScreen';
+import ServerConnectionSettings from './components/ServerConnectionSettings';
 import POSScreen from './components/POSScreen';
 import InventoryScreen from './components/InventoryScreen';
 import ReportsSection from './components/ReportsSection';
@@ -308,6 +309,22 @@ export default function App() {
         <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
         <p className="text-sm font-medium tracking-wide text-slate-400">Đang khởi động hệ thống SmartPOS...</p>
         {initError && <p className="text-xs text-rose-400 mt-3 max-w-sm text-center">{initError}</p>}
+      </div>
+    );
+  }
+
+  // The database could not start (for example the database server is unreachable): show why and let the person fix the connection
+  if (initError) {
+    return (
+      <div className="min-h-screen bg-surface flex items-center justify-center p-4">
+        <div className="w-full max-w-2xl space-y-4">
+          <div className="bg-error-container text-on-error-container rounded-2xl p-4 space-y-1">
+            <h2 className="text-lg font-bold">Không mở được cơ sở dữ liệu</h2>
+            <p className="text-sm">{initError}</p>
+          </div>
+          <ServerConnectionSettings />
+          <button type="button" onClick={() => window.location.reload()} className="m3-btn-filled !rounded-xl">Thử lại</button>
+        </div>
       </div>
     );
   }
