@@ -40,6 +40,7 @@ export default function TopNavBar({
       <p className="text-base font-black leading-tight truncate" title={storeName}>{storeName}</p>
       <p className="text-sm text-on-surface-variant font-semibold truncate">{roleLabel}</p>
       <p className="text-sm font-mono font-bold text-on-surface-variant">{clock}</p>
+      <p className="text-sm text-on-surface-variant/70">Powered by HPB</p>
     </div>
   );
 
