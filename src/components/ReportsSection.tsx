@@ -11,6 +11,7 @@ import { loadCollection } from '../db/collections';
 import PageCard from './ui/PageCard';
 import FilterPills from './ui/FilterPills';
 import DataTable from './ui/DataTable';
+import { buildRevenueSeries, filterOrdersInPeriod, ReportPeriod } from '../utils/revenueReport';
 
 interface ReportsSectionProps {
   simOrders: Order[];
@@ -28,7 +29,7 @@ export default function ReportsSection({
   isSysAdmin = false
 }: ReportsSectionProps) {
 
-  const [timeframe, setTimeframe] = useState<'daily' | 'monthly' | 'yearly'>('daily');
+  const [timeframe, setTimeframe] = useState<ReportPeriod>('daily');
 
   // System admin global data
   const [loadingAllData, setLoadingAllData] = useState(false);
@@ -72,8 +73,10 @@ export default function ReportsSection({
 
   // Use either global system wide data or specific store data based on role
   // Đơn đã hủy (void) không được tính vào doanh thu / số đơn / sản phẩm bán
-  const ordersToUse = (isSysAdmin ? (allSystemOrders.length > 0 ? allSystemOrders : simOrders) : simOrders)
+  const validOrders = (isSysAdmin ? (allSystemOrders.length > 0 ? allSystemOrders : simOrders) : simOrders)
     .filter(o => (o.status || 'completed') !== 'void');
+  // Ba ô, hai bảng xếp hạng chỉ tính đơn trong khoảng đang chọn (hôm nay / tháng này / năm nay)
+  const ordersToUse = filterOrdersInPeriod(validOrders, timeframe);
   const productsToUse = isSysAdmin ? (allSystemProducts.length > 0 ? allSystemProducts : simProducts) : simProducts;
 
   // Calculate high-level KPIs based on order history
@@ -114,39 +117,9 @@ export default function ReportsSection({
     .sort((a, b) => a.quantity - b.quantity)
     .slice(0, 3);
 
-  // Bespoke Chart Data Generation based on Timeframe selected
-  const getChartData = () => {
-    if (timeframe === 'daily') {
-      return [
-        { label: 'T2', value: totalRevenue * 0.12 + 150000 },
-        { label: 'T3', value: totalRevenue * 0.10 + 200000 },
-        { label: 'T4', value: totalRevenue * 0.15 + 180000 },
-        { label: 'T5', value: totalRevenue * 0.08 + 120000 },
-        { label: 'T6', value: totalRevenue * 0.18 + 350000 },
-        { label: 'T7', value: totalRevenue * 0.22 + 450000 },
-        { label: 'CN', value: totalRevenue * 0.15 + 300000 }
-      ];
-    } else if (timeframe === 'monthly') {
-      return [
-        { label: 'Th1', value: totalRevenue * 0.7 + 2500000 },
-        { label: 'Th2', value: totalRevenue * 0.8 + 1800000 },
-        { label: 'Th3', value: totalRevenue * 0.95 + 3200000 },
-        { label: 'Th4', value: totalRevenue * 0.6 + 2100000 },
-        { label: 'Th5', value: totalRevenue * 1.1 + 4500000 },
-        { label: 'Th6', value: totalRevenue * 1.25 + 5100000 }
-      ];
-    } else {
-      return [
-        { label: '2023', value: 45000000 },
-        { label: '2024', value: 78000000 },
-        { label: '2025', value: 124000000 },
-        { label: '2026', value: totalRevenue + 34000000 }
-      ];
-    }
-  };
-
-  const chartPoints = getChartData();
-  const maxChartValue = Math.max(...chartPoints.map(p => p.value), 100000);
+  // Biểu đồ cộng từ đơn thật: 7 ngày, 6 tháng hoặc 4 năm gần nhất
+  const chartPoints = buildRevenueSeries(validOrders, timeframe);
+  const maxChartValue = Math.max(...chartPoints.map(p => p.value), 0);
 
   const timeframeLabel = timeframe === 'daily' ? 'Hôm nay' : timeframe === 'monthly' ? 'Tháng này' : 'Năm nay';
 
@@ -247,9 +220,12 @@ export default function ReportsSection({
         {/* Revenue chart */}
         <div className="border border-outline-variant rounded-2xl p-4 space-y-3">
           <h3 className="text-lg font-bold text-on-surface">Biến động doanh thu</h3>
+          {maxChartValue === 0 && (
+            <p className="text-sm text-on-surface-variant">Chưa có doanh thu trong khoảng này.</p>
+          )}
           <div className="h-[220px] w-full flex items-end justify-between gap-3 pt-6 border-b border-outline-variant">
             {chartPoints.map((point, idx) => {
-              const percentHeight = Math.max(4, (point.value / maxChartValue) * 100);
+              const percentHeight = maxChartValue > 0 ? Math.max(4, (point.value / maxChartValue) * 100) : 0;
               return (
                 <div key={idx} className="flex-1 max-w-24 mx-auto flex flex-col items-center h-full justify-end group relative">
                   <div className="absolute bottom-[calc(100%+4px)] opacity-0 group-hover:opacity-100 transition-opacity bg-on-surface text-surface text-sm font-bold px-2 py-1 rounded-lg shadow pointer-events-none z-10 whitespace-nowrap">
