@@ -3,11 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useState } from 'react';
+import QRCode from 'qrcode';
 import { X, Check } from 'lucide-react';
 import { Order } from '../types';
 import { PAYMENT_LABELS } from '../utils/payments';
 import QrCodeImage from './QrCodeImage';
+import { buildReceiptDocument } from '../printing/receiptDocument';
+import { canPrintDirectly, printReceipt } from '../printing/receiptPrinting';
 
 interface ReceiptThermalProps {
   order: Order | null;
@@ -33,12 +36,40 @@ export default function ReceiptThermal({
   transfer,
   onClose
 }: ReceiptThermalProps) {
+  const [printing, setPrinting] = useState(false);
+  const [printError, setPrintError] = useState<string | null>(null);
   if (!order) return null;
   const provisional = variant === 'provisional';
 
-  const handleNativePrint = () => {
-    // Print utility: selects the element content and opens native print window or alerts
-    window.print();
+  /**
+   * Prints on the receipt printer chosen on this device; when none is chosen (or the browser has no
+   * WebUSB) it opens the browser's print dialog instead.
+   */
+  const handlePrint = async () => {
+    setPrintError(null);
+    try {
+      if (!canPrintDirectly()) {
+        window.print();
+        return;
+      }
+      setPrinting(true);
+      const qrDataUrl = provisional && transfer
+        ? await QRCode.toDataURL(transfer.payload, { width: 440, margin: 1, errorCorrectionLevel: 'M' })
+        : undefined;
+      await printReceipt(buildReceiptDocument({
+        order,
+        storeInfo,
+        staffName,
+        variant,
+        transfer: transfer && qrDataUrl
+          ? { bankName: transfer.bankName, accountNumber: transfer.accountNumber, holder: transfer.holder, amount: transfer.amount, qrDataUrl }
+          : undefined,
+      }));
+    } catch (error) {
+      setPrintError((error as Error).message);
+    } finally {
+      setPrinting(false);
+    }
   };
 
   return (
@@ -262,13 +293,18 @@ export default function ReceiptThermal({
 
         </div>
 
+        {printError && (
+          <p className="mx-4 mt-3 text-sm font-semibold rounded-xl p-3 bg-error-container text-on-error-container">{printError}</p>
+        )}
+
         {/* Action Button Controls */}
         <div className="p-4 bg-surface-container border-t border-outline-variant flex gap-3">
           <button
-            onClick={handleNativePrint}
+            onClick={handlePrint}
+            disabled={printing}
             className="flex-1 py-3 px-4 bg-primary hover:brightness-110 text-white rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-lg shadow-emerald-500/10"
           >
-             {provisional ? 'IN PHIẾU TẠM TÍNH (80mm)' : 'IN HÓA ĐƠN NHIỆT (80mm)'}
+             {printing ? 'ĐANG IN...' : provisional ? 'IN PHIẾU TẠM TÍNH' : 'IN HÓA ĐƠN'}
           </button>
           
           <button

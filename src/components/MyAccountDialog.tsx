@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { Attendance } from '../types';
+import PrinterSettingsDialog from './PrinterSettingsDialog';
 
 interface MyAccountDialogProps {
   user: { uid: string; name: string; username?: string; email?: string };
@@ -34,6 +35,7 @@ export default function MyAccountDialog({
   const [confirm, setConfirm] = useState('');
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [printerOpen, setPrinterOpen] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,6 +91,12 @@ export default function MyAccountDialog({
             </section>
           )}
 
+          <section className="space-y-3">
+            <h4 className="text-base font-bold text-on-surface">Máy in hóa đơn</h4>
+            <p className="text-sm text-on-surface-variant">Chọn máy in nhiệt cắm USB cho máy tính này và in thử.</p>
+            <button type="button" onClick={() => setPrinterOpen(true)} className="m3-btn-tonal w-full !min-h-12">Cài đặt máy in</button>
+          </section>
+
           {canChangePassword ? (
           <section className="space-y-3">
             <h4 className="text-base font-bold text-on-surface">Đổi mật khẩu</h4>
@@ -109,6 +117,7 @@ export default function MyAccountDialog({
           )}
         </div>
       </div>
+      {printerOpen && <PrinterSettingsDialog onClose={() => setPrinterOpen(false)} />}
     </div>
   );
 }
