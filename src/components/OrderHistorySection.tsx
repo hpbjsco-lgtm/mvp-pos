@@ -5,8 +5,9 @@
 
 import React, { useState } from 'react';
 import { Search } from 'lucide-react';
-import { Order, InventoryBatch, Customer } from '../types';
+import { Order, InventoryBatch, Customer, BankAccount } from '../types';
 import ReceiptThermal from './ReceiptThermal';
+import { buildTransferInfo } from '../utils/transferInfo';
 import { logOperation } from '../utils/logger';
 import { PAYMENT_LABELS, getOrderPayments } from '../utils/payments';
 import PageCard from './ui/PageCard';
@@ -25,6 +26,8 @@ interface OrderHistorySectionProps {
   triggerBeep: (success: boolean) => void;
   fbStoreProfile: any;
   fbUserProfile: any;
+  /** Tài khoản ngân hàng của cửa hàng, để in QR tài khoản trên hóa đơn in lại. */
+  simBankAccounts: BankAccount[];
 }
 
 export default function OrderHistorySection({
@@ -38,7 +41,8 @@ export default function OrderHistorySection({
   simUserRole,
   triggerBeep,
   fbStoreProfile,
-  fbUserProfile
+  fbUserProfile,
+  simBankAccounts
 }: OrderHistorySectionProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'void'>('all');
@@ -194,11 +198,13 @@ export default function OrderHistorySection({
       {reprintOrder && (
         <ReceiptThermal
           order={reprintOrder}
+          transfer={buildTransferInfo(simBankAccounts)}
           storeInfo={{
             name: fbStoreProfile?.name || 'SmartPOS Coffee Shop',
             address: fbStoreProfile?.address || '123 Đường Lê Lợi, TP. HCM',
             phone: fbStoreProfile?.phone || '0901234567',
-            storeType: simStoreType
+            storeType: simStoreType,
+            logoUrl: fbStoreProfile?.logoUrl,
           }}
           staffName={reprintOrder.staffName || fbUserProfile?.name || 'Thu Ngân'}
           onClose={() => { setReprintOrder(null); triggerBeep(true); }}

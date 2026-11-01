@@ -110,6 +110,16 @@ describe('buildReceiptDocument', () => {
     expect(all).toContain('QUÉT MÃ ĐỂ CHUYỂN KHOẢN');
     expect(doc.blocks.filter(b => b.kind === 'image')).toHaveLength(1);
   });
+  it('also prints the store account QR on a paid receipt, without an amount', () => {
+    const doc = buildReceiptDocument(input({
+      transfer: { bankName: 'VCB', accountNumber: '0011', holder: 'NGUYEN A', qrDataUrl: 'data:image/png;base64,AAAA' },
+    }));
+    const all = texts(doc.blocks);
+    expect(all).toContain('TÀI KHOẢN NGÂN HÀNG CỦA CỬA HÀNG');
+    expect(all).not.toContain('QUÉT MÃ ĐỂ CHUYỂN KHOẢN');
+    expect(all.some(line => line.startsWith('Số tiền:'))).toBe(false);
+    expect(doc.blocks.filter(b => b.kind === 'image')).toHaveLength(1);
+  });
   it('lists each payment of a mixed payment', () => {
     const all = texts(buildReceiptDocument(input({
       order: order({ payments: [{ method: 'cash', amount: 100000 }, { method: 'qr', amount: 59000 }] }),

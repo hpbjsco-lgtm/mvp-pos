@@ -32,6 +32,7 @@ import EndOfDayReport from './components/EndOfDayReport';
 import { canAccess, defaultScreen, isAdminRole, normalizeRole, ROLE_LABELS, type ScreenId } from './utils/permissions';
 import { setLogContext, logOperation } from './utils/logger';
 import { useAppData } from './db/useAppData';
+import StoreLogoSettings from './components/StoreLogoSettings';
 
 export default function App() {
   const [activeScreen, setActiveScreen] = useState<ScreenId>('reports');
@@ -50,6 +51,7 @@ export default function App() {
     carts: simCarts,
     setters,
     setCarts: setSimCarts,
+    setStoreLogo,
   } = app;
 
   const simCustomers = data.customers;
@@ -730,6 +732,7 @@ export default function App() {
                   triggerBeep={triggerBeep}
                   fbStoreProfile={fbStoreProfile}
                   fbUserProfile={fbUserProfile}
+                  simBankAccounts={simBankAccounts}
                 />
               </motion.div>
             )}
@@ -1026,6 +1029,8 @@ export default function App() {
                       </div>
                     </div>
                   </div>
+
+                  <StoreLogoSettings logoUrl={fbStoreProfile.logoUrl} onSave={setStoreLogo} />
 
                   <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
                     <span>Cơ sở dữ liệu: SQLite (lưu trên thiết bị)</span>

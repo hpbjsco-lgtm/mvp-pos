@@ -5,10 +5,11 @@
 
 import { MonochromeBitmap, packMonochrome } from './escpos';
 import { ReceiptAlign, ReceiptDocument, ReceiptTextSize } from './receiptDocument';
+import { ditherToBlackAndWhite } from './dither';
 import { wrapText } from './wrapText';
 
-/** Font size in dots for each text size (203 dpi: 24 dots is about 3 mm). */
-const FONT_SIZE_DOTS: Record<ReceiptTextSize, number> = { small: 20, normal: 24, large: 32 };
+/** Font size in dots for each text size (203 dpi: 8 dots per millimetre, so normal text is about 2.5 mm high). */
+const FONT_SIZE_DOTS: Record<ReceiptTextSize, number> = { small: 17, normal: 20, large: 26 };
 
 /** Fonts with Vietnamese letters, tried in order. The receipt is printed as an image, so the printer needs no font of its own. */
 const FONT_FAMILY = "Arial, 'Helvetica Neue', Helvetica, sans-serif";
@@ -23,7 +24,7 @@ const TOP_PADDING = 8;
 const ROW_GAP_DOTS = 12;
 
 /** Extra space between lines, as a share of the font size. */
-const LINE_SPACING = 0.25;
+const LINE_SPACING = 0.15;
 
 /** A drawing step computed in the layout pass and replayed after the canvas has its final height. */
 type DrawStep =
@@ -47,6 +48,30 @@ async function loadImage(dataUrl: string): Promise<HTMLImageElement> {
     throw new Error('Không đọc được ảnh (logo hoặc mã QR) để in.');
   }
   return image;
+}
+
+/**
+ * Scales an image to the given size and converts it to dithered black and white, so a logo with
+ * colours or soft edges keeps its shape on a thermal printer.
+ *
+ * @param image Source image.
+ * @param width Target width in dots.
+ * @param height Target height in dots.
+ * @returns A canvas holding the dithered image.
+ * @throws Error when the canvas is not available.
+ */
+function drawDithered(image: HTMLImageElement, width: number, height: number): HTMLCanvasElement {
+  const canvas = window.document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('Trình duyệt không cho vẽ logo (canvas không khả dụng).');
+  context.fillStyle = '#ffffff';
+  context.fillRect(0, 0, width, height);
+  context.drawImage(image, 0, 0, width, height);
+  const pixels = context.getImageData(0, 0, width, height);
+  context.putImageData(new ImageData(ditherToBlackAndWhite(pixels.data, width, height), width, height), 0, 0);
+  return canvas;
 }
 
 /**
@@ -92,9 +117,9 @@ export async function renderReceiptToBitmap(receipt: ReceiptDocument, paperWidth
     if (block.kind === 'spacer') {
       y += block.dots;
     } else if (block.kind === 'divider') {
-      y += 6;
+      y += 4;
       steps.push({ kind: 'line', y });
-      y += 10;
+      y += 6;
     } else if (block.kind === 'text') {
       const font = fontFor(block.size, block.bold);
       const lineHeight = Math.round(FONT_SIZE_DOTS[block.size] * (1 + LINE_SPACING));
@@ -147,8 +172,12 @@ export async function renderReceiptToBitmap(receipt: ReceiptDocument, paperWidth
       context.stroke();
       context.setLineDash([]);
     } else {
-      context.imageSmoothingEnabled = step.smooth;
-      context.drawImage(step.image, step.x, step.y, step.width, step.height);
+      if (step.smooth) {
+        context.drawImage(drawDithered(step.image, step.width, step.height), step.x, step.y);
+      } else {
+        context.imageSmoothingEnabled = false;
+        context.drawImage(step.image, step.x, step.y, step.width, step.height);
+      }
     }
   }
 

@@ -16,8 +16,7 @@ import TableBoard from './TableBoard';
 import KiotTableGrid from './KiotTableGrid';
 import KiotCheckoutDialog from './KiotCheckoutDialog';
 import BankAccountsDialog from './BankAccountsDialog';
-import { buildVietQRPayload } from '../utils/vietqr';
-import { findBank } from '../utils/banks';
+import { buildTransferInfo } from '../utils/transferInfo';
 import {
   OrderOptionsMenu, OptionIcons, MergeTablesDialog, TransferTableDialog, SplitMergeOrderDialog,
   ReservationDialog, KitchenHistoryDialog, OrderInfoDialog, type OptionItem
@@ -231,6 +230,9 @@ export default function POSScreen({
   };
 
   // Sound cue trigger proxy
+  // Hóa đơn đã thanh toán chỉ in tài khoản của cửa hàng (không có số tiền trong mã)
+  const paidReceiptTransfer = buildTransferInfo(simBankAccounts);
+
   const playBeep = (success: boolean) => {
     triggerBeep(success);
   };
@@ -968,11 +970,13 @@ export default function POSScreen({
         {thermalReceiptOpen && lastPlacedOrder && (
           <ReceiptThermal
             order={lastPlacedOrder}
+            transfer={paidReceiptTransfer}
             storeInfo={{
               name: fbStoreProfile?.name || 'SmartPOS Coffee Shop',
               address: fbStoreProfile?.address || '123 Đường Lê Lợi, TP. HCM',
               phone: fbStoreProfile?.phone || '0901234567',
-              storeType: simStoreType
+              storeType: simStoreType,
+              logoUrl: fbStoreProfile?.logoUrl,
             }}
             staffName={fbUserProfile?.name || 'Thu Ngân 01'}
             onClose={() => { setThermalReceiptOpen(false); setLastPlacedOrder(null); playBeep(true); }}
@@ -1187,20 +1191,8 @@ export default function POSScreen({
   ) : null;
 
   // QR chuyển khoản in trên phiếu tạm tính (tài khoản mặc định, đúng số tiền của đơn)
-  const defaultBank = simBankAccounts.find(a => a.isDefault) || simBankAccounts[0];
-  const provisionalTransfer = provisionalOrder && defaultBank && findBank(defaultBank.bankCode)
-    ? {
-        payload: buildVietQRPayload({
-          bin: findBank(defaultBank.bankCode)!.bin,
-          accountNumber: defaultBank.accountNumber,
-          amount: provisionalOrder.totalAmount,
-          memo: provisionalOrder.tableNumber || 'Thanh toan'
-        }),
-        bankName: defaultBank.bankName,
-        accountNumber: defaultBank.accountNumber,
-        holder: defaultBank.holder,
-        amount: provisionalOrder.totalAmount
-      }
+  const provisionalTransfer = provisionalOrder
+    ? buildTransferInfo(simBankAccounts, { amount: provisionalOrder.totalAmount, memo: provisionalOrder.tableNumber || 'Thanh toan' })
     : undefined;
 
   const provisionalNode = provisionalOrder ? (
@@ -1212,7 +1204,8 @@ export default function POSScreen({
         name: fbStoreProfile?.name || 'SmartPOS Coffee Shop',
         address: fbStoreProfile?.address || '123 Đường Lê Lợi, TP. HCM',
         phone: fbStoreProfile?.phone || '0901234567',
-        storeType: simStoreType
+        storeType: simStoreType,
+        logoUrl: fbStoreProfile?.logoUrl,
       }}
       staffName={fbUserProfile?.name || 'Thu Ngân 01'}
       onClose={() => { setProvisionalOrder(null); playBeep(true); }}
@@ -1223,11 +1216,13 @@ export default function POSScreen({
   const receiptNode = thermalReceiptOpen && lastPlacedOrder ? (
     <ReceiptThermal
       order={lastPlacedOrder}
+      transfer={paidReceiptTransfer}
       storeInfo={{
         name: fbStoreProfile?.name || 'SmartPOS Coffee Shop',
         address: fbStoreProfile?.address || '123 Đường Lê Lợi, TP. HCM',
         phone: fbStoreProfile?.phone || '0901234567',
-        storeType: simStoreType
+        storeType: simStoreType,
+        logoUrl: fbStoreProfile?.logoUrl,
       }}
       staffName={fbUserProfile?.name || 'Thu Ngân 01'}
       onClose={() => { setThermalReceiptOpen(false); setLastPlacedOrder(null); playBeep(true); }}

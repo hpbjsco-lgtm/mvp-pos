@@ -30,7 +30,8 @@ export interface ReceiptTransfer {
   bankName: string;
   accountNumber: string;
   holder: string;
-  amount: number;
+  /** Amount to pay; absent on a paid receipt, where the QR code only shows the store's account. */
+  amount?: number;
   /** The QR code as a data URL; the caller generates it so this module stays free of I/O. */
   qrDataUrl: string;
 }
@@ -91,7 +92,7 @@ export function buildReceiptDocument(input: ReceiptInput): ReceiptDocument {
   text(storeInfo.name.toUpperCase(), { align: 'center', size: 'large', bold: true });
   if (storeInfo.address) text(storeInfo.address, { align: 'center', size: 'small' });
   if (storeInfo.phone) text(`SĐT: ${storeInfo.phone}`, { align: 'center', size: 'small' });
-  spacer(12);
+  spacer(8);
 
   text(provisional ? 'PHIẾU TẠM TÍNH' : 'HÓA ĐƠN THANH TOÁN', { align: 'center', bold: true });
   text(`Số: ${order.orderNumber}`, { align: 'center', size: 'small' });
@@ -106,7 +107,7 @@ export function buildReceiptDocument(input: ReceiptInput): ReceiptDocument {
 
   if (order.note) {
     text(`Ghi chú đơn: ${order.note}`, { size: 'small' });
-    spacer(4);
+    spacer(3);
   }
 
   for (const item of order.items) {
@@ -121,7 +122,7 @@ export function buildReceiptDocument(input: ReceiptInput): ReceiptDocument {
     if (modifiers) text(`Tùy chọn: ${modifiers}`, { size: 'small' });
     if (item.note) text(`Ghi chú: ${item.note}`, { size: 'small' });
     if (item.batchCode) text(`Lô: ${item.batchCode}`, { size: 'small' });
-    spacer(6);
+    spacer(3);
   }
   divider();
 
@@ -147,14 +148,14 @@ export function buildReceiptDocument(input: ReceiptInput): ReceiptDocument {
   }
   divider();
 
-  if (provisional && transfer) {
-    text('QUÉT MÃ ĐỂ CHUYỂN KHOẢN', { align: 'center', size: 'small', bold: true });
+  if (transfer) {
+    text(provisional ? 'QUÉT MÃ ĐỂ CHUYỂN KHOẢN' : 'TÀI KHOẢN NGÂN HÀNG CỦA CỬA HÀNG', { align: 'center', size: 'small', bold: true });
     blocks.push({ kind: 'image', dataUrl: transfer.qrDataUrl, widthDots: QR_WIDTH_DOTS, align: 'center', smooth: false });
     text(transfer.bankName, { align: 'center', size: 'small' });
     text(transfer.accountNumber, { align: 'center', bold: true });
     text(transfer.holder, { align: 'center', size: 'small' });
-    text(`Số tiền: ${formatMoney(transfer.amount)}`, { align: 'center', size: 'small', bold: true });
-    spacer(10);
+    if (transfer.amount !== undefined) text(`Số tiền: ${formatMoney(transfer.amount)}`, { align: 'center', size: 'small', bold: true });
+    spacer(6);
   }
 
   text(provisional ? 'Phiếu tạm tính, chưa phải hóa đơn thanh toán.' : 'Cảm ơn Quý Khách đã ủng hộ!', { align: 'center', size: 'small' });

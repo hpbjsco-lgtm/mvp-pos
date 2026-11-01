@@ -31,6 +31,7 @@ import {
   restoreSession,
   signIn as authSignIn,
   signOut as authSignOut,
+  updateStoreLogo,
   type AuthStore,
   type AuthUser,
   type StoreRole,
@@ -75,6 +76,8 @@ export interface AppDataApi {
   /** Nạp lại toàn bộ dữ liệu từ SQLite (dùng khi cần làm mới dữ liệu từ ổ lưu trữ). */
   reload: () => Promise<void>;
   setStoreType: (type: 'fnb' | 'retail') => void;
+  /** Lưu logo in trên hóa đơn của cửa hàng hiện tại (chuỗi rỗng = bỏ logo). */
+  setStoreLogo: (logoUrl: string) => Promise<void>;
 }
 
 export function useAppData(): AppDataApi {
@@ -282,6 +285,15 @@ export function useAppData(): AppDataApi {
     });
   }, [enqueue]);
 
+  const setStoreLogo = useCallback(async (logoUrl: string) => {
+    const sid = storeIdRef.current;
+    if (!sid) throw new Error('Chưa chọn cửa hàng.');
+    // Wait for queued writes so this update does not run in the middle of them.
+    await writeChain.current;
+    await updateStoreLogo(sid, logoUrl);
+    setStore((prev) => (prev ? { ...prev, logoUrl } : prev));
+  }, []);
+
   /* Ghi nốt dữ liệu khi app bị đưa vào nền / đóng. */
   useEffect(() => {
     const handler = () => {
@@ -316,5 +328,6 @@ export function useAppData(): AppDataApi {
     changeOwnPassword,
     reload,
     setStoreType,
+    setStoreLogo,
   };
 }

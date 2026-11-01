@@ -9,6 +9,7 @@ import { X, Check } from 'lucide-react';
 import { Order } from '../types';
 import { PAYMENT_LABELS } from '../utils/payments';
 import QrCodeImage from './QrCodeImage';
+import { TransferInfo } from '../utils/transferInfo';
 import { buildReceiptDocument } from '../printing/receiptDocument';
 import { canPrintDirectly, printReceipt } from '../printing/receiptPrinting';
 
@@ -19,12 +20,14 @@ interface ReceiptThermalProps {
     address: string;
     phone: string;
     storeType: 'fnb' | 'retail';
+    /** Logo as a data URL, printed at the top of the receipt on the receipt printer. */
+    logoUrl?: string;
   };
   staffName: string;
   /** 'provisional' = phiếu tạm tính (chưa thanh toán): không có khách đưa / tiền thừa / điểm tích lũy. */
   variant?: 'final' | 'provisional';
-  /** Thông tin chuyển khoản + nội dung mã QR để in lên phiếu tạm tính cho khách quét. */
-  transfer?: { payload: string; bankName: string; accountNumber: string; holder: string; amount: number };
+  /** Tài khoản ngân hàng + nội dung mã QR in trên phiếu. Phiếu tạm tính có số tiền để khách quét trả; hóa đơn đã thanh toán chỉ có tài khoản (không có số tiền). */
+  transfer?: TransferInfo;
   onClose: () => void;
 }
 
@@ -53,7 +56,7 @@ export default function ReceiptThermal({
         return;
       }
       setPrinting(true);
-      const qrDataUrl = provisional && transfer
+      const qrDataUrl = transfer
         ? await QRCode.toDataURL(transfer.payload, { width: 440, margin: 1, errorCorrectionLevel: 'M' })
         : undefined;
       await printReceipt(buildReceiptDocument({
@@ -61,6 +64,7 @@ export default function ReceiptThermal({
         storeInfo,
         staffName,
         variant,
+        logoDataUrl: storeInfo.logoUrl || undefined,
         transfer: transfer && qrDataUrl
           ? { bankName: transfer.bankName, accountNumber: transfer.accountNumber, holder: transfer.holder, amount: transfer.amount, qrDataUrl }
           : undefined,
@@ -96,7 +100,7 @@ export default function ReceiptThermal({
         </div>
 
         {/* 80mm Thermal Paper Scroll Container */}
-        <div className="flex-1 overflow-y-auto p-6 bg-surface-container-high flex justify-center">
+        <div className="flex-1 overflow-y-auto p-6 bg-surface-container-high flex justify-center items-start">
           
           {/* Simulated 80mm Thermal Receipt */}
           <div 
@@ -258,15 +262,15 @@ export default function ReceiptThermal({
             {/* Divider */}
             <div className="border-t border-dashed border-slate-400 my-3"></div>
 
-            {/* Mã QR chuyển khoản (phiếu tạm tính) */}
-            {provisional && transfer && (
+            {/* Mã QR ngân hàng: phiếu tạm tính (đúng số tiền) và hóa đơn đã thanh toán (chỉ tài khoản) */}
+            {transfer && (
               <div className="text-center py-2 space-y-1 font-sans">
-                <p className="text-[10px] font-bold uppercase tracking-wide">Quét mã để chuyển khoản</p>
+                <p className="text-[10px] font-bold uppercase tracking-wide">{provisional ? 'Quét mã để chuyển khoản' : 'Tài khoản ngân hàng của cửa hàng'}</p>
                 <QrCodeImage value={transfer.payload} size={150} className="mx-auto" />
                 <p className="text-[10px]">{transfer.bankName}</p>
                 <p className="text-[11px] font-bold font-mono">{transfer.accountNumber}</p>
                 <p className="text-[10px]">{transfer.holder}</p>
-                <p className="text-[11px] font-bold">Số tiền: {transfer.amount.toLocaleString('vi-VN')} đ</p>
+                {transfer.amount !== undefined && <p className="text-[11px] font-bold">Số tiền: {transfer.amount.toLocaleString('vi-VN')} đ</p>}
               </div>
             )}
 

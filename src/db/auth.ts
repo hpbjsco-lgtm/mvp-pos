@@ -38,6 +38,8 @@ export interface AuthStore {
   phone: string;
   storeType: 'fnb' | 'retail';
   status: 'pending' | 'active' | 'rejected';
+  /** Logo printed on receipts, as a data URL; empty when the store has none. */
+  logoUrl: string;
   createdAt: string;
 }
 
@@ -68,6 +70,7 @@ function mapStore(r: Record<string, any>): AuthStore {
     phone: String(r.phone ?? ''),
     storeType: (r.store_type ?? 'fnb') as 'fnb' | 'retail',
     status: (r.status ?? 'active') as AuthStore['status'],
+    logoUrl: String(r.logo_url ?? ''),
     createdAt: String(r.created_at ?? ''),
   };
 }
@@ -368,3 +371,13 @@ export async function ensureDemoStore(
 }
 
 export { mapUser, mapStore };
+
+/**
+ * Saves the logo printed on receipts.
+ *
+ * @param storeId Store to update.
+ * @param logoUrl Logo as a data URL, or an empty string to remove it.
+ */
+export async function updateStoreLogo(storeId: string, logoUrl: string): Promise<void> {
+  await run('UPDATE stores SET logo_url = ?, updated_at = ?, rev = rev + 1 WHERE id = ?', [logoUrl, nowIso(), storeId]);
+}
