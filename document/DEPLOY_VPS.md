@@ -33,15 +33,19 @@ Browser -> Apache (HTTPS, pos.hp-backup.com) -> 127.0.0.1:8790 (container)
 ### Local address (shop network)
 Devices in the shop reach the same container directly through the LAN address of the machine, with no Apache in between,
 so they keep working when the internet is down. There is one database.
-1. In `.env` (see `deploy/docker.env.example`) open the port to the shop network and set the two routes:
+1. In `.env` (see `deploy/docker.env.example`) set three lines and rebuild:
    ```
    POS_BIND_ADDRESS=0.0.0.0
-   VITE_SERVER_DOMAIN_URL=https://pos.hp-backup.com
-   VITE_SERVER_LOCAL_URL=http://192.168.1.12:8790
+   POS_DOMAIN_URL=https://pos.hp-backup.com
+   POS_LAN_ADDRESS=192.168.1.12
    ```
-   `192.168.1.12` is the LAN address of this machine (give it a fixed address in the router, or it can change). `8790` is `POS_PORT`.
-   Write the domain explicitly: the same web build is also opened at the LAN address, where "the address I was served from" would be the local one.
-   Then run `docker compose up -d --build`.
+   `docker-compose.yml` builds the rest from them: the web app is built with the domain `https://pos.hp-backup.com` and the local
+   address `http://192.168.1.12:<POS_PORT>`, and the server allows exactly those origins (and the phone apps) through `CORS_ORIGIN`.
+   `192.168.1.12` is the LAN address of this machine: give it a fixed address in the router, because when it changes this line
+   and the build must change. Write the domain explicitly: the same web build is also opened at the LAN address, where "the address
+   I was served from" would be the local one. Then run `docker compose up -d --build`.
+   To build on another machine (for example a laptop) without pointing at production, override the two values:
+   `POS_DOMAIN_URL= POS_LAN_ADDRESS= docker compose up -d --build`.
 2. Windows Firewall: allow inbound TCP port 8790 for the private (LAN) profile. Apache does not need any change.
 3. Check from a device in the shop: `http://192.168.1.12:8790/api/health`.
 4. Opening the port also exposes `/admin` and the API (protected by their tokens, over plain http) to everything on the shop network.
@@ -51,8 +55,8 @@ so they keep working when the internet is down. There is one database.
 6. Browsers block a page opened over `https://` from calling `http://192.168...` (mixed content). Staff who need the local route
    in a browser open the web app at `http://192.168.1.12:8790` (the container serves it). That page calls the domain first and
    switches to the local address itself.
-7. A page served from one address that calls another needs CORS: set `CORS_ORIGIN` to the page origins, for example
-   `http://192.168.1.12:8790,https://pos.hp-backup.com`. Phone apps add `https://localhost` (Android) and `capacitor://localhost` (iOS).
+7. CORS (a page served from one address calling another) is already filled from the two variables above and includes the phone apps
+   (`https://localhost` for Android, `capacitor://localhost` for iOS). Set `CORS_ORIGIN` yourself only when you run the server without compose.
 
 How the app chooses: it checks `/api/health` of the domain (2.5 s); if the domain does not answer it uses the local address, and while on the
 local address it checks the domain again every 15 s and goes back to it. A request that cannot connect is repeated once on the other address.
