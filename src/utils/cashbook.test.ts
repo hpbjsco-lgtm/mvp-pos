@@ -82,3 +82,16 @@ describe('cashbook ledger', () => {
     expect(new Date(r.from).getDate()).toBe(1);
   });
 });
+
+describe('ledger counterparty of a sale', () => {
+  const sale = (extra: Partial<Order>) => order('S1', 30000, [{ method: 'cash', amount: 30000 }], extra);
+  it('shows the customer name stored with the order', () => {
+    expect(buildLedger([sale({ customerId: 'c1', customerName: 'Nguyễn An' })], [], [])[0].counterparty).toBe('Nguyễn An');
+  });
+  it('looks the customer up by id for orders saved without the name', () => {
+    expect(buildLedger([sale({ customerId: 'c1' })], [], [], [{ id: 'c1', name: 'Nguyễn An' }])[0].counterparty).toBe('Nguyễn An');
+  });
+  it('keeps "Khách lẻ" for a sale without a customer', () => {
+    expect(buildLedger([sale({})], [], [])[0].counterparty).toBe('Khách lẻ');
+  });
+});

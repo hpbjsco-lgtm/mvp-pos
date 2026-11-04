@@ -5,7 +5,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { Plus, X } from 'lucide-react';
-import { BankAccount, CashVoucher, FundType, Order } from '../types';
+import { BankAccount, CashVoucher, Customer, FundType, Order } from '../types';
 import {
   FUND_LABELS, PAYMENT_CATEGORIES, RECEIPT_CATEGORIES, breakdownByCategory, buildLedger, entriesInRange,
   nextVoucherCode, presetRange, summarize, type RangePreset,
@@ -18,6 +18,8 @@ import DataTable from './ui/DataTable';
 
 interface CashbookSectionProps {
   simOrders: Order[];
+  /** Khách hàng của cửa hàng, để hiện tên khách của các hóa đơn cũ chỉ lưu mã khách. */
+  customers: Customer[];
   bankAccounts: BankAccount[];
   setBankAccounts: React.Dispatch<React.SetStateAction<BankAccount[]>>;
   vouchers: CashVoucher[];
@@ -39,7 +41,7 @@ type VoucherForm = {
  * Sổ quỹ & Dòng tiền: theo dõi thu / chi theo từng loại quỹ (tiền mặt, ngân hàng, ví điện tử) và từng loại thu chi.
  * Khoản thu từ bán hàng được lấy tự động từ hóa đơn; phiếu thu / chi khác lập tay.
  */
-export default function CashbookSection({ simOrders, bankAccounts, setBankAccounts, vouchers, setVouchers, staffName, triggerBeep }: CashbookSectionProps) {
+export default function CashbookSection({ simOrders, customers, bankAccounts, setBankAccounts, vouchers, setVouchers, staffName, triggerBeep }: CashbookSectionProps) {
   const [fund, setFund] = useState<FundType | 'all'>('all');
   const [accountId, setAccountId] = useState('');
   const [preset, setPreset] = useState<RangePreset>('month');
@@ -59,7 +61,7 @@ export default function CashbookSection({ simOrders, bankAccounts, setBankAccoun
     return presetRange(preset);
   }, [preset, customFrom, customTo]);
 
-  const ledger = useMemo(() => buildLedger(simOrders, vouchers, bankAccounts), [simOrders, vouchers, bankAccounts]);
+  const ledger = useMemo(() => buildLedger(simOrders, vouchers, bankAccounts, customers), [simOrders, vouchers, bankAccounts, customers]);
   const filter = { fund, bankAccountId: fund === 'bank' && accountId ? accountId : undefined, from: range.from, to: range.to };
   const summary = summarize(ledger, filter);
   const inRange = entriesInRange(ledger, filter);

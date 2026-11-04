@@ -8,6 +8,7 @@ import { Search } from 'lucide-react';
 import { Order, InventoryBatch, Customer, BankAccount } from '../types';
 import ReceiptThermal from './ReceiptThermal';
 import { buildTransferInfo } from '../utils/transferInfo';
+import { orderCustomerName } from '../utils/orderCustomer';
 import { logOperation } from '../utils/logger';
 import { PAYMENT_LABELS, getOrderPayments } from '../utils/payments';
 import PageCard from './ui/PageCard';
@@ -55,7 +56,7 @@ export default function OrderHistorySection({
     const term = searchQuery.toLowerCase().trim();
     const matchesSearch = !term
       || o.orderNumber.toLowerCase().includes(term)
-      || (o.customerName || '').toLowerCase().includes(term)
+      || orderCustomerName(o, simCustomers).toLowerCase().includes(term)
       || (o.staffName || '').toLowerCase().includes(term)
       || (o.tableNumber || '').toLowerCase().includes(term);
     const status = o.status || 'completed';
@@ -137,7 +138,7 @@ export default function OrderHistorySection({
                   <span className={`text-lg font-bold ${isVoid ? 'line-through' : ''}`}>#{o.orderNumber}</span>
                   <span className={`m3-badge ${isVoid ? 'm3-badge-error' : 'm3-badge-success'}`}>{isVoid ? 'Đã hủy' : 'Hoàn thành'}</span>
                 </span>
-                <span className="block text-sm">{o.tableNumber || o.customerName || 'Khách vãng lai'}</span>
+                <span className="block text-sm">{o.tableNumber || orderCustomerName(o, simCustomers) || 'Khách vãng lai'}</span>
                 <span className="block text-sm">{new Date(o.createdAt).toLocaleString('vi-VN')}{o.staffName ? ` - Bởi ${o.staffName}` : ''}</span>
                 <span className="flex items-center justify-between text-lg font-bold"><span>Tổng</span><span>{o.totalAmount.toLocaleString('vi-VN')}đ</span></span>
               </button>
@@ -169,7 +170,7 @@ export default function OrderHistorySection({
               <div><p className={infoLabel}>Thu ngân</p><p className={infoValue}>{selectedOrder.staffName || '—'}</p></div>
               <div><p className={infoLabel}>Bàn ăn</p><p className={infoValue}>{selectedOrder.tableNumber || '—'}</p></div>
               <div><p className={infoLabel}>Hình thức</p><p className={infoValue}>{selectedOrder.orderType === 'takeaway' ? 'Mang về' : selectedOrder.tableNumber ? 'Ăn tại bàn' : 'Bán trực tiếp'}</p></div>
-              <div><p className={infoLabel}>Khách hàng</p><p className={infoValue}>{selectedOrder.customerName || 'Khách vãng lai'}</p></div>
+              <div><p className={infoLabel}>Khách hàng</p><p className={infoValue}>{orderCustomerName(selectedOrder, simCustomers) || 'Khách vãng lai'}</p></div>
               {selectedVoid && <div><p className={infoLabel}>Trạng thái</p><p className="text-sm font-bold text-error">Đã hủy</p></div>}
             </div>
 

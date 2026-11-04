@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { BankAccount, CashVoucher, FundType, Order } from '../types';
+import { BankAccount, CashVoucher, Customer, FundType, Order } from '../types';
+import { orderCustomerName } from './orderCustomer';
 import { getOrderPayments } from './payments';
 
 export const FUND_LABELS: Record<FundType, string> = { cash: 'Tiền mặt', bank: 'Ngân hàng', wallet: 'Ví điện tử' };
@@ -32,7 +33,7 @@ export interface LedgerEntry {
  * Sổ quỹ = các khoản thu từ hóa đơn bán hàng (tự động, theo từng phương thức thanh toán)
  * + phiếu thu / chi lập tay. Không nhân đôi dữ liệu: huỷ hóa đơn thì khoản thu tự mất khỏi sổ.
  */
-export function buildLedger(orders: Order[], vouchers: CashVoucher[], accounts: BankAccount[]): LedgerEntry[] {
+export function buildLedger(orders: Order[], vouchers: CashVoucher[], accounts: BankAccount[], customers: Pick<Customer, 'id' | 'name'>[] = []): LedgerEntry[] {
   const defaultBankId = accounts.find(a => a.isDefault)?.id || accounts[0]?.id;
   const entries: LedgerEntry[] = [];
 
@@ -48,7 +49,7 @@ export function buildLedger(orders: Order[], vouchers: CashVoucher[], accounts: 
         fund,
         bankAccountId: fund === 'bank' ? (p.bankAccountId || defaultBankId) : undefined,
         category: SALES_CATEGORY,
-        counterparty: o.customerName || 'Khách lẻ',
+        counterparty: orderCustomerName(o, customers) || 'Khách lẻ',
         amount: p.amount,
         source: 'sale',
         status: voided ? 'cancelled' : 'paid',

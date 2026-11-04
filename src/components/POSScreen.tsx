@@ -864,6 +864,9 @@ export default function POSScreen({
 
       if (selectedCustomerId) {
         newOrder.customerId = selectedCustomerId;
+        // Lưu luôn tên khách vào đơn để lịch sử hóa đơn, sổ quỹ và hóa đơn in hiển thị đúng khách đã chọn
+        const customer = simCustomers.find(c => c.id === selectedCustomerId);
+        if (customer) newOrder.customerName = customer.name;
       }
       if (simStoreType === 'fnb') {
         newOrder.tableNumber = selectedTableName;

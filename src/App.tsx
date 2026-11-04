@@ -762,6 +762,7 @@ export default function App() {
               >
                 <CashbookSection
                   simOrders={simOrders}
+                  customers={simCustomers}
                   bankAccounts={simBankAccounts}
                   setBankAccounts={setSimBankAccounts}
                   vouchers={simCashVouchers}
