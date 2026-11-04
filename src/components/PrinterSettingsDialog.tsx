@@ -176,6 +176,19 @@ export default function PrinterSettingsDialog({ onClose }: PrinterSettingsDialog
                 <p className="text-sm text-on-surface-variant">Tăng số này nếu chữ bị lệch về bên trái giấy. In thử lại để xem.</p>
               </section>
 
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={settings.printKitchenTicket}
+                  onChange={e => update({ ...settings, printKitchenTicket: e.target.checked })}
+                  className="mt-1 w-5 h-5 accent-primary"
+                />
+                <span className="text-sm text-on-surface">
+                  <strong className="block text-base">In phiếu bếp khi báo bếp</strong>
+                  Mỗi lần báo bếp ở máy này, máy in sẽ in một phiếu gồm bàn, món, số lượng và ghi chú.
+                </span>
+              </label>
+
               <button type="button" disabled={busy || !settings.usb} onClick={printTest} className="m3-btn-tonal w-full !min-h-12 disabled:opacity-50">
                 {busy ? 'Đang gửi...' : 'In thử'}
               </button>

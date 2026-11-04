@@ -9,5 +9,6 @@ coverage/
 .claude/settings.local.json
 .claude/data-touch.log
 
-# Local SQLite data of the database server
+# Local SQLite data of the database server (and the folder docker-compose mounts by default)
 server/pos-db-server/data/
+data/

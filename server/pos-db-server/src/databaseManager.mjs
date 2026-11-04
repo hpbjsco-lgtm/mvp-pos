@@ -18,7 +18,7 @@ const SQLITE_HEADER = Buffer.from('SQLite format 3\0', 'latin1');
 export class DatabaseManager {
   /**
    * @param {string} filePath Path of the live SQLite file.
-   * @param {string} backupDir Folder for automatic backups; created when missing.
+   * @param {string} backupDir Folder for backups (before a restore and scheduled ones); created when missing.
    */
   constructor(filePath, backupDir) {
     this.filePath = filePath;
@@ -42,6 +42,16 @@ export class DatabaseManager {
    */
   createBackupBytes() {
     return this.connection.serialize();
+  }
+
+  /**
+   * Writes a consistent copy of the live database to a file while the server keeps running.
+   *
+   * @param {string} destination Path of the new file; it must not exist yet.
+   * @returns {Promise<void>} Resolves when the copy is complete.
+   */
+  async backupToFile(destination) {
+    await this.connection.backup(destination);
   }
 
   /**

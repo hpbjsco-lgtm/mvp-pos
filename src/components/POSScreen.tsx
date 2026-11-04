@@ -17,6 +17,7 @@ import KiotTableGrid from './KiotTableGrid';
 import KiotCheckoutDialog from './KiotCheckoutDialog';
 import BankAccountsDialog from './BankAccountsDialog';
 import { buildTransferInfo } from '../utils/transferInfo';
+import { printKitchenTicketIfEnabled } from '../printing/kitchenPrinting';
 import {
   OrderOptionsMenu, OptionIcons, MergeTablesDialog, TransferTableDialog, SplitMergeOrderDialog,
   ReservationDialog, KitchenHistoryDialog, OrderInfoDialog, type OptionItem
@@ -722,6 +723,14 @@ export default function POSScreen({
     }));
 
     setSimKitchenItems(prev => [...itemsToSend, ...prev]);
+
+    // The dishes are already sent; a printer problem must not undo that, so it is only reported
+    printKitchenTicketIfEnabled({
+      tableName: selectedTableName,
+      staffName: fbUserProfile?.name || '',
+      items: itemsToSend,
+      sentAt: new Date(),
+    }).catch(error => alert(`Đã báo bếp nhưng không in được phiếu bếp: ${(error as Error).message}`));
 
     // Mark dining table(s) as serving status (cả nhóm bàn gộp)
     if (simStoreType === 'fnb' && groupTables.length > 0) {

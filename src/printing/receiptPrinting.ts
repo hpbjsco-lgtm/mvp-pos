@@ -9,14 +9,31 @@ import { ReceiptDocument } from './receiptDocument';
 import { renderReceiptToBitmap } from './receiptRenderer';
 import { findAllowedUsbPrinter, isWebUsbSupported, writeToUsbPrinter } from './usbTransport';
 
+/** Tail of the print queue: jobs run one after another because two jobs cannot hold the USB interface at once. */
+let printQueue: Promise<unknown> = Promise.resolve();
+
 /**
- * Prints a receipt on the printer chosen in this browser's settings.
+ * Prints a receipt on the printer chosen in this browser's settings. Jobs are queued, so several
+ * calls in a row print in order.
  *
  * @param receipt Receipt to print.
  * @throws Error with a readable message when the browser has no WebUSB, no printer is chosen, the
  *   printer is not connected, or the print fails.
  */
-export async function printReceipt(receipt: ReceiptDocument): Promise<void> {
+export function printReceipt(receipt: ReceiptDocument): Promise<void> {
+  const job = printQueue.then(() => printNow(receipt));
+  printQueue = job.catch(() => undefined);
+  return job;
+}
+
+/**
+ * Prints one receipt immediately; use `printReceipt`, which queues jobs.
+ *
+ * @param receipt Receipt to print.
+ * @throws Error with a readable message when the browser has no WebUSB, no printer is chosen, the
+ *   printer is not connected, or the print fails.
+ */
+async function printNow(receipt: ReceiptDocument): Promise<void> {
   if (!isWebUsbSupported()) throw new Error('Trình duyệt này không in trực tiếp được. Hãy dùng Chrome hoặc Edge.');
   const settings = getPrinterSettings();
   if (!settings.usb) throw new Error('Chưa chọn máy in. Mở "Máy in hóa đơn" trong menu tài khoản để chọn.');

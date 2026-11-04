@@ -19,5 +19,8 @@ services:
     environment:
       API_TOKEN: ${API_TOKEN:?API_TOKEN is required}
       ADMIN_TOKEN: ${ADMIN_TOKEN:?ADMIN_TOKEN is required}
+      # Scheduled backups into <POS_DATA_DIR>/backups; empty values use the defaults (every 24 hours, keep 14).
+      BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-}
+      BACKUP_KEEP: ${BACKUP_KEEP:-}
     volumes:
       - ${POS_DATA_DIR:-./data}:/data

@@ -15,7 +15,9 @@ import path from 'node:path';
  * @property {string} databaseFile Full path of the SQLite file.
  * @property {string} apiToken Secret that every API call must send as a Bearer token.
  * @property {string} adminToken Secret for the admin page; keep it different from `apiToken` because the API token is stored in the app.
- * @property {string} backupDir Folder where automatic backups (taken before a restore) are written.
+ * @property {string} backupDir Folder where backups are written (the one taken before a restore, and the scheduled ones).
+ * @property {number} backupIntervalHours Hours between scheduled backups; 0 turns them off.
+ * @property {number} backupKeepCount Number of scheduled backups to keep.
  * @property {string} staticDir Folder with the built web app to serve at `/` (empty: the server only provides the API and admin page).
  * @property {string} corsOrigin Origin allowed to call the API from a browser; empty disables CORS headers.
  */
@@ -49,6 +51,16 @@ export function loadConfig(env) {
     throw new Error(`PORT must be an integer between 1 and 65535, got "${env.PORT}".`);
   }
 
+  const backupIntervalHours = Number(env.BACKUP_INTERVAL_HOURS || 24);
+  if (!Number.isFinite(backupIntervalHours) || backupIntervalHours < 0) {
+    throw new Error(`BACKUP_INTERVAL_HOURS must be 0 (off) or a positive number of hours, got "${env.BACKUP_INTERVAL_HOURS}".`);
+  }
+
+  const backupKeepCount = Number(env.BACKUP_KEEP || 14);
+  if (!Number.isInteger(backupKeepCount) || backupKeepCount < 1) {
+    throw new Error(`BACKUP_KEEP must be a whole number of at least 1, got "${env.BACKUP_KEEP}".`);
+  }
+
   const dataDir = path.resolve(env.DATA_DIR || './data');
 
   return {
@@ -59,6 +71,8 @@ export function loadConfig(env) {
     apiToken,
     adminToken,
     backupDir: path.join(dataDir, 'backups'),
+    backupIntervalHours,
+    backupKeepCount,
     staticDir: env.STATIC_DIR ? path.resolve(env.STATIC_DIR) : '',
     corsOrigin: (env.CORS_ORIGIN || '').trim(),
   };

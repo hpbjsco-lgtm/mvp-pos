@@ -43,7 +43,8 @@ docker compose up -d --build
 Only the image is rebuilt. The data folder is not changed. The app applies new schema migrations to the database by itself on start.
 
 ## 5. Backup and restore
-- Backup: admin page, button "Tải file .db về". It is a consistent copy even while the app is in use.
+- Backup by hand: admin page, button "Tải file .db về". It is a consistent copy even while the app is in use.
+- Scheduled backup: the server writes `backups/pos-auto-<time>.db` every `BACKUP_INTERVAL_HOURS` (default 24; `0` turns it off) and keeps the newest `BACKUP_KEEP` (default 14). It checks at start-up, so a restart after a long stop makes a backup at once. Copies stay on the same disk as the database: copy the `backups/` folder to another machine or storage now and then.
   Do not copy `pos.db` alone from the folder while the container runs: recent data may still be in `pos.db-wal`.
 - Restore: admin page, button "Nạp file .db lên". The previous data is saved in `backups/` first.
 - Schedule the download (or a copy of the folder while the container is stopped) outside the server as well.

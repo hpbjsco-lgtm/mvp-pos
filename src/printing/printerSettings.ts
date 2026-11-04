@@ -21,6 +21,8 @@ export interface PrinterSettings {
   paperWidth: PaperWidthMm;
   /** How far the receipt is moved to the right, in millimetres, for printers whose head sits off-centre on the paper. */
   shiftRightMm: number;
+  /** Print a kitchen ticket on this printer each time dishes are sent to the kitchen from this device. */
+  printKitchenTicket: boolean;
   /** The chosen printer; absent until one is chosen. */
   usb?: SavedUsbPrinter;
 }
@@ -29,7 +31,7 @@ export interface PrinterSettings {
 const STORAGE_KEY = 'smartpos.printer';
 
 /** Settings used before anything is saved. */
-export const DEFAULT_PRINTER_SETTINGS: PrinterSettings = { paperWidth: 58, shiftRightMm: 1.5 };
+export const DEFAULT_PRINTER_SETTINGS: PrinterSettings = { paperWidth: 58, shiftRightMm: 1.5, printKitchenTicket: false };
 
 /** Largest accepted shift, in millimetres. */
 export const MAX_SHIFT_RIGHT_MM = 10;
@@ -49,11 +51,13 @@ export function getPrinterSettings(): PrinterSettings {
     if (!(parsed?.paperWidth in PAPER_WIDTH_DOTS)) throw new Error('unknown paper width');
     const shiftRightMm = parsed.shiftRightMm ?? DEFAULT_PRINTER_SETTINGS.shiftRightMm;
     if (typeof shiftRightMm !== 'number' || !(shiftRightMm >= 0 && shiftRightMm <= MAX_SHIFT_RIGHT_MM)) throw new Error('invalid shift');
+    const printKitchenTicket = parsed.printKitchenTicket ?? DEFAULT_PRINTER_SETTINGS.printKitchenTicket;
+    if (typeof printKitchenTicket !== 'boolean') throw new Error('invalid kitchen ticket flag');
     const usb = parsed.usb;
     if (usb !== undefined && (!Number.isInteger(usb.vendorId) || !Number.isInteger(usb.productId) || typeof usb.label !== 'string')) {
       throw new Error('damaged printer entry');
     }
-    return { paperWidth: parsed.paperWidth, shiftRightMm, usb };
+    return { paperWidth: parsed.paperWidth, shiftRightMm, printKitchenTicket, usb };
   } catch (error) {
     throw new Error(`Cấu hình máy in bị hỏng (${(error as Error).message}). Hãy chọn lại máy in.`);
   }

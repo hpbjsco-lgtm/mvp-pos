@@ -12,7 +12,8 @@
  */
 
 import { SYSADMIN_CONFIG } from '../authConfig';
-import { getMeta, newId, nowIso, query, queryOne, run, setMeta, upsert } from './index';
+import { newId, nowIso, query, queryOne, run, setMeta, upsert } from './index';
+import { clearSessionUid, getSessionUid, setSessionUid } from './sessionStore';
 import { seedStore } from './seed';
 import { hashPassword, randomSalt, verifyPassword } from './password';
 import { normalizeRole } from '../utils/permissions';
@@ -42,8 +43,6 @@ export interface AuthStore {
   logoUrl: string;
   createdAt: string;
 }
-
-const SESSION_KEY = 'session_uid';
 
 /* ---------------------------------------------------------------------- */
 /* Đọc dữ liệu người dùng / cửa hàng                                       */
@@ -154,7 +153,7 @@ export async function signIn(login: string, password: string): Promise<SignInRes
   // Tài khoản sysadmin cứng: so khớp trực tiếp với cấu hình, không đụng tới bảng users
   if (isSysAdminLogin(login)) {
     if (password !== SYSADMIN_CONFIG.PASSWORD) throw new Error('Mật khẩu không đúng.');
-    await setMeta(SESSION_KEY, SYSADMIN_UID);
+    setSessionUid(SYSADMIN_UID);
     return { user: sysAdminUser(), store: null };
   }
 
@@ -176,7 +175,7 @@ export async function signIn(login: string, password: string): Promise<SignInRes
   if (store.status !== 'active') throw new Error('Cửa hàng đang bị tạm khóa. Vui lòng liên hệ quản trị hệ thống.');
 
   await run('UPDATE users SET last_login_at = ? WHERE uid = ?', [nowIso(), user.uid]);
-  await setMeta(SESSION_KEY, user.uid);
+  setSessionUid(user.uid);
   await setMeta('active_store_id', store.id);
   return { user, store };
 }
@@ -232,7 +231,7 @@ export async function registerOwner(input: RegisterInput): Promise<SignInResult>
   });
 
   await seedStore(storeId, input.storeType);
-  await setMeta(SESSION_KEY, uid);
+  setSessionUid(uid);
   await setMeta('active_store_id', storeId);
 
   const user = await getUserByLogin(username);
@@ -298,12 +297,12 @@ export async function changeOwnPassword(uid: string, currentPassword: string, ne
 }
 
 export async function signOut(): Promise<void> {
-  await setMeta(SESSION_KEY, '');
+  clearSessionUid();
 }
 
 /** Lấy lại phiên đăng nhập đã lưu (app mở lại không phải đăng nhập lại). */
 export async function restoreSession(): Promise<SignInResult | null> {
-  const uid = await getMeta(SESSION_KEY);
+  const uid = getSessionUid();
   if (!uid) return null;
   if (uid === SYSADMIN_UID) return { user: sysAdminUser(), store: null };
   const row = await queryOne('SELECT * FROM users WHERE uid = ? AND deleted_at IS NULL', [uid]);
@@ -363,7 +362,7 @@ export async function ensureDemoStore(
     updated_at: ts,
   });
 
-  await setMeta(SESSION_KEY, uid);
+  setSessionUid(uid);
   await setMeta('active_store_id', storeId);
 
   const row = await queryOne('SELECT * FROM users WHERE uid = ?', [uid]);

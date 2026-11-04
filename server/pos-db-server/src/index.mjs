@@ -6,11 +6,13 @@
  *
  *   API_TOKEN=<16+ chars> ADMIN_TOKEN=<16+ chars, different> DATA_DIR=/var/lib/mvp-pos node src/index.mjs
  *
- * Optional: PORT (8790), HOST (127.0.0.1), STATIC_DIR (built web app to serve at /), CORS_ORIGIN.
+ * Optional: PORT (8790), HOST (127.0.0.1), STATIC_DIR (built web app to serve at /), CORS_ORIGIN,
+ * BACKUP_INTERVAL_HOURS (24, 0 = off), BACKUP_KEEP (14).
  */
 
 import { mkdirSync } from 'node:fs';
 import { createApp } from './app.mjs';
+import { BackupScheduler } from './backupScheduler.mjs';
 import { loadConfig } from './config.mjs';
 import { DatabaseManager } from './databaseManager.mjs';
 import { SqlService } from './sqlService.mjs';
@@ -31,12 +33,16 @@ const app = createApp({
   corsOrigin: config.corsOrigin,
 });
 
+const backups = new BackupScheduler({ manager, intervalHours: config.backupIntervalHours, keepCount: config.backupKeepCount });
+backups.start();
+
 const server = app.listen(config.port, config.host, () => {
   console.log(`[pos-db-server] listening on ${config.host}:${config.port}, database file: ${config.databaseFile}`);
 });
 
 /** Closes the HTTP server and the database so the WAL file is checkpointed before the process ends. */
 function shutdown() {
+  backups.stop();
   server.close(() => {
     manager.close();
     process.exit(0);

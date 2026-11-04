@@ -59,12 +59,12 @@ describe('printer settings storage', () => {
   });
   afterEach(() => { delete (globalThis as any).localStorage; });
 
-  it('defaults to 58 mm without a printer', () => expect(getPrinterSettings()).toEqual({ paperWidth: 58, shiftRightMm: 1.5 }));
+  it('defaults to 58 mm without a printer', () => expect(getPrinterSettings()).toEqual({ paperWidth: 58, shiftRightMm: 1.5, printKitchenTicket: false }));
   it('saves and reads the chosen printer and paper width', () => {
-    savePrinterSettings({ paperWidth: 80, shiftRightMm: 3, usb: { vendorId: 1, productId: 2, label: 'S31' } });
-    expect(getPrinterSettings()).toEqual({ paperWidth: 80, shiftRightMm: 3, usb: { vendorId: 1, productId: 2, label: 'S31' } });
+    savePrinterSettings({ paperWidth: 80, shiftRightMm: 3, printKitchenTicket: true, usb: { vendorId: 1, productId: 2, label: 'S31' } });
+    expect(getPrinterSettings()).toEqual({ paperWidth: 80, shiftRightMm: 3, printKitchenTicket: true, usb: { vendorId: 1, productId: 2, label: 'S31' } });
     clearPrinterSettings();
-    expect(getPrinterSettings()).toEqual({ paperWidth: 58, shiftRightMm: 1.5 });
+    expect(getPrinterSettings()).toEqual({ paperWidth: 58, shiftRightMm: 1.5, printKitchenTicket: false });
   });
   it('fails loudly on a damaged value', () => {
     values['smartpos.printer'] = '{"paperWidth":99}';
@@ -73,9 +73,11 @@ describe('printer settings storage', () => {
     expect(() => getPrinterSettings()).toThrow('bị hỏng');
     values['smartpos.printer'] = '{"paperWidth":58,"shiftRightMm":50}';
     expect(() => getPrinterSettings()).toThrow('bị hỏng');
+    values['smartpos.printer'] = '{"paperWidth":58,"printKitchenTicket":"yes"}';
+    expect(() => getPrinterSettings()).toThrow('bị hỏng');
   });
   it('uses the default shift for settings saved before the shift existed', () => {
     values['smartpos.printer'] = '{"paperWidth":80}';
-    expect(getPrinterSettings()).toEqual({ paperWidth: 80, shiftRightMm: 1.5, usb: undefined });
+    expect(getPrinterSettings()).toEqual({ paperWidth: 80, shiftRightMm: 1.5, printKitchenTicket: false, usb: undefined });
   });
 });
