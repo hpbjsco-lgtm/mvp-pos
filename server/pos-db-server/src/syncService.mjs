@@ -214,6 +214,31 @@ export class SyncService {
   }
 
   /**
+   * Tells a device which tables of its store changed after a log position, so it can reload only those.
+   * It is cheap (one small query), so web pages call it every few seconds to see other devices' work.
+   *
+   * @param {Object} request The request.
+   * @param {string} request.storeId Store to look at.
+   * @param {number | null} [request.after] Log position the device already knows; null to ask for the current position.
+   * @returns {{ seq: number, tables: string[], reset: boolean }} `seq` is the current log position, `tables` the tables
+   *   with changes after `after`, and `reset` is true when `after` is ahead of the log (the database was restored), so the device must reload everything.
+   * @throws {SyncError} Status 400 for a missing store or a bad `after`; `NOT_READY`.
+   */
+  summary({ storeId, after = null }) {
+    if (!storeId || typeof storeId !== 'string') throw new SyncError('BAD_REQUEST', 'storeId is required.', 400);
+    if (after !== null && (!Number.isInteger(after) || after < 0)) throw new SyncError('BAD_REQUEST', 'after must be a whole number of 0 or more.', 400);
+    this.ensureInfrastructure();
+    const seq = this.currentMaxSeq();
+    if (after === null) return { seq, tables: [], reset: false };
+    if (after > seq) return { seq, tables: [], reset: true };
+    const tables = this.getDatabase()
+      .prepare('SELECT DISTINCT table_name FROM sync_log WHERE seq > ? AND store_id = ? ORDER BY table_name')
+      .all(after, storeId)
+      .map((row) => row.table_name);
+    return { seq, tables, reset: false };
+  }
+
+  /**
    * Hands out the next official document number of a kind for a store.
    *
    * @param {Object} request The request.

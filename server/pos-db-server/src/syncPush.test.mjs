@@ -293,3 +293,49 @@ describe('push and conflict routes', () => {
     expect((await call('GET', '/conflicts/missing')).status).toBe(404);
   });
 });
+
+describe('change summary', () => {
+  let folder;
+  let manager;
+  let sync;
+
+  beforeEach(() => {
+    folder = mkdtempSync(path.join(os.tmpdir(), 'pos-summary-'));
+    manager = new DatabaseManager(path.join(folder, 'pos.db'), path.join(folder, 'backups'));
+    migrate(manager.database);
+    for (const id of ['A', 'B']) manager.database.prepare('INSERT INTO stores (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)').run(id, `Store ${id}`, NOW, NOW);
+    sync = new SyncService(() => manager.database);
+  });
+  afterEach(() => {
+    manager.close();
+    rmSync(folder, { recursive: true, force: true });
+  });
+
+  it('gives the current position without tables when asked without a position', () => {
+    const { seq, tables } = sync.summary({ storeId: 'A' });
+    expect(seq).toBeGreaterThanOrEqual(0);
+    expect(tables).toEqual([]);
+  });
+
+  it('lists the tables changed after a position, for that store only', () => {
+    const { seq } = sync.summary({ storeId: 'A' });
+    expect(sync.summary({ storeId: 'A', after: seq }).tables).toEqual([]);
+    manager.database.prepare("INSERT INTO kitchen_items (id, store_id, created_at, updated_at) VALUES ('k1', 'A', ?, ?)").run(NOW, NOW);
+    manager.database.prepare("INSERT INTO products (id, store_id, name, created_at, updated_at) VALUES ('p1', 'B', 'Other store', ?, ?)").run(NOW, NOW);
+    manager.database.prepare("INSERT INTO products (id, store_id, name, created_at, updated_at) VALUES ('p2', 'A', 'Mine', ?, ?)").run(NOW, NOW);
+    const result = sync.summary({ storeId: 'A', after: seq });
+    expect(result.tables).toEqual(['kitchen_items', 'products']);
+    expect(result.seq).toBeGreaterThan(seq);
+    expect(sync.summary({ storeId: 'A', after: result.seq }).tables).toEqual([]);
+  });
+
+  it('asks the device to reload everything when its position is ahead of the log', () => {
+    expect(sync.summary({ storeId: 'A', after: 99999 })).toMatchObject({ reset: true, tables: [] });
+  });
+
+  it('rejects a missing store and a bad position', () => {
+    expect(() => sync.summary({ storeId: '' })).toThrow(expect.objectContaining({ status: 400 }));
+    expect(() => sync.summary({ storeId: 'A', after: -1 })).toThrow(expect.objectContaining({ status: 400 }));
+    expect(() => sync.summary({ storeId: 'A', after: 1.5 })).toThrow(expect.objectContaining({ status: 400 }));
+  });
+});

@@ -8,6 +8,7 @@ import { X } from 'lucide-react';
 import { Product, UnitConversion } from '../types';
 import { fileToResizedDataUrl } from '../utils/imageUpload';
 import { nextItemCode } from '../utils/inventoryItems';
+import { parseMoneyInput } from '../utils/moneyInput';
 import UnitPickerDialog from './UnitPickerDialog';
 
 interface IngredientDialogProps {
@@ -48,8 +49,6 @@ export default function IngredientDialog({ item, group, allItems, currentStock =
   const [moreOpen, setMoreOpen] = useState(!!(item?.location || item?.weight));
   const [unitOpen, setUnitOpen] = useState(false);
   const [error, setError] = useState('');
-
-  const num = (v: string) => parseFloat(v.replace(/[^\d.]/g, '')) || 0;
 
   const save = (andNew: boolean) => {
     if (!name.trim()) { setError('Vui lòng nhập tên hàng.'); return; }
@@ -124,7 +123,7 @@ export default function IngredientDialog({ item, group, allItems, currentStock =
             <p className="text-base font-bold text-on-surface">Giá &amp; Thuế</p>
             <div className={field + ' max-w-[14rem]'}><label className={lab}>Giá vốn (đ)</label>
               <input type="text" inputMode="numeric" value={cost ? cost.toLocaleString('vi-VN') : ''} placeholder="0"
-                onChange={e => setCost(num(e.target.value))} className="m3-input text-right font-bold" /></div>
+                onChange={e => setCost(parseMoneyInput(e.target.value))} className="m3-input text-right font-bold" /></div>
           </div>
 
           <div className="rounded-xl border border-outline-variant p-4 space-y-3">

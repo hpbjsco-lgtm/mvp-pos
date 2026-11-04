@@ -279,6 +279,28 @@ class NativeSqlDriver implements SqlDriver {
 
 let driverPromise: Promise<SqlDriver> | null = null;
 
+/** Routes to the database server and the API token; null when this device does not use a server. */
+export interface ServerRoute {
+  endpoints: ServerEndpoints;
+  token: string;
+}
+
+let serverRoute: ServerRoute | null | undefined;
+
+/**
+ * Routes to the database server, created once and shared by the SQL driver and the live refresh so both
+ * agree on which address (domain or local) is in use.
+ *
+ * @returns The routes, or null on a phone app or in a browser that keeps its own database.
+ */
+export function getServerRoute(): ServerRoute | null {
+  if (serverRoute === undefined) {
+    const connection = Capacitor.isNativePlatform() ? null : getServerConnection();
+    serverRoute = connection ? { endpoints: new ServerEndpoints(connection), token: connection.token } : null;
+  }
+  return serverRoute;
+}
+
 /**
  * Lấy driver SQLite phù hợp với nền tảng đang chạy (singleton).
  * Trên web, nếu đã lưu cấu hình máy chủ dữ liệu thì dùng máy chủ, ngược lại dùng DB trong trình duyệt.
@@ -288,9 +310,9 @@ export function getDriver(): Promise<SqlDriver> {
     if (Capacitor.isNativePlatform()) {
       driverPromise = NativeSqlDriver.create() as Promise<SqlDriver>;
     } else {
-      const connection = getServerConnection();
-      driverPromise = connection
-        ? Promise.resolve(new RemoteSqlDriver(new ServerEndpoints(connection), connection.token))
+      const route = getServerRoute();
+      driverPromise = route
+        ? Promise.resolve(new RemoteSqlDriver(route.endpoints, route.token))
         : (WebSqlDriver.create() as Promise<SqlDriver>);
     }
   }

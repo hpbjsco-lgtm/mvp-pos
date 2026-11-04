@@ -251,6 +251,7 @@ export default function ReportsSection({
               rows={bestSellers.map((item, idx) => ({ ...item, rank: idx + 1 }))}
               rowKey={item => item.name}
               emptyMessage="Chưa có giao dịch nào được thực hiện để xếp hạng."
+              minWidthClass="min-w-0"
               columns={[
                 { key: 'rank', header: 'Hạng', className: 'w-16', render: item => item.rank },
                 { key: 'name', header: 'Tên món', render: item => <span className="font-semibold">{item.name}</span> },
@@ -267,6 +268,7 @@ export default function ReportsSection({
               rows={worstSellers.map((item, idx) => ({ ...item, rank: idx + 1 }))}
               rowKey={item => item.name}
               emptyMessage="Không tìm thấy dữ liệu tồn đọng."
+              minWidthClass="min-w-0"
               columns={[
                 { key: 'rank', header: 'Hạng', className: 'w-16', render: item => item.rank },
                 { key: 'name', header: 'Tên món', render: item => <span className="font-semibold">{item.name}</span> },

@@ -28,16 +28,18 @@ interface DataTableProps<Row> {
   renderActions?: (row: Row) => React.ReactNode;
   /** Called when a row is clicked. */
   onRowClick?: (row: Row) => void;
+  /** Tailwind class for the smallest table width; below it the table scrolls sideways. Use `min-w-0` for a table with few columns in a narrow card. */
+  minWidthClass?: string;
 }
 
 /**
  * Table with a primary-colored header row and thin separators between rows.
- * Wide tables scroll horizontally inside the card.
+ * Tables wider than `minWidthClass` scroll horizontally inside the card.
  */
-export default function DataTable<Row>({ columns, rows, rowKey, emptyMessage, renderActions, onRowClick }: DataTableProps<Row>) {
+export default function DataTable<Row>({ columns, rows, rowKey, emptyMessage, renderActions, onRowClick, minWidthClass = 'min-w-[640px]' }: DataTableProps<Row>) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[640px] border-collapse text-left">
+      <table className={`w-full ${minWidthClass} border-collapse text-left`}>
         <thead>
           <tr className="bg-primary text-on-primary text-sm font-bold">
             {columns.map((column, index) => (

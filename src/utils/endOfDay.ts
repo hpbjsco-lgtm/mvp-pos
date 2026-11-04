@@ -65,6 +65,9 @@ function addItem(map: Map<string, ItemTotal>, name: string, value: number, quant
 }
 const sortedItems = (m: Map<string, ItemTotal>) => [...m.values()].sort((a, b) => b.value - a.value);
 
+/** Mã giỏ hàng của cửa hàng bán lẻ (không có bàn). */
+const RETAIL_CART_ID = 'retail';
+
 /** Báo cáo cuối ngày / theo kỳ: tổng hợp bán hàng, thu chi, hàng hóa, phòng bàn + trạng thái đang phục vụ. */
 export function computeEndOfDay(input: EodInput): EodReport {
   const { orders, vouchers, accounts, carts, products, tables, zones, from, to } = input;
@@ -98,11 +101,14 @@ export function computeEndOfDay(input: EodInput): EodReport {
   done.forEach(o => o.items.forEach(i => addItem(soldMap, i.name, i.price * i.quantity, i.quantity)));
   const soldItems = sortedItems(soldMap);
 
-  // Đang phục vụ: giỏ đang mở
+  // Đang phục vụ: giỏ đang mở. Chỉ tính giỏ mà màn hình bán hàng thật sự hiển thị: giỏ của một bàn còn tồn tại,
+  // giỏ mang về / giao đi và giỏ của cửa hàng bán lẻ. Giỏ của bàn đã bị xóa hoặc đổi mã còn sót trong DB thì bỏ qua.
   const servingMap = new Map<string, ItemTotal>();
   let openOrders = 0;
   Object.entries(carts).forEach(([key, lines]) => {
     if (!lines || lines.length === 0) return;
+    const isShownCart = isVirtualCartId(key) || key === RETAIL_CART_ID || tables.some(t => t.id === key);
+    if (!isShownCart) return;
     // giỏ của bàn phụ không tồn tại (đã gộp vào bàn chính) nên chỉ cần đếm giỏ có món
     openOrders += 1;
     lines.forEach(l => {

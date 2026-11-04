@@ -64,6 +64,25 @@ describe('computeEndOfDay', () => {
     expect(r.tablesTotal).toBe(2);
     expect(r.guestsInService).toBe(3);
   });
+  it('does not count carts that no table, takeaway or retail screen shows (left over from deleted tables)', () => {
+    const withStale = computeEndOfDay({
+      orders, vouchers, accounts: [], products: [prod('p1', 'Cà phê', 30000)], tables, zones: [], ...range,
+      carts: {
+        T1: [{ productId: 'p1', quantity: 2, note: '' }],
+        'T-deleted': [{ productId: 'p1', quantity: 5, note: '' }],
+        takeaway: [{ productId: 'p1', quantity: 1, note: '' }],
+      },
+    });
+    expect(withStale.openOrders).toBe(2);
+    expect(withStale.serving.quantity).toBe(3);
+  });
+  it('counts the cart of a retail store', () => {
+    const retail = computeEndOfDay({
+      orders: [], vouchers: [], accounts: [], products: [prod('p1', 'Cà phê', 30000)], tables: [], zones: [], ...range,
+      carts: { retail: [{ productId: 'p1', quantity: 1, note: '' }] },
+    });
+    expect(retail.openOrders).toBe(1);
+  });
   it('yesterday range ends before today starts', () => {
     expect(eodRange('yesterday').to).toBeLessThan(eodRange('today').from);
   });

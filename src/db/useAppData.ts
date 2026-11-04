@@ -18,10 +18,13 @@ import {
   diffStatements,
   loadAllCollections,
   loadCarts,
+  loadCollection,
   type CartMap,
   type CollectionKey,
 } from './collections';
+import { getServerRoute } from './driver';
 import { batch, flush, initDatabase, queryOne, run, setMeta } from './index';
+import { fetchChangeSummary, planReload, type ReloadPlan } from './liveRefresh';
 import {
   changeOwnPassword as authChangeOwnPassword,
   changePassword,
@@ -80,6 +83,9 @@ export interface AppDataApi {
   setStoreLogo: (logoUrl: string) => Promise<void>;
 }
 
+/** How often a device asks the server whether other devices changed something. */
+const LIVE_REFRESH_INTERVAL_MS = 3000;
+
 export function useAppData(): AppDataApi {
   const [ready, setReady] = useState(false);
   const [initError, setInitError] = useState('');
@@ -93,12 +99,22 @@ export function useAppData(): AppDataApi {
   const cartsRef = useRef<CartMap>(carts);
   const storeIdRef = useRef<string>('');
   const writeChain = useRef<Promise<unknown>>(Promise.resolve());
+  /** Number of writes queued or running; the live refresh waits until it is 0. */
+  const pendingWrites = useRef(0);
+  /** Raised by every change made on this device; the live refresh drops a reload that started before the last change. */
+  const mutationVersion = useRef(0);
 
   /** Xếp mọi lệnh ghi vào một hàng đợi tuần tự để tránh tranh chấp transaction. */
   const enqueue = useCallback((task: () => Promise<void>) => {
-    writeChain.current = writeChain.current.then(task).catch((err) => {
-      console.error('[SQLITE] Lỗi ghi dữ liệu:', err);
-    });
+    pendingWrites.current += 1;
+    writeChain.current = writeChain.current
+      .then(task)
+      .catch((err) => {
+        console.error('[SQLITE] Lỗi ghi dữ liệu:', err);
+      })
+      .finally(() => {
+        pendingWrites.current -= 1;
+      });
     return writeChain.current;
   }, []);
 
@@ -155,6 +171,7 @@ export function useAppData(): AppDataApi {
         const prev = dataRef.current[key];
         const next = typeof updater === 'function' ? (updater as (p: any[]) => any[])(prev) : updater;
         if (next === prev) return;
+        mutationVersion.current += 1;
         dataRef.current = { ...dataRef.current, [key]: next };
         setData(dataRef.current);
 
@@ -174,6 +191,7 @@ export function useAppData(): AppDataApi {
       const prev = cartsRef.current;
       const next = typeof updater === 'function' ? (updater as (p: CartMap) => CartMap)(prev) : updater;
       if (next === prev) return;
+      mutationVersion.current += 1;
       cartsRef.current = next;
       setCartsState(next);
 
@@ -293,6 +311,80 @@ export function useAppData(): AppDataApi {
     await updateStoreLogo(sid, logoUrl);
     setStore((prev) => (prev ? { ...prev, logoUrl } : prev));
   }, []);
+
+  /* Cập nhật trực tiếp: thiết bị khác cùng dùng máy chủ thay đổi dữ liệu (bếp, bàn, giỏ hàng...) thì tải lại phần đã đổi. */
+  useEffect(() => {
+    const route = getServerRoute();
+    const storeId = store?.id;
+    if (!route || !storeId) return;
+    let stopped = false;
+    let position: number | null = null;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    /**
+     * Reloads parts of the data from the server and shows them if they differ from the screen.
+     *
+     * @param plan What to reload.
+     * @returns False when the result was dropped because this device changed something meanwhile.
+     */
+    const reloadParts = async (plan: ReloadPlan): Promise<boolean> => {
+      const version = mutationVersion.current;
+      const loaded = await Promise.all(plan.keys.map(async (key) => [key, await loadCollection(key, storeId)] as const));
+      const loadedCarts = plan.carts ? await loadCarts(storeId) : null;
+      // A change made here while loading (or a write still running) means the loaded copy may be older than
+      // the screen: drop it, the next check loads again.
+      if (stopped || storeIdRef.current !== storeId || version !== mutationVersion.current || pendingWrites.current > 0) return false;
+      let next = dataRef.current;
+      for (const [key, items] of loaded) {
+        if (JSON.stringify(items) !== JSON.stringify(dataRef.current[key])) next = { ...next, [key]: items };
+      }
+      if (next !== dataRef.current) {
+        dataRef.current = next;
+        setData(next);
+      }
+      if (loadedCarts && JSON.stringify(loadedCarts) !== JSON.stringify(cartsRef.current)) {
+        cartsRef.current = loadedCarts;
+        setCartsState(loadedCarts);
+      }
+      return true;
+    };
+
+    const check = async () => {
+      if (document.visibilityState === 'hidden') return;
+      try {
+        const summary = await fetchChangeSummary(storeId, position);
+        if (position === null) {
+          position = summary.seq;
+        } else if (summary.reset) {
+          if (await reloadParts({ keys: COLLECTION_KEYS, carts: true })) position = summary.seq;
+        } else if (summary.tables.length === 0) {
+          position = summary.seq;
+        } else if (pendingWrites.current === 0 && (await reloadParts(planReload(summary.tables)))) {
+          position = summary.seq;
+        }
+      } catch (error) {
+        // A short network failure is retried at the next check; the SQL calls report persistent failures themselves.
+        console.warn('[LIVE] Không kiểm tra được thay đổi từ máy chủ:', error);
+      }
+    };
+
+    const loop = async () => {
+      await check();
+      if (!stopped) timer = setTimeout(loop, LIVE_REFRESH_INTERVAL_MS);
+    };
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible' || stopped) return;
+      clearTimeout(timer);
+      void loop();
+    };
+    void loop();
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [store?.id]);
 
   /* Ghi nốt dữ liệu khi app bị đưa vào nền / đóng. */
   useEffect(() => {

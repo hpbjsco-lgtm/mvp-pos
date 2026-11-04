@@ -101,17 +101,19 @@ export default function KiotCheckoutDialog(props: KiotCheckoutDialogProps) {
 
   // Mặc định khách trả đúng số tiền; đổi giảm giá / VAT / phương thức thì đặt lại
   useEffect(() => {
-    if (paymentMethod === 'cash') {
-      setCashPadInput(String(grandTotal));
-      setCashChangeDue(0);
-      setTouched(false);
-      setTimeout(() => { inputRef.current?.focus(); inputRef.current?.select(); }, 0);
-    } else {
-      setCashPadInput(String(grandTotal));
-      setCashChangeDue(0);
-    }
+    setCashPadInput(String(grandTotal));
+    setCashChangeDue(0);
+    if (paymentMethod === 'cash') setTouched(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [grandTotal, paymentMethod]);
+
+  // Đưa con trỏ vào ô "Khách thanh toán" khi mở hộp thoại hoặc chọn tiền mặt, nhưng KHÔNG khi số tiền thay đổi:
+  // nếu không, mỗi chữ số gõ ở ô Giảm giá làm đổi số cần trả và kéo con trỏ sang ô này.
+  useEffect(() => {
+    if (paymentMethod !== 'cash') return;
+    const timer = setTimeout(() => { inputRef.current?.focus(); inputRef.current?.select(); }, 0);
+    return () => clearTimeout(timer);
+  }, [paymentMethod]);
 
   // Đổi giảm giá / VAT làm thay đổi số cần trả thì bỏ cấu hình kết hợp cũ
   useEffect(() => { setMixed(null); }, [grandTotal]);
