@@ -18,7 +18,7 @@
  *     không mất order đang gọi (lỗi "không lưu được" của bản cũ).
  */
 
-export const SCHEMA_VERSION = 13;
+export const SCHEMA_VERSION = 14;
 
 /** Các câu lệnh DDL, chạy tuần tự khi khởi tạo / nâng cấp DB. */
 export const MIGRATIONS: { version: number; statements: string[] }[] = [
@@ -579,6 +579,15 @@ export const MIGRATIONS: { version: number; statements: string[] }[] = [
       `ALTER TABLE products ADD COLUMN menu_type TEXT NOT NULL DEFAULT '';`,
       `ALTER TABLE products ADD COLUMN dish_kind TEXT NOT NULL DEFAULT '';`,
       `ALTER TABLE products ADD COLUMN recipe TEXT NOT NULL DEFAULT '';`,
+    ],
+  },
+  {
+    version: 14,
+    statements: [
+      /* Mã tạm do thiết bị cấp khi offline; số chính thức (order_number / transaction_number / code) do máy chủ cấp khi đồng bộ */
+      `ALTER TABLE orders ADD COLUMN temp_order_number TEXT NOT NULL DEFAULT '';`,
+      `ALTER TABLE inventory_transactions ADD COLUMN temp_code TEXT NOT NULL DEFAULT '';`,
+      `ALTER TABLE cash_vouchers ADD COLUMN temp_code TEXT NOT NULL DEFAULT '';`,
     ],
   },
 ];

@@ -4,43 +4,41 @@
  */
 
 import type { SqlDriver, SqlStatement } from './driver';
-import type { ServerConnection } from './serverConnection';
-
-/** How long one request may take before it is treated as a lost connection. */
-const REQUEST_TIMEOUT_MS = 30000;
+import type { ServerEndpoints } from './serverEndpoints';
 
 /**
  * SQL driver that runs every statement on the database server (server/pos-db-server) over HTTP.
  * The database file lives on the server, so there is no local copy and the app needs a connection to work.
+ * Requests go through `ServerEndpoints`, which moves between the domain and the local address.
  */
 export class RemoteSqlDriver implements SqlDriver {
   readonly platform = 'web' as const;
 
   /**
-   * @param connection Server address and API token.
-   * @param fetchImpl HTTP function; replaced in tests.
+   * @param endpoints Routes to the server.
+   * @param token API token sent with every request.
    */
   constructor(
-    private readonly connection: ServerConnection,
-    private readonly fetchImpl: typeof fetch = (input, init) => fetch(input, init),
+    private readonly endpoints: ServerEndpoints,
+    private readonly token: string,
   ) {}
 
   async exec(sql: string): Promise<void> {
-    await this.post('/api/sql', { action: 'exec', sql });
+    await this.post('/api/sql', { action: 'exec', sql }, false);
   }
 
   async run(sql: string, params: unknown[] = []): Promise<void> {
-    await this.post('/api/sql', { action: 'run', sql, params });
+    await this.post('/api/sql', { action: 'run', sql, params }, false);
   }
 
   async all<T = Record<string, any>>(sql: string, params: unknown[] = []): Promise<T[]> {
-    const body = await this.post('/api/sql', { action: 'all', sql, params });
+    const body = await this.post('/api/sql', { action: 'all', sql, params }, true);
     return (body.rows ?? []) as T[];
   }
 
   async batch(statements: SqlStatement[]): Promise<void> {
     if (!statements.length) return;
-    await this.post('/api/batch', { statements });
+    await this.post('/api/batch', { statements }, false);
   }
 
   async flush(): Promise<void> {
@@ -65,25 +63,20 @@ export class RemoteSqlDriver implements SqlDriver {
    *
    * @param path API path, for example "/api/sql".
    * @param payload Request body.
+   * @param isRead True for a query that only reads, which may be repeated on the other address.
    * @returns The parsed answer.
-   * @throws Error with a readable message when the server cannot be reached, rejects the token or reports an SQL error.
+   * @throws Error with a readable message when no address can be reached, the server rejects the token or reports an SQL error.
    */
-  private async post(path: string, payload: unknown): Promise<any> {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-    let response: Response;
-    try {
-      response = await this.fetchImpl(`${this.connection.url}${path}`, {
+  private async post(path: string, payload: unknown, isRead: boolean): Promise<any> {
+    const response = await this.endpoints.request(
+      path,
+      {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.connection.token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.token}` },
         body: JSON.stringify(payload),
-        signal: controller.signal,
-      });
-    } catch (error) {
-      throw new Error(`Không kết nối được máy chủ dữ liệu (${this.connection.url}): ${(error as Error).message}`);
-    } finally {
-      clearTimeout(timer);
-    }
+      },
+      { idempotent: isRead },
+    );
 
     const body = await response.json().catch(() => ({}));
     if (response.status === 401) throw new Error('Máy chủ dữ liệu từ chối mã API. Hãy kiểm tra lại mã API.');

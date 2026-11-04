@@ -19,11 +19,31 @@ import path from 'node:path';
  * @property {number} backupIntervalHours Hours between scheduled backups; 0 turns them off.
  * @property {number} backupKeepCount Number of scheduled backups to keep.
  * @property {string} staticDir Folder with the built web app to serve at `/` (empty: the server only provides the API and admin page).
- * @property {string} corsOrigin Origin allowed to call the API from a browser; empty disables CORS headers.
+ * @property {string[]} corsOrigins Origins allowed to call the API from a browser (a web page served from another address, or the app in a phone); empty disables CORS headers.
  */
 
 /** Name of the SQLite file inside the data folder. */
 export const DATABASE_FILE_NAME = 'pos.db';
+
+/**
+ * Reads the list of origins allowed to call the API.
+ *
+ * @param {string | undefined} text Comma-separated origins, for example `http://192.168.1.12,https://localhost`.
+ * @returns {string[]} The origins without trailing slashes; empty when the text is empty.
+ * @throws {Error} When an entry is not an origin (scheme, host and optional port, no path).
+ */
+function parseOrigins(text) {
+  return (text || '')
+    .split(',')
+    .map((entry) => entry.trim().replace(/\/+$/, ''))
+    .filter(Boolean)
+    .map((origin) => {
+      if (!/^[a-z][a-z0-9+.-]*:\/\/[^\s/]+$/i.test(origin)) {
+        throw new Error(`CORS_ORIGIN entries must look like https://host or http://host:port, got "${origin}".`);
+      }
+      return origin;
+    });
+}
 
 /**
  * Reads and validates the server settings.
@@ -74,6 +94,6 @@ export function loadConfig(env) {
     backupIntervalHours,
     backupKeepCount,
     staticDir: env.STATIC_DIR ? path.resolve(env.STATIC_DIR) : '',
-    corsOrigin: (env.CORS_ORIGIN || '').trim(),
+    corsOrigins: parseOrigins(env.CORS_ORIGIN),
   };
 }

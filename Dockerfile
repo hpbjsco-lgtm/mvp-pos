@@ -7,8 +7,9 @@ WORKDIR /build
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
-# Connection fixed into the web bundle (see docker-compose.yml). Empty URL = the address the app is served from.
-ARG VITE_SERVER_URL=
+# Connection fixed into the web bundle (see docker-compose.yml). Empty domain = the address the app is served from.
+ARG VITE_SERVER_DOMAIN_URL=
+ARG VITE_SERVER_LOCAL_URL=
 ARG VITE_SERVER_API_TOKEN=
 RUN npm run build
 

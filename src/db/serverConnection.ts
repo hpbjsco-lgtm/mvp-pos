@@ -3,10 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-/** Address and secret of the database server (server/pos-db-server) the web app talks to. */
+/** Addresses and secret of the database server (server/pos-db-server) the web app talks to. */
 export interface ServerConnection {
-  /** Base address without a trailing slash, for example "https://pos.hp-backup.com". */
-  url: string;
+  /** Address through the internet, without a trailing slash, for example "https://pos.hp-backup.com". Tried first. */
+  domainUrl: string;
+  /** Address inside the shop network, for example "http://192.168.1.12"; empty when there is none. Used when the domain cannot be reached. */
+  localUrl: string;
   /** API token the server expects as a Bearer token. */
   token: string;
 }
@@ -15,14 +17,15 @@ export interface ServerConnection {
 const STORAGE_KEY = 'smartpos.serverConnection';
 
 /**
- * Cleans a server address typed by a person.
+ * Cleans a server address typed by a person. A trailing "/api" is dropped, because the app adds the
+ * API paths itself and people copy the address together with it.
  *
- * @param input Text typed in the settings form.
- * @returns The address without surrounding spaces and without trailing slashes.
+ * @param input Text typed in the settings form or set in the environment.
+ * @returns The address without surrounding spaces, without trailing slashes and without a trailing "/api".
  * @throws Error when the text is not an http(s) address.
  */
 export function normalizeServerUrl(input: string): string {
-  const trimmed = input.trim().replace(/\/+$/, '');
+  const trimmed = input.trim().replace(/\/+$/, '').replace(/\/api$/i, '');
   if (!/^https?:\/\/[^\s/]+/i.test(trimmed)) {
     throw new Error('Địa chỉ máy chủ phải bắt đầu bằng http:// hoặc https://');
   }
@@ -30,17 +33,30 @@ export function normalizeServerUrl(input: string): string {
 }
 
 /**
- * Reads the connection fixed at build time through `VITE_SERVER_API_TOKEN` (and `VITE_SERVER_URL`, which
- * defaults to the address the app is served from).
+ * Cleans an optional server address.
+ *
+ * @param input Address, or empty text for "none".
+ * @returns The cleaned address, or an empty string when the input is empty.
+ * @throws Error when the text is not empty and not an http(s) address.
+ */
+export function normalizeOptionalServerUrl(input: string): string {
+  return input.trim() ? normalizeServerUrl(input) : '';
+}
+
+/**
+ * Reads the connection fixed at build time: `VITE_SERVER_API_TOKEN`, `VITE_SERVER_DOMAIN_URL` (the
+ * address the app is served from when empty, which is what `npm run dev` with the proxy needs) and
+ * `VITE_SERVER_LOCAL_URL` (optional).
  *
  * @returns The fixed connection, or null when no API token is configured.
- * @throws Error when `VITE_SERVER_URL` is not an http(s) address.
+ * @throws Error when an address is not an http(s) address.
  */
 function getConfiguredConnection(): ServerConnection | null {
   const token = ((import.meta.env.VITE_SERVER_API_TOKEN as string | undefined) ?? '').trim();
   if (!token) return null;
-  const url = ((import.meta.env.VITE_SERVER_URL as string | undefined) ?? '').trim() || window.location.origin;
-  return { url: normalizeServerUrl(url), token };
+  const domainUrl = ((import.meta.env.VITE_SERVER_DOMAIN_URL as string | undefined) ?? '').trim() || window.location.origin;
+  const localUrl = (import.meta.env.VITE_SERVER_LOCAL_URL as string | undefined) ?? '';
+  return { domainUrl: normalizeServerUrl(domainUrl), localUrl: normalizeOptionalServerUrl(localUrl), token };
 }
 
 /**
@@ -57,8 +73,8 @@ export function getServerConnection(): ServerConnection | null {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw);
-    if (typeof parsed?.url !== 'string' || typeof parsed?.token !== 'string') throw new Error('missing fields');
-    return { url: normalizeServerUrl(parsed.url), token: parsed.token };
+    if (typeof parsed?.domainUrl !== 'string' || typeof parsed?.localUrl !== 'string' || typeof parsed?.token !== 'string') throw new Error('missing fields');
+    return { domainUrl: normalizeServerUrl(parsed.domainUrl), localUrl: normalizeOptionalServerUrl(parsed.localUrl), token: parsed.token };
   } catch (error) {
     throw new Error(`Cấu hình máy chủ dữ liệu bị hỏng (${(error as Error).message}). Hãy nhập lại hoặc ngắt kết nối.`);
   }
@@ -67,13 +83,17 @@ export function getServerConnection(): ServerConnection | null {
 /**
  * Saves the server connection; the app must be reloaded for the new database to take effect.
  *
- * @param connection Address and API token.
- * @throws Error when the address is invalid or the token is empty.
+ * @param connection Addresses and API token.
+ * @throws Error when an address is invalid, the domain address is empty or the token is empty.
  */
 export function saveServerConnection(connection: ServerConnection): void {
   const token = connection.token.trim();
   if (!token) throw new Error('Cần nhập mã API của máy chủ.');
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ url: normalizeServerUrl(connection.url), token }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({
+    domainUrl: normalizeServerUrl(connection.domainUrl),
+    localUrl: normalizeOptionalServerUrl(connection.localUrl),
+    token,
+  }));
 }
 
 /** Removes the saved connection; after a reload the app uses the database in this browser again. */

@@ -37,7 +37,8 @@ function readSavedConnection() {
  */
 export default function ServerConnectionSettings() {
   const saved = readSavedConnection();
-  const [url, setUrl] = useState(saved?.url ?? window.location.origin);
+  const [url, setUrl] = useState(saved?.domainUrl ?? window.location.origin);
+  const [localUrl, setLocalUrl] = useState(saved?.localUrl ?? '');
   const [token, setToken] = useState(saved?.token ?? '');
   const [adminToken, setAdminToken] = useState('');
   const [busy, setBusy] = useState(false);
@@ -81,7 +82,7 @@ export default function ServerConnectionSettings() {
 
   /** Saves the connection and reloads so the app starts on the server database. */
   const saveAndReload = () => withBusy(async () => {
-    saveServerConnection({ url, token });
+    saveServerConnection({ domainUrl: url, localUrl, token });
     window.location.reload();
   });
 
@@ -123,7 +124,7 @@ export default function ServerConnectionSettings() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-base font-bold text-on-surface">Máy chủ dữ liệu</h3>
         <span className={`m3-badge ${saved ? 'm3-badge-success' : 'm3-badge-neutral'}`}>
-          {saved ? `Đang dùng máy chủ: ${saved.url}` : 'Đang dùng dữ liệu trong trình duyệt'}
+          {saved ? `Đang dùng máy chủ: ${saved.domainUrl}` : 'Đang dùng dữ liệu trong trình duyệt'}
         </span>
       </div>
       <p className="text-sm text-on-surface-variant">
@@ -134,6 +135,10 @@ export default function ServerConnectionSettings() {
         <div className="space-y-1">
           <label className="text-sm font-semibold text-on-surface-variant" htmlFor="server-url">Địa chỉ máy chủ</label>
           <input id="server-url" value={url} onChange={e => setUrl(e.target.value)} placeholder="https://pos.hp-backup.com" className="m3-input" autoCapitalize="none" autoCorrect="off" />
+        </div>
+        <div className="space-y-1">
+          <label className="text-sm font-semibold text-on-surface-variant" htmlFor="server-local-url">Địa chỉ trong mạng nội bộ (nếu có)</label>
+          <input id="server-local-url" value={localUrl} onChange={e => setLocalUrl(e.target.value)} placeholder="http://192.168.1.12" className="m3-input" autoCapitalize="none" autoCorrect="off" />
         </div>
         <div className="space-y-1">
           <label className="text-sm font-semibold text-on-surface-variant" htmlFor="server-token">Mã API</label>

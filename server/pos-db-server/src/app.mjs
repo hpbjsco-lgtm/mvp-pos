@@ -7,6 +7,7 @@ import express from 'express';
 import path from 'node:path';
 import { createAdminRouter } from './adminRouter.mjs';
 import { requireBearerToken } from './auth.mjs';
+import { createSyncRouter } from './syncRouter.mjs';
 
 /** Largest JSON body accepted; product photos are stored as data URLs inside SQL parameters. */
 const MAX_BODY_SIZE = '32mb';
@@ -20,6 +21,7 @@ const MAX_BODY_SIZE = '32mb';
  *  - GET  /api/health  liveness check
  *  - POST /api/sql     body `{ action: 'exec' | 'run' | 'all', sql, params? }`
  *  - POST /api/batch   body `{ statements: [{ sql, params? }] }`, applied in one transaction
+ *  - GET  /api/sync/pull  change feed for devices (see `syncRouter.mjs`)
  *
  * @param {Object} options Dependencies and settings.
  * @param {import('./sqlService.mjs').SqlService} options.sqlService Executes the SQL.
@@ -27,20 +29,29 @@ const MAX_BODY_SIZE = '32mb';
  * @param {import('./tableExplorer.mjs').TableExplorer} options.explorer Reads and edits table rows for the admin page.
  * @param {import('./databaseManager.mjs').DatabaseManager} options.manager Takes backups and restores them for the admin page.
  * @param {string} options.adminToken Secret required by the admin routes.
+ * @param {import('./syncService.mjs').SyncService} [options.syncService] Change feed for devices; without it the `/api/sync` routes are not mounted.
  * @param {string} [options.staticDir] Folder with the built web app; when set it is served at `/` (the app has no URL routes, so `index.html` answers unknown paths).
- * @param {string} [options.corsOrigin] Origin allowed to call the API from a browser; empty means no CORS headers.
+ * @param {string[]} [options.corsOrigins] Origins allowed to call the API from a browser; empty means no CORS headers. A request from an origin on the list gets that origin back; other origins get no CORS headers.
  * @returns {import('express').Express} Configured application.
  */
-export function createApp({ sqlService, apiToken, explorer, manager, adminToken, staticDir = '', corsOrigin = '' }) {
+export function createApp({ sqlService, apiToken, explorer, manager, adminToken, syncService = null, staticDir = '', corsOrigins = [] }) {
   const app = express();
   app.disable('x-powered-by');
   app.use(express.json({ limit: MAX_BODY_SIZE }));
 
-  if (corsOrigin) {
+  if (corsOrigins.length > 0) {
     app.use((request, response, next) => {
-      response.setHeader('Access-Control-Allow-Origin', corsOrigin);
-      response.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-      response.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      const origin = request.get('Origin');
+      response.setHeader('Vary', 'Origin');
+      if (origin && corsOrigins.includes(origin)) {
+        response.setHeader('Access-Control-Allow-Origin', origin);
+        response.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        response.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        // A page on the internet calling an address inside the shop network asks for this before the real request.
+        if (request.get('Access-Control-Request-Private-Network') === 'true') {
+          response.setHeader('Access-Control-Allow-Private-Network', 'true');
+        }
+      }
       if (request.method === 'OPTIONS') {
         response.sendStatus(204);
         return;
@@ -87,6 +98,8 @@ export function createApp({ sqlService, apiToken, explorer, manager, adminToken,
       response.status(400).json({ error: error.message });
     }
   });
+
+  if (syncService) app.use('/api/sync', protectedRoute, createSyncRouter(syncService));
 
   app.use('/admin', createAdminRouter({ explorer, manager, adminToken }));
 

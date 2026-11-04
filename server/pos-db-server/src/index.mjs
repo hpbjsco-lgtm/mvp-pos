@@ -6,7 +6,7 @@
  *
  *   API_TOKEN=<16+ chars> ADMIN_TOKEN=<16+ chars, different> DATA_DIR=/var/lib/mvp-pos node src/index.mjs
  *
- * Optional: PORT (8790), HOST (127.0.0.1), STATIC_DIR (built web app to serve at /), CORS_ORIGIN,
+ * Optional: PORT (8790), HOST (127.0.0.1), STATIC_DIR (built web app to serve at /), CORS_ORIGIN (comma-separated list),
  * BACKUP_INTERVAL_HOURS (24, 0 = off), BACKUP_KEEP (14).
  */
 
@@ -16,6 +16,7 @@ import { BackupScheduler } from './backupScheduler.mjs';
 import { loadConfig } from './config.mjs';
 import { DatabaseManager } from './databaseManager.mjs';
 import { SqlService } from './sqlService.mjs';
+import { SyncService } from './syncService.mjs';
 import { TableExplorer } from './tableExplorer.mjs';
 
 const config = loadConfig(process.env);
@@ -23,14 +24,18 @@ mkdirSync(config.dataDir, { recursive: true });
 
 const manager = new DatabaseManager(config.databaseFile, config.backupDir);
 const getDatabase = () => manager.database;
+const syncService = new SyncService(getDatabase);
+// A restored database file has its own change log, so devices must download everything again.
+manager.onRestore(() => syncService.regenerateEpoch());
 const app = createApp({
   sqlService: new SqlService(getDatabase),
   explorer: new TableExplorer(getDatabase),
   manager,
+  syncService,
   apiToken: config.apiToken,
   adminToken: config.adminToken,
   staticDir: config.staticDir,
-  corsOrigin: config.corsOrigin,
+  corsOrigins: config.corsOrigins,
 });
 
 const backups = new BackupScheduler({ manager, intervalHours: config.backupIntervalHours, keepCount: config.backupKeepCount });

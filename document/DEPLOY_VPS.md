@@ -30,6 +30,34 @@ Browser -> Apache (HTTPS, pos.hp-backup.com) -> 127.0.0.1:8790 (container)
    enter `API_TOKEN`, press "Kiểm tra kết nối", then "Lưu và kết nối".
 7. Admin page: `https://pos.hp-backup.com/admin/db`, sign in with `ADMIN_TOKEN`.
 
+### Local address (shop network)
+Devices in the shop reach the same container directly through the LAN address of the machine, with no Apache in between,
+so they keep working when the internet is down. There is one database.
+1. In `.env` (see `deploy/docker.env.example`) open the port to the shop network and set the two routes:
+   ```
+   POS_BIND_ADDRESS=0.0.0.0
+   VITE_SERVER_DOMAIN_URL=https://pos.hp-backup.com
+   VITE_SERVER_LOCAL_URL=http://192.168.1.12:8790
+   ```
+   `192.168.1.12` is the LAN address of this machine (give it a fixed address in the router, or it can change). `8790` is `POS_PORT`.
+   Write the domain explicitly: the same web build is also opened at the LAN address, where "the address I was served from" would be the local one.
+   Then run `docker compose up -d --build`.
+2. Windows Firewall: allow inbound TCP port 8790 for the private (LAN) profile. Apache does not need any change.
+3. Check from a device in the shop: `http://192.168.1.12:8790/api/health`.
+4. Opening the port also exposes `/admin` and the API (protected by their tokens, over plain http) to everything on the shop network.
+   Keep the router from forwarding port 8790 to the internet.
+5. Docker running inside WSL2 may not be reachable from the LAN even with `0.0.0.0` (WSL2 has its own network); then a Windows
+   port forward (`netsh interface portproxy`) or WSL mirrored networking is needed. This depends on the setup and is not tested here.
+6. Browsers block a page opened over `https://` from calling `http://192.168...` (mixed content). Staff who need the local route
+   in a browser open the web app at `http://192.168.1.12:8790` (the container serves it). That page calls the domain first and
+   switches to the local address itself.
+7. A page served from one address that calls another needs CORS: set `CORS_ORIGIN` to the page origins, for example
+   `http://192.168.1.12:8790,https://pos.hp-backup.com`. Phone apps add `https://localhost` (Android) and `capacitor://localhost` (iOS).
+
+How the app chooses: it checks `/api/health` of the domain (2.5 s); if the domain does not answer it uses the local address, and while on the
+local address it checks the domain again every 15 s and goes back to it. A request that cannot connect is repeated once on the other address.
+A write that timed out is not repeated (it may have been stored); the app says so and asks to check the data.
+
 ## 3. Moving the data that is already in a browser
 On the browser that holds the data, open "Cài đặt máy chủ dữ liệu", enter the admin token and press
 "Chuyển dữ liệu lên máy chủ". This **replaces** the data on the server; the server first saves a copy in

@@ -53,16 +53,16 @@ describe('server connection storage', () => {
   });
 
   it('saves a normalized address and reads it back', () => {
-    saveServerConnection({ url: 'https://pos.hp-backup.com/', token: ' secret-token-123456 ' });
-    expect(getServerConnection()).toEqual({ url: 'https://pos.hp-backup.com', token: 'secret-token-123456' });
+    saveServerConnection({ domainUrl: 'https://pos.hp-backup.com/api/', localUrl: 'http://192.168.1.12/api', token: ' secret-token-123456 ' });
+    expect(getServerConnection()).toEqual({ domainUrl: 'https://pos.hp-backup.com', localUrl: 'http://192.168.1.12', token: 'secret-token-123456' });
   });
 
   it('refuses an empty token', () => {
-    expect(() => saveServerConnection({ url: 'https://pos.hp-backup.com', token: '  ' })).toThrow('mã API');
+    expect(() => saveServerConnection({ domainUrl: 'https://pos.hp-backup.com', localUrl: '', token: '  ' })).toThrow('mã API');
   });
 
   it('forgets the connection after clearServerConnection', () => {
-    saveServerConnection({ url: 'https://pos.hp-backup.com', token: 'secret-token-123456' });
+    saveServerConnection({ domainUrl: 'https://pos.hp-backup.com', localUrl: '', token: 'secret-token-123456' });
     clearServerConnection();
     expect(getServerConnection()).toBeNull();
   });
@@ -73,13 +73,23 @@ describe('server connection storage', () => {
   });
 
   it('prefers the connection fixed by VITE_SERVER_* over the saved one', () => {
-    saveServerConnection({ url: 'https://saved.example.com', token: 'saved-token-123456' });
-    vi.stubEnv('VITE_SERVER_URL', 'http://127.0.0.1:8790/');
+    saveServerConnection({ domainUrl: 'https://saved.example.com', localUrl: '', token: 'saved-token-123456' });
+    vi.stubEnv('VITE_SERVER_DOMAIN_URL', 'https://pos.hp-backup.com/api');
+    vi.stubEnv('VITE_SERVER_LOCAL_URL', 'http://192.168.1.12/api/');
     vi.stubEnv('VITE_SERVER_API_TOKEN', ' fixed-token-123456 ');
     try {
-      expect(getServerConnection()).toEqual({ url: 'http://127.0.0.1:8790', token: 'fixed-token-123456' });
+      expect(getServerConnection()).toEqual({ domainUrl: 'https://pos.hp-backup.com', localUrl: 'http://192.168.1.12', token: 'fixed-token-123456' });
     } finally {
       vi.unstubAllEnvs();
     }
+  });
+
+  it('leaves the local address empty when it is not set, and rejects a bad address', () => {
+    vi.stubEnv('VITE_SERVER_DOMAIN_URL', 'https://pos.hp-backup.com');
+    vi.stubEnv('VITE_SERVER_LOCAL_URL', '');
+    vi.stubEnv('VITE_SERVER_API_TOKEN', 'fixed-token-123456');
+    expect(getServerConnection()).toEqual({ domainUrl: 'https://pos.hp-backup.com', localUrl: '', token: 'fixed-token-123456' });
+    vi.stubEnv('VITE_SERVER_LOCAL_URL', '192.168.1.12');
+    expect(() => getServerConnection()).toThrow('http://');
   });
 });

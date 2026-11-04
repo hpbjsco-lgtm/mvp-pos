@@ -18,6 +18,7 @@
 import { Capacitor } from '@capacitor/core';
 import { RemoteSqlDriver } from './remoteDriver';
 import { getServerConnection } from './serverConnection';
+import { ServerEndpoints } from './serverEndpoints';
 
 export interface SqlStatement {
   sql: string;
@@ -289,7 +290,7 @@ export function getDriver(): Promise<SqlDriver> {
     } else {
       const connection = getServerConnection();
       driverPromise = connection
-        ? Promise.resolve(new RemoteSqlDriver(connection))
+        ? Promise.resolve(new RemoteSqlDriver(new ServerEndpoints(connection), connection.token))
         : (WebSqlDriver.create() as Promise<SqlDriver>);
     }
   }

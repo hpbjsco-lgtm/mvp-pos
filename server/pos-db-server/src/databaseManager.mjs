@@ -24,6 +24,17 @@ export class DatabaseManager {
     this.filePath = filePath;
     this.backupDir = backupDir;
     this.connection = openDatabase(filePath);
+    /** @type {Array<() => void>} */
+    this.restoreListeners = [];
+  }
+
+  /**
+   * Registers a function to call after a restore replaced the database file (for example to start a new sync epoch).
+   *
+   * @param {() => void} listener Called once per restore, after the new connection is open.
+   */
+  onRestore(listener) {
+    this.restoreListeners.push(listener);
   }
 
   /**
@@ -94,6 +105,7 @@ export class DatabaseManager {
     }
     renameSync(temporaryPath, this.filePath);
     this.connection = openDatabase(this.filePath);
+    for (const listener of this.restoreListeners) listener();
     return backupPath;
   }
 
