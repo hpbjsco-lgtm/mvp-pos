@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { Attendance } from '../types';
 import PrinterSettingsDialog from './PrinterSettingsDialog';
+import NativeConfigButton from './NativeConfigDialog';
 
 interface MyAccountDialogProps {
   user: { uid: string; name: string; username?: string; email?: string };
@@ -96,6 +97,8 @@ export default function MyAccountDialog({
             <p className="text-sm text-on-surface-variant">Chọn máy in nhiệt cắm USB cho máy tính này và in thử.</p>
             <button type="button" onClick={() => setPrinterOpen(true)} className="m3-btn-tonal w-full !min-h-12">Cài đặt máy in</button>
           </section>
+
+          <NativeConfigButton className="m3-btn-tonal w-full !min-h-12" />
 
           {canChangePassword ? (
           <section className="space-y-3">

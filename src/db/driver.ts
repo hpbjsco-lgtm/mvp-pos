@@ -257,9 +257,26 @@ class NativeSqlDriver implements SqlDriver {
     /* SQLite native ghi trực tiếp xuống file, không cần flush. */
   }
 
-  async exportRawBytes(): Promise<Uint8Array | null> {
-    /* Trên native ta dùng snapshot JSON (xem src/cloud/snapshot.ts) thay vì copy file .db. */
-    return null;
+  /**
+   * Copies the whole database into a new SQLite file (VACUUM INTO gives a consistent copy even though the
+   * database runs in WAL mode) and returns its bytes.
+   *
+   * @returns The content of a valid SQLite file.
+   */
+  async exportRawBytes(): Promise<Uint8Array> {
+    const { Directory, Filesystem } = await import('@capacitor/filesystem');
+    const copyName = 'export-copy.db';
+    const location = { directory: Directory.Cache, path: copyName };
+    // VACUUM INTO refuses to write over an existing file.
+    await Filesystem.deleteFile(location).catch(() => undefined);
+    const { uri } = await Filesystem.getUri(location);
+    const path = decodeURI(uri.replace(/^file:\/\//, ''));
+    // VACUUM cannot run inside a transaction, so the plugin must not wrap it in one.
+    await this.conn.execute(`VACUUM INTO '${path.replace(/'/g, "''")}';`, false);
+    const { data } = await Filesystem.readFile(location);
+    await Filesystem.deleteFile(location).catch(() => undefined);
+    const binary = atob(String(data));
+    return Uint8Array.from(binary, (char) => char.charCodeAt(0));
   }
 
   async importRawBytes(): Promise<boolean> {

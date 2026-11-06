@@ -115,4 +115,27 @@ describe('ServerEndpoints', () => {
     const endpoints = new ServerEndpoints({ domainUrl: DOMAIN, localUrl: '' }, { fetchImpl: net.fetchImpl });
     await expect(endpoints.request('/api/sql', { method: 'POST' }, read)).rejects.toThrow(/địa chỉ này.*pos\.example\.com/);
   });
+
+  it('explains why the local address failed: a page opened over https cannot call http', async () => {
+    const net = fakeNetwork({ [DOMAIN]: 'down', [LOCAL]: 'up' });
+    const endpoints = new ServerEndpoints({ domainUrl: DOMAIN, localUrl: LOCAL }, { fetchImpl: net.fetchImpl, pageOrigin: 'https://pos.example.com' });
+    const error = await endpoints.request('/api/sql', { method: 'POST' }, read).catch((caught: Error) => caught);
+    expect((error as Error).message).toMatch(/trình duyệt chặn.*https.*http/);
+    expect((error as Error).message).toContain('Trang đang mở tại https://pos.example.com');
+    expect(net.calls.some((call) => call.includes(LOCAL))).toBe(false);
+  });
+
+  it('still reaches the local address from a page opened over http', async () => {
+    const net = fakeNetwork({ [DOMAIN]: 'down', [LOCAL]: 'up' });
+    const endpoints = new ServerEndpoints({ domainUrl: DOMAIN, localUrl: LOCAL }, { fetchImpl: net.fetchImpl, pageOrigin: 'http://192.168.1.12' });
+    expect((await json(await endpoints.request('/api/sql', { method: 'POST' }, read))).from).toBe(LOCAL);
+  });
+
+  it('puts the reason of a failed local check in the error', async () => {
+    const net = fakeNetwork({ [DOMAIN]: 'down', [LOCAL]: 'down' });
+    const endpoints = new ServerEndpoints({ domainUrl: DOMAIN, localUrl: LOCAL }, { fetchImpl: net.fetchImpl, pageOrigin: 'http://localhost:3000' });
+    const error = await endpoints.request('/api/sql', { method: 'POST' }, read).catch((caught: Error) => caught);
+    expect((error as Error).message).toContain('Failed to fetch');
+    expect((error as Error).message).toContain('Trang đang mở tại http://localhost:3000');
+  });
 });

@@ -5,6 +5,7 @@
 
 import React, { useState } from 'react';
 import loginCafeImage from '../assets/login-cafe.png';
+import NativeConfigButton from './NativeConfigDialog';
 import {
   Lock, Mail, Store, User, Phone, MapPin, Coffee, ShoppingBag,
   ArrowRight, ShieldCheck, HelpCircle, HardDrive, LogIn, Sparkles, UserCheck, Key
@@ -459,6 +460,9 @@ export default function LoginScreen({
             </button>
           </form>
         </div>
+
+        {/* Cấu hình kết nối: chỉ có trong app Android / iOS */}
+        <div className="pt-4 max-w-md mx-auto w-full"><NativeConfigButton className="m3-btn-outlined w-full !min-h-11 text-sm" /></div>
 
         {/* Footer info text */}
         <div className="pt-6 border-t border-outline-variant flex flex-col sm:flex-row justify-between items-center gap-2 text-sm text-on-surface-variant">

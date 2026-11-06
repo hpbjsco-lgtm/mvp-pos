@@ -97,7 +97,8 @@ export default function KiotCheckoutDialog(props: KiotCheckoutDialogProps) {
   const usingMixed = !!mixed && !!mixedResult?.valid;
   const paid = usingMixed ? mixedResult!.received : paymentMethod === 'cash' ? (parseInt(cashPadInput) || 0) : grandTotal;
   const change = usingMixed ? mixedResult!.change : Math.max(0, paid - grandTotal);
-  const canPay = !processing && grandTotal > 0 && (usingMixed || paid >= grandTotal);
+  // A total of 0 (discount covers the whole bill) can still be paid
+  const canPay = !processing && itemCount > 0 && (usingMixed || paid >= grandTotal);
 
   // Mặc định khách trả đúng số tiền; đổi giảm giá / VAT / phương thức thì đặt lại
   useEffect(() => {

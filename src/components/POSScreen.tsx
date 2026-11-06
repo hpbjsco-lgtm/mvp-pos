@@ -18,6 +18,7 @@ import KiotCheckoutDialog from './KiotCheckoutDialog';
 import BankAccountsDialog from './BankAccountsDialog';
 import { buildTransferInfo } from '../utils/transferInfo';
 import { printKitchenTicketIfEnabled } from '../printing/kitchenPrinting';
+import { applyLineEditToKitchen, isKitchenTicketOpen, removePortionsFromKitchen, type KitchenEditableField } from '../utils/kitchenSync';
 import {
   OrderOptionsMenu, OptionIcons, MergeTablesDialog, TransferTableDialog, SplitMergeOrderDialog,
   ReservationDialog, KitchenHistoryDialog, OrderInfoDialog, type OptionItem
@@ -319,17 +320,28 @@ export default function POSScreen({
       ? k.tableNumber === selectedTableName
       : (k.tableNumber || '').split(' + ').some(n => names.has(n));
   };
-  const isKitchenActive = (k: KitchenItem) =>
-    k.status === KitchenStatus.PENDING || k.status === KitchenStatus.PREPARING || k.status === KitchenStatus.COMPLETED;
+  const isKitchenActive = isKitchenTicketOpen;
+
+  /** True for a kitchen ticket of the current order that was sent for exactly this cart line. */
+  const kitchenTicketBelongsToLine = (line: CartLine) => (k: KitchenItem) =>
+    isKitchenItemOfCurrentOrder(k) && k.productId === line.productId && (k.note || '') === (line.note || '')
+    && (k.size || '') === (line.size || '') && (k.sugarLevel || '') === (line.sugarLevel || '')
+    && (k.iceLevel || '') === (line.iceLevel || '') && (k.toppings || '') === toppingsText(line, simProducts);
+
+  /** Takes portions of a line off its kitchen tickets so the kitchen screen keeps the same count as the cart. */
+  const removeKitchenPortions = (line: CartLine, portions: number) => {
+    if (simStoreType !== 'fnb' || portions <= 0) return;
+    setSimKitchenItems(prev => removePortionsFromKitchen(
+      prev, kitchenTicketBelongsToLine(line), portions, fbUserProfile?.name || '', new Date().toISOString(),
+    ));
+  };
 
   // Đánh dấu "Đã hủy" các món bếp chưa phục vụ của đơn hiện tại (có thể giới hạn theo một dòng món)
   const cancelKitchenItems = (line?: CartLine) => {
+    const belongsToLine = line ? kitchenTicketBelongsToLine(line) : undefined;
     setSimKitchenItems(prev => prev.map(k => {
       if (!isKitchenItemOfCurrentOrder(k) || !isKitchenActive(k)) return k;
-      if (line && (k.productId !== line.productId || (k.note || '') !== (line.note || '')
-        || (k.size || '') !== (line.size || '') || (k.sugarLevel || '') !== (line.sugarLevel || '')
-        || (k.iceLevel || '') !== (line.iceLevel || '')
-        || (k.toppings || '') !== toppingsText(line, simProducts))) return k;
+      if (belongsToLine && !belongsToLine(k)) return k;
       return { ...k, status: KitchenStatus.CANCELLED, cancelledAt: new Date().toISOString(), cancelledBy: fbUserProfile?.name || '' };
     }));
   };
@@ -349,6 +361,13 @@ export default function POSScreen({
   // Thêm / bớt topping cho một dòng món. Áp dụng cho các phần chưa báo bếp (nếu đã báo hết thì tách 1 phần mới)
   const handleChangeTopping = (item: CartLine, toppingId: string, delta: number) => {
     const key = lineKey(item);
+    // Portions already sent that leave this line for the new topping line must also leave its kitchen tickets
+    const current = currentCart.find(l => lineKey(l) === key);
+    if (current) {
+      const sentBefore = current.sentQuantity || 0;
+      const movedQty = current.quantity - sentBefore > 0 ? current.quantity - sentBefore : 1;
+      removeKitchenPortions(current, sentBefore - Math.min(sentBefore, current.quantity - movedQty));
+    }
     setSimCarts(prev => {
       const cart = prev[currentCartId] || [];
       const idx = cart.findIndex(l => lineKey(l) === key);
@@ -422,6 +441,7 @@ export default function POSScreen({
       handleRemoveLine(existing);
       return;
     }
+    removeKitchenPortions(existing, (existing.sentQuantity || 0) - Math.min(existing.sentQuantity || 0, existing.quantity + delta));
     setSimCarts(prev => {
       const prevCart = prev[currentCartId] || [];
       const nextCart = prevCart.map(i => {
@@ -434,10 +454,17 @@ export default function POSScreen({
     playBeep(true);
   };
 
+  /** Shows a size / sugar / ice / note edit of a line already sent to the kitchen on the kitchen screen too. */
+  const updateKitchenForLineEdit = (line: CartLine, field: KitchenEditableField, value: string) => {
+    if (simStoreType !== 'fnb' || (line.sentQuantity || 0) <= 0) return;
+    setSimKitchenItems(prev => applyLineEditToKitchen(prev, kitchenTicketBelongsToLine(line), field, value));
+  };
+
   // Add individual order notes
   const handleUpdateItemNote = (item: CartLine) => {
     const newNote = prompt('Nhập ghi chú cho sản phẩm (Ví dụ: ít cay, chín kỹ...):', item.note);
     if (newNote === null) return;
+    updateKitchenForLineEdit(item, 'note', newNote.trim());
 
     setSimCarts(prev => {
       const prevCart = prev[currentCartId] || [];
@@ -450,6 +477,7 @@ export default function POSScreen({
 
   // Cập nhật size / mức đường / mức đá của 1 dòng đồ uống trong giỏ
   const handleUpdateModifier = (item: CartLine, field: 'size' | 'sugarLevel' | 'iceLevel', value: string) => {
+    updateKitchenForLineEdit(item, field, value);
     setSimCarts(prev => {
       const prevCart = prev[currentCartId] || [];
       const targetKey = lineKey(item);

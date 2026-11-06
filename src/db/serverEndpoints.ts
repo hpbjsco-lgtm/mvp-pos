@@ -23,6 +23,8 @@ export interface ServerEndpointOptions {
   requestTimeoutMs?: number;
   /** While on the local address, how often the domain is checked again. */
   domainRecheckMs?: number;
+  /** Address of the page the app runs in, for example "https://pos.hp-backup.com"; read from the browser when not given. Used to explain failures. */
+  pageOrigin?: string;
 }
 
 /** Details of one request. */
@@ -51,6 +53,9 @@ export class ServerEndpoints {
   private readonly probeTimeoutMs: number;
   private readonly requestTimeoutMs: number;
   private readonly domainRecheckMs: number;
+  private readonly pageOrigin: string;
+  /** Why the last health check of each route failed, for the error message. */
+  private readonly probeFailure: Partial<Record<'domain' | 'local', string>> = {};
   private active: 'domain' | 'local' | null = null;
   private lastDomainCheck = 0;
   private domainProbe: Promise<void> | null = null;
@@ -65,6 +70,7 @@ export class ServerEndpoints {
     this.probeTimeoutMs = options.probeTimeoutMs ?? 2500;
     this.requestTimeoutMs = options.requestTimeoutMs ?? 30000;
     this.domainRecheckMs = options.domainRecheckMs ?? 15000;
+    this.pageOrigin = options.pageOrigin ?? (typeof location !== 'undefined' ? location.origin : '');
   }
 
   /**
@@ -165,12 +171,32 @@ export class ServerEndpoints {
    */
   private async isHealthy(route: 'domain' | 'local'): Promise<boolean> {
     if (route === 'domain') this.lastDomainCheck = this.now();
-    try {
-      const response = await this.fetchWithTimeout(`${this.urlOf(route)}/api/health`, { method: 'GET' }, this.probeTimeoutMs);
-      return response.ok;
-    } catch {
+    const url = this.urlOf(route);
+    if (this.isBlockedAsMixedContent(url)) {
+      this.probeFailure[route] = `trình duyệt chặn: trang ${this.pageOrigin} dùng https nên không được gọi địa chỉ http. Hãy mở app ở địa chỉ http của mạng nội bộ`;
       return false;
     }
+    try {
+      const response = await this.fetchWithTimeout(`${url}/api/health`, { method: 'GET' }, this.probeTimeoutMs);
+      if (!response.ok) this.probeFailure[route] = `máy chủ trả mã ${response.status}`;
+      else delete this.probeFailure[route];
+      return response.ok;
+    } catch (error) {
+      this.probeFailure[route] = (error as Error).name === 'AbortError'
+        ? `không phản hồi sau ${this.probeTimeoutMs / 1000} giây`
+        : `${(error as Error).message} (không tới được máy chủ, hoặc máy chủ không cho phép trang ${this.pageOrigin || 'này'} gọi vào)`;
+      return false;
+    }
+  }
+
+  /**
+   * Browsers refuse to let a page opened over https call an http address (except this machine itself).
+   *
+   * @param url Address to call.
+   * @returns True when the call would be blocked for that reason.
+   */
+  private isBlockedAsMixedContent(url: string): boolean {
+    return this.pageOrigin.startsWith('https:') && url.startsWith('http:') && !/^http:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(url);
   }
 
   /**
@@ -225,8 +251,9 @@ export class ServerEndpoints {
   private describe(first: 'domain' | 'local', firstError: unknown, second?: 'domain' | 'local', secondError?: unknown): Error {
     if (!(firstError instanceof UnreachableError)) return firstError as Error;
     const parts = [`${this.urlOf(first)}: ${(firstError as Error).message}`];
-    if (second) parts.push(`${this.urlOf(second)}: ${secondError ? (secondError as Error).message : 'không phản hồi'}`);
+    if (second) parts.push(`${this.urlOf(second)}: ${secondError ? (secondError as Error).message : this.probeFailure[second] ?? 'không phản hồi'}`);
     const where = second ? 'cả hai địa chỉ' : 'địa chỉ này';
-    return new Error(`Không kết nối được máy chủ dữ liệu qua ${where} (${parts.join('; ')}).`);
+    const page = this.pageOrigin ? ` Trang đang mở tại ${this.pageOrigin}.` : '';
+    return new Error(`Không kết nối được máy chủ dữ liệu qua ${where} (${parts.join('; ')}).${page}`);
   }
 }
