@@ -52,4 +52,12 @@ describe('permissions', () => {
     expect(isAdminRole('staff')).toBe(false);
     expect(isAdminRole('kitchen')).toBe(false);
   });
+  it('only the owner and managers can resolve synchronisation conflicts', () => {
+    expect(canAccess('owner', 'conflicts')).toBe(true);
+    expect(canAccess('manager', 'conflicts')).toBe(true);
+    expect(canAccess('staff', 'conflicts')).toBe(false);
+    expect(canAccess('kitchen', 'conflicts')).toBe(false);
+    expect(canAccess('sysadmin', 'conflicts')).toBe(false);
+  });
 });
+

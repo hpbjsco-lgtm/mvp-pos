@@ -39,13 +39,13 @@ describe('native settings', () => {
   });
 
   it('saves normalised addresses and reads them back after a restart', async () => {
-    await saveNativeSettings({ mode: 'server', domainUrl: ' https://pos.hp-backup.com/api/ ', localUrl: 'http://192.168.1.12:8790/', token: ' secret-token ' });
-    expect(getNativeSettings()).toEqual({ mode: 'server', domainUrl: 'https://pos.hp-backup.com', localUrl: 'http://192.168.1.12:8790', token: 'secret-token' });
+    await saveNativeSettings({ mode: 'server', domainUrl: ' https://pos.hp-backup.com/api/ ', localUrl: 'http://192.168.1.12:8790/', token: ' secret-token ', storeId: ' S1 ', storeName: 'Cafe Mot' });
+    expect(getNativeSettings()).toEqual({ mode: 'server', domainUrl: 'https://pos.hp-backup.com', localUrl: 'http://192.168.1.12:8790', token: 'secret-token', storeId: 'S1', storeName: 'Cafe Mot' });
     expect(await loadNativeSettings()).toEqual(getNativeSettings());
   });
 
   it('accepts standalone mode without any address or token', async () => {
-    await saveNativeSettings({ mode: 'standalone', domainUrl: '', localUrl: '', token: '' });
+    await saveNativeSettings({ mode: 'standalone', domainUrl: '', localUrl: '', token: '', storeId: '', storeName: '' });
     expect(getNativeSettings().mode).toBe('standalone');
   });
 
@@ -59,6 +59,12 @@ describe('native settings', () => {
     expect(() => validateNativeSettings({ mode: 'server', domainUrl: 'https://a.example.com', localUrl: '', token: ' ' })).toThrow('mã API');
     expect(() => validateNativeSettings({ mode: 'server', domainUrl: '192.168.1.12', localUrl: '', token: 't' })).toThrow('http');
     expect(() => validateNativeSettings({ mode: 'nope' as never, domainUrl: '', localUrl: '', token: '' })).toThrow('không hợp lệ');
+  });
+
+  it('needs a chosen store to save server mode, but still loads a setting saved before stores existed', async () => {
+    await expect(saveNativeSettings({ mode: 'server', domainUrl: 'https://a.example.com', localUrl: '', token: 't', storeId: '', storeName: '' })).rejects.toThrow('chọn cửa hàng');
+    store.set('smartpos.nativeSettings', '{"mode":"server","domainUrl":"https://a.example.com","localUrl":"","token":"t"}');
+    expect(await loadNativeSettings()).toMatchObject({ mode: 'server', storeId: '', storeName: '' });
   });
 
   it('fails loudly on a damaged saved value', async () => {

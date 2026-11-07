@@ -57,6 +57,15 @@ describe('SyncService', () => {
     rmSync(folder, { recursive: true, force: true });
   });
 
+  it('lists stores by name and leaves out deleted ones', () => {
+    migrate(database);
+    addStore(database, 'B');
+    addStore(database, 'A');
+    addStore(database, 'C');
+    database.prepare("UPDATE stores SET deleted_at = ? WHERE id = 'C'").run(NOW);
+    expect(sync.listStores()).toEqual({ stores: [{ id: 'A', name: 'Store A' }, { id: 'B', name: 'Store B' }] });
+  });
+
   it('lists the same tables and primary keys as the app', () => {
     expect(Object.fromEntries(SYNCED_TABLES.map(({ table, primaryKey }) => [table, primaryKey]))).toEqual(TABLE_PRIMARY_KEY);
   });

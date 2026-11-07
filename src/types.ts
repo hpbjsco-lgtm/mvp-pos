@@ -151,6 +151,7 @@ export type FundType = 'cash' | 'bank' | 'wallet';
 export interface CashVoucher {
   id: string;
   code: string; // PT0001 / PC0001
+  tempCode?: string; // Temporary code given while offline; code becomes the official number after upload
   type: 'receipt' | 'payment';
   fund: FundType;
   bankAccountId?: string;
@@ -167,6 +168,7 @@ export interface CashVoucher {
 export interface Order {
   id: string;
   orderNumber: string; // HD00001 etc.
+  tempOrderNumber?: string; // Temporary code given while offline; orderNumber becomes the official number after upload
   items: OrderItem[];
   subtotal?: number;
   discountAmount?: number;
@@ -280,6 +282,7 @@ export enum InventoryTransactionType {
 export interface InventoryTransactionItem {
   productId: string;
   batchCode: string;
+  batchId?: string; // Exact batch the quantity was taken from or added to
   quantity: number;
   price?: number; // Cost price for imports
 }
@@ -287,7 +290,9 @@ export interface InventoryTransactionItem {
 export interface InventoryTransaction {
   id: string;
   transactionNumber: string; // PNK0001, PXK0001
+  tempCode?: string; // Temporary code given while offline; transactionNumber becomes the official number after upload
   type: InventoryTransactionType;
+  orderId?: string; // Order that caused this voucher (stock taken when it was paid, or put back when it was cancelled)
   supplierId?: string; // Only applicable for import type
   items: InventoryTransactionItem[];
   totalAmount?: number;

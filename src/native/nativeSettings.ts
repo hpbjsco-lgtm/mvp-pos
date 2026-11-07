@@ -23,13 +23,17 @@ export interface NativeSettings {
   localUrl: string;
   /** API token of the server. */
   token: string;
+  /** Store this device keeps in step with the server; empty until one is chosen. */
+  storeId: string;
+  /** Name of that store, shown on the configuration screen. */
+  storeName: string;
 }
 
 /** Preferences key. Preferences survive when the system clears the web view storage, unlike localStorage. */
 const STORAGE_KEY = 'smartpos.nativeSettings';
 
 /** What a phone app uses until someone configures it. */
-export const DEFAULT_NATIVE_SETTINGS: NativeSettings = { mode: 'unset', domainUrl: '', localUrl: '', token: '' };
+export const DEFAULT_NATIVE_SETTINGS: NativeSettings = { mode: 'unset', domainUrl: '', localUrl: '', token: '', storeId: '', storeName: '' };
 
 /** Settings read at start-up; the app reads them synchronously afterwards. */
 let current: NativeSettings = DEFAULT_NATIVE_SETTINGS;
@@ -37,12 +41,14 @@ let current: NativeSettings = DEFAULT_NATIVE_SETTINGS;
 /**
  * Checks and cleans settings typed on the configuration screen.
  *
- * @param input Settings as entered.
+ * @param input Settings as entered (a saved value from an older app version may lack the store fields).
+ * @param requireStore True when saving: server mode then also needs a chosen store. Loading does not require it,
+ *   so an app configured before stores could be chosen still starts and asks for the store.
  * @returns Settings with trimmed token and normalised addresses (a trailing "/api" and slashes removed).
  * @throws Error with a readable message when the mode is unknown, an address is not an http(s) address,
- *   or server mode lacks an address or the token.
+ *   or server mode lacks an address, the token or (when `requireStore`) the store.
  */
-export function validateNativeSettings(input: NativeSettings): NativeSettings {
+export function validateNativeSettings(input: Omit<NativeSettings, 'storeId' | 'storeName'> & Partial<Pick<NativeSettings, 'storeId' | 'storeName'>>, requireStore = false): NativeSettings {
   if (input.mode !== 'unset' && input.mode !== 'standalone' && input.mode !== 'server') throw new Error('Cách dùng dữ liệu không hợp lệ.');
   const domainUrl = normalizeOptionalServerUrl(input.domainUrl);
   const localUrl = normalizeOptionalServerUrl(input.localUrl);
@@ -50,8 +56,9 @@ export function validateNativeSettings(input: NativeSettings): NativeSettings {
   if (input.mode === 'server') {
     if (!domainUrl && !localUrl) throw new Error('Cần nhập ít nhất một địa chỉ máy chủ (domain hoặc IP nội bộ).');
     if (!token) throw new Error('Cần nhập mã API của máy chủ.');
+    if (requireStore && !(input.storeId ?? '').trim()) throw new Error('Hãy chọn cửa hàng cần đồng bộ (bấm "Kiểm tra kết nối" để tải danh sách).');
   }
-  return { mode: input.mode, domainUrl, localUrl, token };
+  return { mode: input.mode, domainUrl, localUrl, token, storeId: (input.storeId ?? '').trim(), storeName: (input.storeName ?? '').trim() };
 }
 
 /**
@@ -89,7 +96,7 @@ export function getNativeSettings(): NativeSettings {
  * @throws Error when the settings are not valid (see `validateNativeSettings`).
  */
 export async function saveNativeSettings(input: NativeSettings): Promise<NativeSettings> {
-  const valid = validateNativeSettings(input);
+  const valid = validateNativeSettings(input, true);
   await Preferences.set({ key: STORAGE_KEY, value: JSON.stringify(valid) });
   current = valid;
   return valid;

@@ -5,7 +5,9 @@
 
 import React, { useState } from 'react';
 import { Search } from 'lucide-react';
-import { Order, InventoryBatch, Customer, BankAccount } from '../types';
+import { Order, InventoryBatch, InventoryTransaction, InventoryTransactionType, Customer, BankAccount } from '../types';
+import { createDocumentNumber } from '../sync/documentNumbers';
+import { planStockRestore, STOCK_RESTORE_NOTE_PREFIX } from '../utils/stockRestore';
 import ReceiptThermal from './ReceiptThermal';
 import { buildTransferInfo } from '../utils/transferInfo';
 import { orderCustomerName } from '../utils/orderCustomer';
@@ -20,6 +22,16 @@ interface OrderHistorySectionProps {
   setSimOrders: React.Dispatch<React.SetStateAction<Order[]>>;
   simBatches: InventoryBatch[];
   setSimBatches: React.Dispatch<React.SetStateAction<InventoryBatch[]>>;
+  /** Stock vouchers of dishes that keep their own batches (F&B). */
+  simTransactions: InventoryTransaction[];
+  setSimTransactions: React.Dispatch<React.SetStateAction<InventoryTransaction[]>>;
+  /** Ingredient batches and vouchers (F&B): the stock a paid order took for its recipes. */
+  simIngredientBatches: InventoryBatch[];
+  setSimIngredientBatches: React.Dispatch<React.SetStateAction<InventoryBatch[]>>;
+  simIngredientTransactions: InventoryTransaction[];
+  setSimIngredientTransactions: React.Dispatch<React.SetStateAction<InventoryTransaction[]>>;
+  /** Store the vouchers belong to; voucher numbers are issued per store. */
+  storeId: string;
   simCustomers: Customer[];
   setSimCustomers: React.Dispatch<React.SetStateAction<Customer[]>>;
   simStoreType: 'fnb' | 'retail';
@@ -36,6 +48,13 @@ export default function OrderHistorySection({
   setSimOrders,
   simBatches,
   setSimBatches,
+  simTransactions,
+  setSimTransactions,
+  simIngredientBatches,
+  setSimIngredientBatches,
+  simIngredientTransactions,
+  setSimIngredientTransactions,
+  storeId,
   simCustomers,
   setSimCustomers,
   simStoreType,
@@ -64,10 +83,57 @@ export default function OrderHistorySection({
     return matchesSearch && matchesStatus;
   });
 
-  const handleVoidOrder = (order: Order) => {
+  /**
+   * Puts back the stock a paid F&B order took (ingredients of its recipes and dishes with their own batches):
+   * every line of its export vouchers returns to the batch it came from, and an adjustment voucher records it.
+   *
+   * @param order The order being cancelled.
+   * @returns A message for the person: what was put back, what could not be, or why nothing was.
+   */
+  const restoreFnbStock = async (order: Order): Promise<string> => {
+    const kinds = [
+      { label: 'Nguyên liệu', batches: simIngredientBatches, setBatches: setSimIngredientBatches, transactions: simIngredientTransactions, setTransactions: setSimIngredientTransactions },
+      { label: 'Món có lô riêng', batches: simBatches, setBatches: setSimBatches, transactions: simTransactions, setTransactions: setSimTransactions },
+    ];
+    const lines: string[] = [];
+    let foundVoucher = false;
+    for (const kind of kinds) {
+      const plan = planStockRestore(order.id, kind.transactions, kind.batches);
+      if (plan.alreadyRestored) { lines.push(`${kind.label}: kho của hóa đơn này đã được hoàn trước đó.`); foundVoucher = true; continue; }
+      if (plan.sourceTransactions.length === 0) continue;
+      foundVoucher = true;
+      if (plan.adjustmentItems.length > 0) {
+        kind.setBatches(prev => prev.map(b => (plan.batchQuantities.has(b.id) ? { ...b, quantity: +(b.quantity + (plan.batchQuantities.get(b.id) || 0)).toFixed(6) } : b)));
+        const stamp = Date.now();
+        const number = await createDocumentNumber('export', storeId, () => `PXK-${stamp.toString().slice(-5)}`);
+        kind.setTransactions(prev => [{
+          id: `TX-${stamp}-R`,
+          transactionNumber: number.number,
+          tempCode: number.tempNumber || undefined,
+          orderId: order.id,
+          type: InventoryTransactionType.ADJUSTMENT,
+          items: plan.adjustmentItems,
+          totalAmount: plan.adjustmentItems.reduce((sum, item) => sum + (item.price || 0) * item.quantity, 0),
+          staffId: fbUserProfile?.uid || 'staff-01',
+          note: `${STOCK_RESTORE_NOTE_PREFIX}${order.orderNumber}`,
+          createdAt: new Date().toISOString(),
+        }, ...prev]);
+        lines.push(`${kind.label}: đã hoàn ${plan.adjustmentItems.length} lô.`);
+      }
+      if (plan.skipped.length > 0) {
+        lines.push(`${kind.label}: không hoàn được ${plan.skipped.length} dòng vì lô đã bị xóa (mã lô ${plan.skipped.map(line => line.batchCode || '?').join(', ')}). Hãy chỉnh kho thủ công.`);
+      }
+    }
+    if (!foundVoucher) {
+      return 'Không có phiếu xuất kho nào liên kết với hóa đơn này nên chưa hoàn kho. Nếu hóa đơn có món trừ kho (công thức nguyên liệu hoặc hàng có lô), hãy kiểm tra kho thủ công.';
+    }
+    return lines.join('\n');
+  };
+
+  const handleVoidOrder = async (order: Order) => {
     if (!canVoid) return;
     if ((order.status || 'completed') === 'void') return;
-    if (!confirm(`Bạn có chắc muốn HỦY hóa đơn "${order.orderNumber}"?\n\nHệ thống sẽ hoàn lại tồn kho (nếu là bán lẻ) và trừ lại điểm tích lũy đã cộng cho khách.`)) return;
+    if (!confirm(`Bạn có chắc muốn HỦY hóa đơn "${order.orderNumber}"?\n\nHệ thống sẽ hoàn lại tồn kho và trừ lại điểm tích lũy đã cộng cho khách.`)) return;
 
     logOperation('Lịch sử hóa đơn', 'Hủy hóa đơn', order);
 
@@ -91,8 +157,11 @@ export default function OrderHistorySection({
       )));
     }
 
+    const stockMessage = simStoreType === 'fnb' ? await restoreFnbStock(order) : '';
+
     setSimOrders(prev => prev.map(o => (o.id === order.id ? { ...o, status: 'void' } : o)));
     triggerBeep(true);
+    if (stockMessage) alert(stockMessage);
   };
 
   const statusFilters: { id: 'all' | 'completed' | 'void'; label: string }[] = [

@@ -18,7 +18,7 @@
  *     không mất order đang gọi (lỗi "không lưu được" của bản cũ).
  */
 
-export const SCHEMA_VERSION = 14;
+export const SCHEMA_VERSION = 16;
 
 /** Các câu lệnh DDL, chạy tuần tự khi khởi tạo / nâng cấp DB. */
 export const MIGRATIONS: { version: number; statements: string[] }[] = [
@@ -588,6 +588,29 @@ export const MIGRATIONS: { version: number; statements: string[] }[] = [
       `ALTER TABLE orders ADD COLUMN temp_order_number TEXT NOT NULL DEFAULT '';`,
       `ALTER TABLE inventory_transactions ADD COLUMN temp_code TEXT NOT NULL DEFAULT '';`,
       `ALTER TABLE cash_vouchers ADD COLUMN temp_code TEXT NOT NULL DEFAULT '';`,
+    ],
+  },
+  {
+    version: 15,
+    statements: [
+      /* Hệ đồng bộ cũ (outbox do code app ghi + endpoint cloud riêng) được thay bằng đồng bộ qua /api/sync.
+         Hai bảng cũ chỉ là nhật ký chưa dùng; bảng đồng bộ mới chỉ có trên thiết bị native (xem deviceSchema.ts). */
+      `DROP TABLE IF EXISTS sync_outbox;`,
+      `DROP TABLE IF EXISTS sync_state;`,
+    ],
+  },
+  {
+    version: 16,
+    statements: [
+      /* Phiếu kho nối với hóa đơn đã gây ra nó (xuất kho khi bán, hoàn kho khi hủy). */
+      `ALTER TABLE inventory_transactions ADD COLUMN order_id TEXT NOT NULL DEFAULT '';`,
+      /* Phiếu xuất cũ chỉ ghi số hóa đơn trong ghi chú ("Bán hàng HD00012", có thể kèm " (thiếu tồn ...)"): nối lại theo ghi chú. */
+      `UPDATE inventory_transactions SET order_id = COALESCE((
+          SELECT o.id FROM orders o
+          WHERE o.store_id = inventory_transactions.store_id AND o.order_number <> ''
+            AND (inventory_transactions.note = 'Bán hàng ' || o.order_number OR inventory_transactions.note LIKE 'Bán hàng ' || o.order_number || ' (%')
+          LIMIT 1), '')
+        WHERE type = 'export' AND note LIKE 'Bán hàng %';`,
     ],
   },
 ];

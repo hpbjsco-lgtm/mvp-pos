@@ -6,12 +6,15 @@
 import React from 'react';
 import { ChevronDown, ChevronUp, LogOut, UserCircle } from 'lucide-react';
 import DragScrollRow from './DragScrollRow';
+import SyncStatusBadge from './SyncStatusBadge';
 
 export interface TopNavItem {
   id: string;
   name: string;
   Icon: React.ComponentType<{ className?: string }>;
   color: string;
+  /** Number shown on the tile (for example open conflicts); nothing when 0 or missing. */
+  badge?: number;
 }
 
 interface TopNavBarProps {
@@ -41,6 +44,7 @@ export default function TopNavBar({
       <p className="text-sm text-on-surface-variant font-semibold truncate">{roleLabel}</p>
       <p className="text-sm font-mono font-bold text-on-surface-variant">{clock}</p>
       <p className="text-sm text-on-surface-variant/70">Powered by HPB</p>
+      <SyncStatusBadge />
     </div>
   );
 
@@ -58,7 +62,7 @@ export default function TopNavBar({
               }`}
               style={activeId === item.id ? { backgroundColor: item.color } : undefined}
             >
-              {item.name}
+              {item.name}{item.badge ? ` (${item.badge})` : ''}
             </button>
           ))}
         </DragScrollRow>
@@ -72,7 +76,7 @@ export default function TopNavBar({
     );
   }
 
-  const tile = 'shrink-0 w-[92px] h-[88px] rounded-xl text-white flex flex-col items-center justify-center gap-1.5 px-1.5 text-center cursor-pointer transition-transform active:scale-95';
+  const tile = 'relative shrink-0 w-[92px] h-[88px] rounded-xl text-white flex flex-col items-center justify-center gap-1.5 px-1.5 text-center cursor-pointer transition-transform active:scale-95';
 
   return (
     <div className="hidden lg:block bg-surface-container-lowest border-b border-outline-variant shrink-0">
@@ -91,6 +95,7 @@ export default function TopNavBar({
               >
                 <item.Icon className="w-6 h-6" />
                 <span className="text-[13px] font-bold leading-tight line-clamp-2">{item.name}</span>
+                {item.badge ? <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1.5 rounded-full bg-white text-error text-xs font-black flex items-center justify-center border border-error">{item.badge}</span> : null}
               </button>
             );
           })}

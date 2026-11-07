@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Banknote, FileText, ShoppingBag, Layers, TrendingUp, LogOut, Store, ChevronRight, ChevronDown, Coffee, Check, X,
-  MapPin, Phone, Clock, UserCircle, ChefHat, ClipboardList, Users, Briefcase, Truck, History, Wallet, Menu
+  MapPin, Phone, Clock, UserCircle, ChefHat, ClipboardList, Users, Briefcase, Truck, History, Wallet, Menu, AlertTriangle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import KitchenDisplay from './components/KitchenDisplay';
@@ -27,6 +27,11 @@ import SysAdminAccounts from './components/SysAdminAccounts';
 import SuppliersSection from './components/SuppliersSection';
 import MyAccountDialog from './components/MyAccountDialog';
 import TopNavBar from './components/TopNavBar';
+import SyncStatusBadge from './components/SyncStatusBadge';
+import ConflictsSection from './components/ConflictsSection';
+import ConflictBanner from './components/ConflictBanner';
+import { getAppSyncClient } from './sync/appSyncClient';
+import { useConflictCount } from './sync/useConflictCount';
 import CashbookSection from './components/CashbookSection';
 import EndOfDayReport from './components/EndOfDayReport';
 import { canAccess, defaultScreen, isAdminRole, normalizeRole, ROLE_LABELS, type ScreenId } from './utils/permissions';
@@ -97,6 +102,9 @@ export default function App() {
   const [authError, setAuthError] = useState<string>('');
   const [simSelectedTableId, setSimSelectedTableId] = useState<string>('T1');
   const userRole = normalizeRole(fbUserProfile?.role);
+  // Synchronisation conflicts: only where a server holds the data, and only the owner and managers decide them
+  const syncClient = getAppSyncClient();
+  const conflicts = useConflictCount(storeId, !!syncClient && canAccess(userRole, 'conflicts'));
   // 'admin' = chủ cửa hàng / quản lý (được thiết kế sơ đồ bàn, v.v.); các vai trò còn lại là 'staff'
   const simUserRole: 'admin' | 'staff' = isAdminRole(userRole) ? 'admin' : 'staff';
 
@@ -333,14 +341,14 @@ export default function App() {
   const NAV_ICONS: Record<ScreenId, React.ComponentType<{ className?: string }>> = {
     stores: Store, accounts: Users, reports: TrendingUp, pos: ShoppingBag, kitchen: ChefHat, menu: Coffee,
     tables: ClipboardList, orders: History, shifts: Wallet, cashbook: Banknote, eod: FileText, inventory: Layers, customers: Users,
-    employees: Briefcase, suppliers: Truck, account: UserCircle
+    employees: Briefcase, suppliers: Truck, account: UserCircle, conflicts: AlertTriangle
   };
 
   // Màu ô menu (thanh menu trên cùng)
   const NAV_COLORS: Record<string, string> = {
     stores: '#4c7bd9', accounts: '#7a5bc7', reports: '#4c7bd9', pos: '#c15f3c', kitchen: '#8a5a3c', menu: '#2f8f7b',
     tables: '#6b5bc7', orders: '#d9568f', shifts: '#3e8fb0', cashbook: '#2e7d5b', eod: '#4c7bd9', inventory: '#1f3a66', customers: '#4ca39b',
-    employees: '#8a6a00', suppliers: '#5b7d3a'
+    employees: '#8a6a00', suppliers: '#5b7d3a', conflicts: '#d9534f'
   };
 
   // Define Navigation Items dynamically based on active Store Type
@@ -364,6 +372,8 @@ export default function App() {
     { id: 'customers', name: 'Quản lý khách hàng' },
     { id: 'employees', name: 'Quản lý nhân viên' },
     { id: 'suppliers', name: 'Quản lý nhà cung cấp' },
+    // Only where a server holds the data; only the owner and managers can reach it (see permissions.ts)
+    ...(syncClient ? [{ id: 'conflicts' as ScreenId, name: 'Xung đột đồng bộ' }] : []),
   ];
   // Chỉ hiện các mục mà vai trò hiện tại được phép vào
   const navItems = allNavItems.filter(item => canAccess(userRole, item.id));
@@ -514,6 +524,9 @@ export default function App() {
                 {!(sidebarCollapsed) && (
                   <span className={`flex-1 text-left whitespace-nowrap truncate ${sidebarCollapsed ? 'lg:hidden' : ''}`}>{item.name}</span>
                 )}
+                {item.id === 'conflicts' && conflicts.count > 0 && (
+                  <span className="min-w-5 h-5 px-1.5 rounded-full bg-error text-on-error text-xs font-bold flex items-center justify-center">{conflicts.count}</span>
+                )}
               </button>
             );
           })}
@@ -568,7 +581,7 @@ export default function App() {
 
         {/* Thanh menu trên cùng (màn hình lớn): các chức năng dạng ô màu */}
         <TopNavBar
-          items={navItems.map(item => ({ id: item.id, name: item.name.replace(/ \(.*\)$/, ''), Icon: NAV_ICONS[item.id], color: NAV_COLORS[item.id] || '#6b7280' }))}
+          items={navItems.map(item => ({ id: item.id, name: item.name.replace(/ \(.*\)$/, ''), Icon: NAV_ICONS[item.id], color: NAV_COLORS[item.id] || '#6b7280', badge: item.id === 'conflicts' ? conflicts.count : 0 }))}
           activeId={activeScreen}
           onSelect={(id) => { setActiveScreen(id as ScreenId); triggerBeep(true); }}
           collapsed={navCollapsed}
@@ -580,6 +593,8 @@ export default function App() {
           onOpenAccount={() => { setMyAccountOpen(true); triggerBeep(true); }}
           onLogout={() => handleFirebaseLogout()}
         />
+
+        {activeScreen !== 'conflicts' && <ConflictBanner count={conflicts.count} onOpen={() => setActiveScreen('conflicts')} />}
 
         {/* --- GLOBAL APP BAR / HEADER --- */}
         <header className="lg:hidden bg-surface-container-lowest border-b border-outline-variant h-16 px-3 md:px-6 flex items-center justify-between flex-shrink-0 gap-2">
@@ -601,6 +616,7 @@ export default function App() {
               {activeScreen === 'account' && 'Thiết lập tài khoản'}
               {activeScreen === 'stores' && 'Quản lý cửa hàng'}
               {activeScreen === 'accounts' && 'Quản lý tài khoản'}
+              {activeScreen === 'conflicts' && 'Xung đột đồng bộ'}
             </h2>
 
             <div className="md:hidden flex items-center space-x-2 min-w-0">
@@ -612,6 +628,7 @@ export default function App() {
           </div>
 
           <div className="flex items-center space-x-3 shrink-0">
+            <SyncStatusBadge />
 
             {/* Quick stats tags */}
             {userRole !== 'sysadmin' && (
@@ -651,6 +668,7 @@ export default function App() {
                 className="h-full"
               >
                 <POSScreen
+                  storeId={storeId}
                   simStoreType={simStoreType}
                   setSimStoreType={setSimStoreType}
                   simProducts={simProducts}
@@ -681,6 +699,7 @@ export default function App() {
                   simIngredientBatches={simIngredientBatches}
                   setSimIngredientBatches={setSimIngredientBatches}
                   setSimIngredientTransactions={setSimIngredientTransactions}
+                  setSimTransactions={setSimTransactions}
                 />
               </motion.div>
             )}
@@ -725,6 +744,13 @@ export default function App() {
                   setSimOrders={setSimOrders}
                   simBatches={simBatches}
                   setSimBatches={setSimBatches}
+                  simTransactions={simTransactions}
+                  setSimTransactions={setSimTransactions}
+                  simIngredientBatches={simIngredientBatches}
+                  setSimIngredientBatches={setSimIngredientBatches}
+                  simIngredientTransactions={simIngredientTransactions}
+                  setSimIngredientTransactions={setSimIngredientTransactions}
+                  storeId={storeId}
                   simCustomers={simCustomers}
                   setSimCustomers={setSimCustomers}
                   simStoreType={simStoreType}
@@ -752,6 +778,24 @@ export default function App() {
               </motion.div>
             )}
 
+            {activeScreen === 'conflicts' && syncClient && (
+              <motion.div
+                key="conflicts"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+              >
+                <ConflictsSection
+                  client={syncClient}
+                  storeId={storeId}
+                  resolvedBy={fbUserProfile?.name || 'Quản lý'}
+                  onChanged={conflicts.refresh}
+                  triggerBeep={triggerBeep}
+                />
+              </motion.div>
+            )}
+
             {activeScreen === 'cashbook' && (
               <motion.div
                 key="cashbook"
@@ -761,6 +805,7 @@ export default function App() {
                 transition={{ duration: 0.2 }}
               >
                 <CashbookSection
+                  storeId={storeId}
                   simOrders={simOrders}
                   customers={simCustomers}
                   bankAccounts={simBankAccounts}

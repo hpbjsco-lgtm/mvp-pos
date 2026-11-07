@@ -4,6 +4,7 @@ import App from './App.tsx';
 import './index.css';
 import { Capacitor } from '@capacitor/core';
 import { loadNativeSettings } from './native/nativeSettings';
+import NativeSyncGate from './components/NativeSyncGate';
 
 /**
  * Starts the app. A phone app first reads its saved connection settings, because the database it opens
@@ -19,7 +20,9 @@ async function start() {
   }
   root.render(
     <StrictMode>
-      <App />
+      <NativeSyncGate>
+        <App />
+      </NativeSyncGate>
     </StrictMode>,
   );
 }

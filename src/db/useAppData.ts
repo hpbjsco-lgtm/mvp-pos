@@ -25,6 +25,7 @@ import {
 import { getServerRoute } from './driver';
 import { batch, flush, initDatabase, queryOne, run, setMeta } from './index';
 import { fetchChangeSummary, planReload, type ReloadPlan } from './liveRefresh';
+import { onSyncSchedulerReady } from '../sync/nativeSyncRuntime';
 import {
   changeOwnPassword as authChangeOwnPassword,
   changePassword,
@@ -312,6 +313,60 @@ export function useAppData(): AppDataApi {
     setStore((prev) => (prev ? { ...prev, logoUrl } : prev));
   }, []);
 
+  /**
+   * Reloads parts of the data from the database and shows them if they differ from the screen. Used after the
+   * server (web) or the synchronisation (phone) changed rows that belong to other devices' work.
+   *
+   * @param storeId Store being shown.
+   * @param plan What to reload.
+   * @param isStopped True when the caller no longer wants the result.
+   * @returns False when the result was dropped because this device changed something meanwhile.
+   */
+  const reloadParts = useCallback(async (storeId: string, plan: ReloadPlan, isStopped: () => boolean): Promise<boolean> => {
+    const version = mutationVersion.current;
+    const loaded = await Promise.all(plan.keys.map(async (key) => [key, await loadCollection(key, storeId)] as const));
+    const loadedCarts = plan.carts ? await loadCarts(storeId) : null;
+    // A change made here while loading (or a write still running) means the loaded copy may be older than
+    // the screen: drop it, the caller loads again later.
+    if (isStopped() || storeIdRef.current !== storeId || version !== mutationVersion.current || pendingWrites.current > 0) return false;
+    let next = dataRef.current;
+    for (const [key, items] of loaded) {
+      if (JSON.stringify(items) !== JSON.stringify(dataRef.current[key])) next = { ...next, [key]: items };
+    }
+    if (next !== dataRef.current) {
+      dataRef.current = next;
+      setData(next);
+    }
+    if (loadedCarts && JSON.stringify(loadedCarts) !== JSON.stringify(cartsRef.current)) {
+      cartsRef.current = loadedCarts;
+      setCartsState(loadedCarts);
+    }
+    return true;
+  }, []);
+
+  /* Phone that synchronises with the server: show what the last round changed (rows of other devices, official numbers). */
+  useEffect(() => {
+    const storeId = store?.id;
+    if (!storeId) return;
+    let stopped = false;
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    const apply = async (tables: string[], attempt: number) => {
+      const done = await reloadParts(storeId, planReload(tables), () => stopped);
+      // The screen was busy (a local write was running): try again shortly, a few times.
+      if (!done && !stopped && attempt < 5) retry = setTimeout(() => { void apply(tables, attempt + 1); }, 1000);
+    };
+    let unsubscribe: (() => void) | undefined;
+    const stopWaiting = onSyncSchedulerReady(scheduler => {
+      unsubscribe = scheduler.onChanged(tables => { void apply(tables, 0); });
+    });
+    return () => {
+      stopped = true;
+      clearTimeout(retry);
+      stopWaiting();
+      unsubscribe?.();
+    };
+  }, [store?.id, reloadParts]);
+
   /* Cập nhật trực tiếp: thiết bị khác cùng dùng máy chủ thay đổi dữ liệu (bếp, bàn, giỏ hàng...) thì tải lại phần đã đổi. */
   useEffect(() => {
     const route = getServerRoute();
@@ -321,34 +376,6 @@ export function useAppData(): AppDataApi {
     let position: number | null = null;
     let timer: ReturnType<typeof setTimeout> | undefined;
 
-    /**
-     * Reloads parts of the data from the server and shows them if they differ from the screen.
-     *
-     * @param plan What to reload.
-     * @returns False when the result was dropped because this device changed something meanwhile.
-     */
-    const reloadParts = async (plan: ReloadPlan): Promise<boolean> => {
-      const version = mutationVersion.current;
-      const loaded = await Promise.all(plan.keys.map(async (key) => [key, await loadCollection(key, storeId)] as const));
-      const loadedCarts = plan.carts ? await loadCarts(storeId) : null;
-      // A change made here while loading (or a write still running) means the loaded copy may be older than
-      // the screen: drop it, the next check loads again.
-      if (stopped || storeIdRef.current !== storeId || version !== mutationVersion.current || pendingWrites.current > 0) return false;
-      let next = dataRef.current;
-      for (const [key, items] of loaded) {
-        if (JSON.stringify(items) !== JSON.stringify(dataRef.current[key])) next = { ...next, [key]: items };
-      }
-      if (next !== dataRef.current) {
-        dataRef.current = next;
-        setData(next);
-      }
-      if (loadedCarts && JSON.stringify(loadedCarts) !== JSON.stringify(cartsRef.current)) {
-        cartsRef.current = loadedCarts;
-        setCartsState(loadedCarts);
-      }
-      return true;
-    };
-
     const check = async () => {
       if (document.visibilityState === 'hidden') return;
       try {
@@ -356,10 +383,10 @@ export function useAppData(): AppDataApi {
         if (position === null) {
           position = summary.seq;
         } else if (summary.reset) {
-          if (await reloadParts({ keys: COLLECTION_KEYS, carts: true })) position = summary.seq;
+          if (await reloadParts(storeId, { keys: COLLECTION_KEYS, carts: true }, () => stopped)) position = summary.seq;
         } else if (summary.tables.length === 0) {
           position = summary.seq;
-        } else if (pendingWrites.current === 0 && (await reloadParts(planReload(summary.tables)))) {
+        } else if (pendingWrites.current === 0 && (await reloadParts(storeId, planReload(summary.tables), () => stopped))) {
           position = summary.seq;
         }
       } catch (error) {
@@ -384,7 +411,7 @@ export function useAppData(): AppDataApi {
       clearTimeout(timer);
       document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [store?.id]);
+  }, [store?.id, reloadParts]);
 
   /* Ghi nốt dữ liệu khi app bị đưa vào nền / đóng. */
   useEffect(() => {

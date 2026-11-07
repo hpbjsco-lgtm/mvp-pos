@@ -188,6 +188,8 @@ function transactionSpec(kind: 'product' | 'ingredient'): CollectionSpec {
       id: t.id,
       store_id: storeId,
       transaction_number: str(t.transactionNumber),
+      temp_code: str(t.tempCode),
+      order_id: str(t.orderId),
       type: str(t.type, 'import'),
       kind,
       supplier_id: t.supplierId ?? null,
@@ -201,6 +203,8 @@ function transactionSpec(kind: 'product' | 'ingredient'): CollectionSpec {
     fromRow: (r) => ({
       id: r.id,
       transactionNumber: r.transaction_number,
+      tempCode: r.temp_code || undefined,
+      orderId: r.order_id || undefined,
       type: r.type,
       supplierId: r.supplier_id || undefined,
       supplierName: r.supplier_name || undefined,
@@ -370,6 +374,7 @@ export const COLLECTIONS: Record<CollectionKey, CollectionSpec> = {
         id: o.id,
         store_id: storeId,
         order_number: str(o.orderNumber),
+        temp_order_number: str(o.tempOrderNumber),
         store_type: str(o.storeType, o.tableId ? 'fnb' : 'retail'),
         order_type: str(o.orderType, o.tableId ? 'dine-in' : 'takeaway'),
         status: str(o.status, 'completed'),
@@ -397,6 +402,7 @@ export const COLLECTIONS: Record<CollectionKey, CollectionSpec> = {
     fromRow: (r) => ({
       id: r.id,
       orderNumber: r.order_number,
+      tempOrderNumber: r.temp_order_number || undefined,
       storeType: r.store_type,
       orderType: r.order_type,
       status: r.status,
@@ -630,6 +636,7 @@ export const COLLECTIONS: Record<CollectionKey, CollectionSpec> = {
       id: v.id,
       store_id: storeId,
       code: str(v.code),
+      temp_code: str(v.tempCode),
       voucher_type: str(v.type, 'receipt'),
       fund: str(v.fund, 'cash'),
       bank_account_id: str(v.bankAccountId),
@@ -645,6 +652,7 @@ export const COLLECTIONS: Record<CollectionKey, CollectionSpec> = {
     fromRow: (r) => ({
       id: r.id,
       code: r.code,
+      tempCode: r.temp_code || undefined,
       type: r.voucher_type,
       fund: r.fund,
       bankAccountId: r.bank_account_id || undefined,
@@ -789,7 +797,7 @@ export function diffStatements(
 
   for (const [id] of prevMap) {
     if (!id || nextIds.has(id)) continue;
-    statements.push(...buildSoftDelete(spec.table, id, storeId));
+    statements.push(...buildSoftDelete(spec.table, id));
   }
 
   return statements;

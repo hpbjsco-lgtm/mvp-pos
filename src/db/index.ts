@@ -5,10 +5,11 @@
  * API TRUY CẬP DỮ LIỆU CẤP THẤP
  * -----------------------------
  * Khởi tạo DB, chạy migration, và cung cấp các hàm tiện ích upsert / xoá mềm
- * có kèm ghi nhật ký thay đổi vào `sync_outbox` để phục vụ đồng bộ Cloud.
+ * (thiết bị native tự ghi nhật ký thay đổi bằng trigger, xem deviceSchema.ts).
  */
 
 import { getDriver, type SqlDriver, type SqlStatement } from './driver';
+import { DEVICE_MIGRATIONS, verifyDeviceSyncSchema } from './deviceSchema';
 import { MIGRATIONS, SCHEMA_VERSION, TABLE_PRIMARY_KEY, TABLES_WITH_REV } from './schema';
 
 let ready: Promise<SqlDriver> | null = null;
@@ -43,7 +44,10 @@ async function migrate(driver: SqlDriver): Promise<void> {
   const applied = await driver.all<{ version: number }>('SELECT version FROM schema_migrations');
   const done = new Set(applied.map((r) => Number(r.version)));
 
-  for (const migration of MIGRATIONS) {
+  // Device-only tables (change tracking for synchronisation) exist on phone apps only: a browser keeps no
+  // second copy, and a server database must not track its own changes.
+  const migrations = driver.platform === 'native' ? [...MIGRATIONS, ...DEVICE_MIGRATIONS] : MIGRATIONS;
+  for (const migration of migrations) {
     if (done.has(migration.version)) continue;
     for (const stmt of migration.statements) {
       await driver.exec(stmt);
@@ -54,6 +58,8 @@ async function migrate(driver: SqlDriver): Promise<void> {
     ]);
     console.log(`[SQLITE] Đã áp dụng migration v${migration.version}`);
   }
+
+  if (driver.platform === 'native') await verifyDeviceSyncSchema(driver);
 
   await driver.run(
     `INSERT INTO meta (key, value, updated_at) VALUES ('schema_version', ?, ?)
@@ -174,11 +180,7 @@ export function buildUpsert(table: string, row: Row): SqlStatement[] {
       ? `ON CONFLICT(${pk}) DO UPDATE SET ${updates.join(', ')}`
       : `ON CONFLICT(${pk}) DO NOTHING`);
 
-  const statements: SqlStatement[] = [{ sql, params }];
-  if (TABLE_PRIMARY_KEY[table]) {
-    statements.push(outboxStatement(table, String(data[pk]), 'upsert', data));
-  }
-  return statements;
+  return [{ sql, params }];
 }
 
 /** Ghi 1 dòng (thực thi ngay). */
@@ -186,7 +188,7 @@ export async function upsert(table: string, row: Row): Promise<void> {
   await batch(buildUpsert(table, row));
 }
 
-export function buildSoftDelete(table: string, id: string, storeId = ''): SqlStatement[] {
+export function buildSoftDelete(table: string, id: string): SqlStatement[] {
   const pk = pkOf(table);
   const ts = nowIso();
   const hasRev = TABLES_WITH_REV[table];
@@ -197,26 +199,17 @@ export function buildSoftDelete(table: string, id: string, storeId = ''): SqlSta
         : `UPDATE ${table} SET deleted_at = ? WHERE ${pk} = ?`,
       params: hasRev ? [ts, ts, id] : [ts, id],
     },
-    outboxStatement(table, id, 'delete', { [pk]: id, store_id: storeId, deleted_at: ts }),
   ];
 }
 
 /** Xoá mềm 1 dòng (dữ liệu vẫn còn trong DB để đồng bộ Cloud, nhưng app coi như đã xoá). */
-export async function softDelete(table: string, id: string, storeId = ''): Promise<void> {
-  await batch(buildSoftDelete(table, id, storeId));
+export async function softDelete(table: string, id: string): Promise<void> {
+  await batch(buildSoftDelete(table, id));
 }
 
 /** Xoá cứng (dùng cho các bảng con: order_items, cart_items...). */
 export function buildHardDelete(table: string, whereSql: string, params: unknown[]): SqlStatement {
   return { sql: `DELETE FROM ${table} WHERE ${whereSql}`, params };
-}
-
-export function outboxStatement(table: string, rowId: string, op: 'upsert' | 'delete', payload: Row): SqlStatement {
-  return {
-    sql: `INSERT INTO sync_outbox (store_id, table_name, row_id, op, payload, created_at)
-          VALUES (?, ?, ?, ?, ?, ?)`,
-    params: [String(payload.store_id ?? ''), table, rowId, op, JSON.stringify(payload), nowIso()],
-  };
 }
 
 /* ---------------------------------------------------------------------- */

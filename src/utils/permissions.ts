@@ -18,11 +18,12 @@ export type AppRole = 'sysadmin' | 'owner' | 'manager' | 'staff' | 'kitchen';
 export type ScreenId =
   | 'pos' | 'inventory' | 'reports' | 'account' | 'kitchen' | 'menu' | 'tables'
   | 'customers' | 'employees' | 'suppliers' | 'orders' | 'shifts' | 'cashbook' | 'eod'
+  | 'conflicts' // xung đột đồng bộ: chủ / quản lý, chỉ khi dùng máy chủ
   | 'stores' | 'accounts'; // chỉ dành cho sysadmin: quản lý cửa hàng / tài khoản trên máy
 
 const ALL_SCREENS: ScreenId[] = [
   'reports', 'eod', 'pos', 'kitchen', 'menu', 'tables', 'orders', 'shifts', 'cashbook',
-  'inventory', 'customers', 'employees', 'suppliers', 'account',
+  'inventory', 'customers', 'employees', 'suppliers', 'account', 'conflicts',
 ];
 
 export const ROLE_SCREENS: Record<AppRole, ScreenId[]> = {

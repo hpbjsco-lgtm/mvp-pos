@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { createDocumentNumber } from '../sync/documentNumbers';
 import React, { useState } from 'react';
 import { Plus, X, ArrowUpFromLine } from 'lucide-react';
 import { Product, InventoryBatch, InventoryTransaction, InventoryTransactionType } from '../types';
@@ -27,7 +28,7 @@ interface InventoryScreenProps {
   fbUserProfile: any;
   simStoreType?: 'fnb' | 'retail';
   isOffline?: boolean;
-  storeId?: string;
+  storeId: string;
   /** Món bán + topping (hiện trong danh mục hàng ở chế độ F&B). */
   menuProducts?: Product[];
   /** Chuyển sang Thực đơn để tạo món / topping mới. */
@@ -54,6 +55,7 @@ export default function InventoryScreen({
   setSimTransactions,
   triggerBeep,
   fbUserProfile,
+  storeId,
   simStoreType = 'fnb',
   menuProducts = [],
   onCreateDish,
@@ -157,9 +159,11 @@ export default function InventoryScreen({
     logOperation('Quản lý kho', 'Nhập lô hàng tồn kho mới', batch);
 
     // Log the transaction
+    const importNumber = await createDocumentNumber('import', storeId, () => `PNK-${Date.now().toString().slice(-5)}`);
     const tx: InventoryTransaction = {
       id: `TX-${Date.now()}`,
-      transactionNumber: `PNK-${Date.now().toString().slice(-5)}`,
+      transactionNumber: importNumber.number,
+      tempCode: importNumber.tempNumber || undefined,
       type: InventoryTransactionType.IMPORT,
       items: [{
         productId: prod.id,
@@ -191,7 +195,7 @@ export default function InventoryScreen({
   };
 
   // ---- Danh mục hàng: tạo / sửa / xóa nguyên vật liệu, công cụ dụng cụ ----
-  const handleSaveItem = (product: Product, openingStock: number) => {
+  const handleSaveItem = async (product: Product, openingStock: number) => {
     const exists = simProducts.some(p => p.id === product.id);
     logOperation('Quản lý kho', exists ? 'Sửa hàng trong kho' : 'Thêm hàng vào kho', product);
     setSimProducts(prev => (exists ? prev.map(p => (p.id === product.id ? product : p)) : [product, ...prev]));
@@ -202,8 +206,9 @@ export default function InventoryScreen({
         expiryDate: '2099-12-31', importPrice: product.cost, quantity: openingStock, originalQuantity: openingStock,
         createdAt: new Date().toISOString()
       };
+      const openingNumber = await createDocumentNumber('import', storeId, () => `PNK-${now.toString().slice(-5)}`);
       const tx: InventoryTransaction = {
-        id: `TX-${now}`, transactionNumber: `PNK-${now.toString().slice(-5)}`, type: InventoryTransactionType.IMPORT,
+        id: `TX-${now}`, transactionNumber: openingNumber.number, tempCode: openingNumber.tempNumber || undefined, type: InventoryTransactionType.IMPORT,
         items: [{ productId: product.id, batchCode: batch.batchCode, quantity: openingStock, price: product.cost }],
         totalAmount: product.cost * openingStock, staffId: fbUserProfile?.uid || 'staff-01', note: 'Tồn kho ban đầu', createdAt: new Date().toISOString()
       };
@@ -244,7 +249,7 @@ export default function InventoryScreen({
 
   const exportPlan = exportProductId ? fefoPlan(exportProductId, exportQty) : { picks: [], shortfall: 0, available: 0 };
 
-  const handleExport = (e: React.FormEvent) => {
+  const handleExport = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!exportProductId || exportQty <= 0) {
       alert('Vui lòng chọn hàng cần xuất và nhập số lượng lớn hơn 0!');
@@ -257,9 +262,11 @@ export default function InventoryScreen({
     const reason = EXPORT_REASONS.find(r => r.id === exportReason) || EXPORT_REASONS[0];
     const takeByBatch = new Map(exportPlan.picks.map(p => [p.batch.id, p.take]));
     const now = Date.now();
+    const exportNumber = await createDocumentNumber('export', storeId, () => `PXK-${now.toString().slice(-5)}`);
     const tx: InventoryTransaction = {
       id: `TX-${now}`,
-      transactionNumber: `PXK-${now.toString().slice(-5)}`,
+      transactionNumber: exportNumber.number,
+      tempCode: exportNumber.tempNumber || undefined,
       type: reason.adjustment ? InventoryTransactionType.ADJUSTMENT : InventoryTransactionType.EXPORT,
       items: exportPlan.picks.map(p => ({
         productId: exportProductId,

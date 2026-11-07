@@ -12,6 +12,7 @@ import { SyncError } from './syncService.mjs';
  * Routes:
  *  - GET  /pull?storeId=...&cursor=...&limit=...  next page of changes for a store (see `SyncService.pull`)
  *  - POST /push  body `{ storeId, deviceId, groups }` (see `SyncService.push`)
+ *  - GET  /stores  stores a device can choose from (id and name)
  *  - GET  /summary?storeId=...&after=...  tables changed after a log position (omit `after` for the current position)
  *  - POST /next-number  body `{ storeId, kind }`: next official number (`order`, `import`, `export`, `receipt`, `payment`)
  *  - GET  /conflicts?storeId=...&status=pending|resolved  conflicts of a store, without payloads
@@ -58,6 +59,10 @@ export function createSyncRouter(syncService) {
   router.post('/push', (request, response) => {
     const { storeId, deviceId, groups } = request.body || {};
     answer(response, () => syncService.push({ storeId, deviceId, groups }));
+  });
+
+  router.get('/stores', (request, response) => {
+    answer(response, () => syncService.listStores());
   });
 
   router.get('/summary', (request, response) => {

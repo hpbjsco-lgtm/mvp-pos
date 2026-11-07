@@ -18,6 +18,7 @@ import KiotCheckoutDialog from './KiotCheckoutDialog';
 import BankAccountsDialog from './BankAccountsDialog';
 import { buildTransferInfo } from '../utils/transferInfo';
 import { printKitchenTicketIfEnabled } from '../printing/kitchenPrinting';
+import { createDocumentNumber } from '../sync/documentNumbers';
 import { applyLineEditToKitchen, isKitchenTicketOpen, moveKitchenPortions, relabelKitchenTickets, removePortionsFromKitchen, type KitchenEditableField } from '../utils/kitchenSync';
 import {
   OrderOptionsMenu, OptionIcons, MergeTablesDialog, TransferTableDialog, SplitMergeOrderDialog,
@@ -76,6 +77,8 @@ interface POSScreenProps {
   simUserRole: 'admin' | 'staff';
   isDemoOfflineMode: boolean;
   fbUserProfile: any;
+  /** Store the orders belong to; document numbers are issued per store. */
+  storeId: string;
   fbStoreProfile: any;
   triggerBeep: (success: boolean) => void;
   simBatches: InventoryBatch[];
@@ -87,6 +90,8 @@ interface POSScreenProps {
   simIngredientBatches: InventoryBatch[];
   setSimIngredientBatches: React.Dispatch<React.SetStateAction<InventoryBatch[]>>;
   setSimIngredientTransactions: React.Dispatch<React.SetStateAction<InventoryTransaction[]>>;
+  /** Stock vouchers of dishes that keep their own batches (not made from ingredients). */
+  setSimTransactions: React.Dispatch<React.SetStateAction<InventoryTransaction[]>>;
 }
 
 export default function POSScreen({
@@ -108,6 +113,7 @@ export default function POSScreen({
   setSimSelectedTableId,
   simUserRole,
   fbUserProfile,
+  storeId,
   fbStoreProfile,
   triggerBeep,
   simBatches,
@@ -117,7 +123,8 @@ export default function POSScreen({
   simIngredients,
   simIngredientBatches,
   setSimIngredientBatches,
-  setSimIngredientTransactions
+  setSimIngredientTransactions,
+  setSimTransactions
 }: POSScreenProps) {
 
   // Tab bên trái cho fnb: "Phòng bàn" (sơ đồ bàn, mặc định) hoặc "Thực đơn" (gọi thêm món)
@@ -829,7 +836,7 @@ export default function POSScreen({
     // Simulate short network loading sync latency
     setTimeout(async () => {
       const orderId = `ORD-${Date.now()}`;
-      const orderNum = `HD-${Date.now().toString().slice(-5)}`;
+      const { number: orderNum, tempNumber: tempOrderNumber } = await createDocumentNumber('order', storeId, () => `HD-${Date.now().toString().slice(-5)}`);
 
       const orderItems = currentCart.map(cartItem => {
         const prod = simProducts.find(p => p.id === cartItem.productId)!;
@@ -876,11 +883,14 @@ export default function POSScreen({
           recipePlan.picks.forEach(p => takeByBatch.set(p.batch.id, (takeByBatch.get(p.batch.id) || 0) + p.take));
           setSimIngredientBatches(prev => prev.map(b => (takeByBatch.has(b.id) ? { ...b, quantity: Math.max(0, +(b.quantity - (takeByBatch.get(b.id) || 0)).toFixed(6)) } : b)));
           const nowMs = Date.now();
+          const exportNumber = await createDocumentNumber('export', storeId, () => `PXK-${nowMs.toString().slice(-5)}`);
           setSimIngredientTransactions(prev => [{
             id: `TX-${nowMs}`,
-            transactionNumber: `PXK-${nowMs.toString().slice(-5)}`,
+            transactionNumber: exportNumber.number,
+            tempCode: exportNumber.tempNumber || undefined,
+            orderId,
             type: InventoryTransactionType.EXPORT,
-            items: recipePlan.picks.map(p => ({ productId: p.batch.productId, batchCode: p.batch.batchCode, quantity: +p.take.toFixed(6), price: p.batch.importPrice })),
+            items: recipePlan.picks.map(p => ({ productId: p.batch.productId, batchId: p.batch.id, batchCode: p.batch.batchCode, quantity: +p.take.toFixed(6), price: p.batch.importPrice })),
             totalAmount: recipePlan.picks.reduce((s, p) => s + (p.batch.importPrice || 0) * p.take, 0),
             staffId: fbUserProfile?.uid || 'staff-01',
             note: `Bán hàng ${orderNum}${recipePlan.shortages.length > 0 ? ' (thiếu tồn một số nguyên liệu)' : ''}`,
@@ -892,6 +902,21 @@ export default function POSScreen({
           const takeByBatch = new Map<string, number>();
           directPlan.picks.forEach(p => takeByBatch.set(p.batch.id, (takeByBatch.get(p.batch.id) || 0) + p.take));
           setSimBatches(prev => prev.map(b => (takeByBatch.has(b.id) ? { ...b, quantity: Math.max(0, b.quantity - (takeByBatch.get(b.id) || 0)) } : b)));
+          // Written like the ingredient voucher, so cancelling the order can put this stock back too
+          const directMs = Date.now();
+          const directNumber = await createDocumentNumber('export', storeId, () => `PXK-${directMs.toString().slice(-5)}`);
+          setSimTransactions(prev => [{
+            id: `TX-${directMs}-D`,
+            transactionNumber: directNumber.number,
+            tempCode: directNumber.tempNumber || undefined,
+            orderId,
+            type: InventoryTransactionType.EXPORT,
+            items: directPlan.picks.map(p => ({ productId: p.batch.productId, batchId: p.batch.id, batchCode: p.batch.batchCode, quantity: +p.take.toFixed(6), price: p.batch.importPrice })),
+            totalAmount: directPlan.picks.reduce((s, p) => s + (p.batch.importPrice || 0) * p.take, 0),
+            staffId: fbUserProfile?.uid || 'staff-01',
+            note: `Bán hàng ${orderNum}${directPlan.shortages.length > 0 ? ' (thiếu tồn một số món)' : ''}`,
+            createdAt: new Date().toISOString()
+          }, ...prev]);
         }
       }
 
@@ -910,6 +935,7 @@ export default function POSScreen({
       const newOrder: Order = {
         id: orderId,
         orderNumber: orderNum,
+        tempOrderNumber: tempOrderNumber || undefined,
         items: orderItems,
         subtotal: cartSubtotal,
         discountAmount,

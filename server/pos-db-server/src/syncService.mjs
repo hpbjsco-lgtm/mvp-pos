@@ -254,6 +254,20 @@ export class SyncService {
   }
 
   /**
+   * Lists the stores a device can choose from when it is set up.
+   *
+   * @returns {{ stores: Array<{ id: string, name: string }> }} Stores that are not deleted, by name.
+   * @throws {SyncError} `NOT_READY` when the app has not created its schema yet.
+   */
+  listStores() {
+    this.ensureInfrastructure();
+    const stores = this.getDatabase()
+      .prepare('SELECT id, name FROM stores WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE, id')
+      .all();
+    return { stores };
+  }
+
+  /**
    * @returns {number} Highest `seq` in the log (0 when empty).
    */
   currentMaxSeq() {

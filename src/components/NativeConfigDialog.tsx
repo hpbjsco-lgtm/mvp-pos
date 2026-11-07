@@ -6,9 +6,13 @@
 import React, { useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Settings, X } from 'lucide-react';
+import { initDatabase, queryOne } from '../db';
+import { ServerEndpoints } from '../db/serverEndpoints';
 import { testServerAddress, type AddressTestResult } from '../native/connectionTest';
 import { exportDatabaseToShare } from '../native/exportDatabase';
 import { getNativeSettings, saveNativeSettings, validateNativeSettings, type NativeDataMode } from '../native/nativeSettings';
+import { SyncClient, type StoreSummary } from '../sync/syncClient';
+import { SyncStore } from '../sync/syncStore';
 
 /** Result line shown in the dialog. */
 interface StatusMessage {
@@ -30,6 +34,8 @@ function NativeConfigDialog({ onClose }: NativeConfigDialogProps) {
   const [domainUrl, setDomainUrl] = useState(saved.domainUrl);
   const [localUrl, setLocalUrl] = useState(saved.localUrl);
   const [token, setToken] = useState(saved.token);
+  const [storeId, setStoreId] = useState(saved.storeId);
+  const [stores, setStores] = useState<StoreSummary[]>(saved.storeId ? [{ id: saved.storeId, name: saved.storeName || saved.storeId }] : []);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<StatusMessage | null>(null);
   const [tests, setTests] = useState<AddressTestResult[]>([]);
@@ -51,22 +57,72 @@ function NativeConfigDialog({ onClose }: NativeConfigDialogProps) {
     }
   };
 
-  /** Tests every address that was typed. */
+  /** Tests every address that was typed, then loads the stores of the server for the person to choose from. */
   const testConnection = () => withBusy(async () => {
     const settings = validateNativeSettings({ mode: 'server', domainUrl, localUrl, token });
     const urls = [settings.domainUrl, settings.localUrl].filter(Boolean);
-    setTests(await Promise.all(urls.map(url => testServerAddress(url, settings.token))));
+    const results = await Promise.all(urls.map(url => testServerAddress(url, settings.token)));
+    setTests(results);
+    if (!results.some(result => result.ok)) return;
+    const client = new SyncClient(new ServerEndpoints({ domainUrl: settings.domainUrl, localUrl: settings.localUrl }), settings.token);
+    const list = await client.listStores();
+    setStores(list);
+    if (list.length === 1) setStoreId(list[0].id);
+    else if (!list.some(store => store.id === storeId)) setStoreId('');
   });
 
-  /** Saves the settings. */
+  /**
+   * Asks before the data on the device is replaced by the store's data from the server: offers a SQLite backup
+   * first, then needs a confirmation. Nothing to ask when the device holds no data.
+   *
+   * @param storeName Store that will be downloaded.
+   * @returns False when the person cancelled.
+   */
+  const confirmReplaceLocalData = async (storeName: string): Promise<boolean> => {
+    const hasData = !!(await queryOne('SELECT 1 FROM stores LIMIT 1'));
+    if (!hasData) return true;
+    if (confirm('Thiết bị đang có dữ liệu. Bấm OK để xuất file SQLite sao lưu trước khi tiếp tục, Hủy để bỏ qua bước sao lưu.')) {
+      await exportDatabaseToShare();
+    }
+    return confirm(`Dữ liệu trên thiết bị sẽ bị xóa và thay bằng dữ liệu của cửa hàng "${storeName}" từ máy chủ. Các thay đổi chưa gửi lên máy chủ sẽ mất. Tiếp tục?`);
+  };
+
+  /** Downloads the saved store again, for example after the server database was restored. */
+  const redownload = () => withBusy(async () => {
+    const savedSettings = getNativeSettings();
+    if (savedSettings.mode !== 'server' || !savedSettings.storeId) throw new Error('Hãy lưu cấu hình dùng máy chủ trước.');
+    const syncStore = new SyncStore(await initDatabase());
+    if (!(await confirmReplaceLocalData(savedSettings.storeName || savedSettings.storeId))) return;
+    await syncStore.markInitialSyncPending(savedSettings.storeId);
+    window.location.reload();
+  });
+
+  /**
+   * Saves the settings. When the device will take its data from the server (first time or another store), the
+   * data on the device is replaced: the person can export it first, must confirm, and the app restarts into the
+   * download screen.
+   */
   const save = () => withBusy(async () => {
-    await saveNativeSettings({ mode, domainUrl, localUrl, token });
-    setMessage({
-      ok: true,
-      text: mode === 'server'
-        ? 'Đã lưu cấu hình. Đồng bộ dữ liệu với máy chủ sẽ có ở bản cập nhật tiếp theo, hiện app vẫn dùng dữ liệu trên thiết bị.'
-        : 'Đã lưu. App chỉ dùng dữ liệu trên thiết bị này.',
-    });
+    const storeName = stores.find(store => store.id === storeId)?.name ?? '';
+    if (mode !== 'server') {
+      await saveNativeSettings({ mode, domainUrl, localUrl, token, storeId: '', storeName: '' });
+      setMessage({ ok: true, text: 'Đã lưu. App chỉ dùng dữ liệu trên thiết bị này.' });
+      return;
+    }
+    validateNativeSettings({ mode, domainUrl, localUrl, token, storeId, storeName }, true);
+
+    const syncStore = new SyncStore(await initDatabase());
+    const downloaded = (await syncStore.getState('initialSync')) === 'done' && (await syncStore.getState('storeId')) === storeId;
+    if (!downloaded && !(await confirmReplaceLocalData(storeName))) return;
+    await saveNativeSettings({ mode, domainUrl, localUrl, token, storeId, storeName });
+    if (downloaded) {
+      setMessage({ ok: true, text: 'Đã lưu cấu hình.' });
+      return;
+    }
+    await syncStore.markInitialSyncPending(storeId);
+    setMessage({ ok: true, text: 'Đã lưu. Đang tải dữ liệu từ máy chủ...' });
+    // The app restarts into the download screen, which blocks everything until the data is complete.
+    window.location.reload();
   });
 
   /** Exports the device database and opens the share sheet. */
@@ -114,11 +170,28 @@ function NativeConfigDialog({ onClose }: NativeConfigDialogProps) {
                 <input id="native-token" type="password" value={token} onChange={e => setToken(e.target.value)} className="m3-input" autoComplete="off" />
               </div>
               <button type="button" disabled={busy} onClick={testConnection} className="m3-btn-tonal w-full !min-h-11 text-sm">Kiểm tra kết nối</button>
+              {stores.length > 0 && (
+                <div className="space-y-1">
+                  <label className="text-sm font-semibold text-on-surface-variant" htmlFor="native-store">Cửa hàng</label>
+                  <select id="native-store" value={storeId} onChange={e => setStoreId(e.target.value)} className="m3-input">
+                    <option value="">Chọn cửa hàng...</option>
+                    {stores.map(store => <option key={store.id} value={store.id}>{store.name}</option>)}
+                  </select>
+                </div>
+              )}
               {tests.map(result => (
                 <p key={result.url} className={`text-sm rounded-xl p-3 ${result.ok ? 'bg-secondary-container text-on-secondary-container' : 'bg-error-container text-on-error-container'}`}>
                   <strong className="block break-all">{result.url}</strong>{result.message}
                 </p>
               ))}
+            </div>
+          )}
+
+          {saved.mode === 'server' && saved.storeId && (
+            <div className="space-y-2 border-t border-outline-variant pt-4">
+              <h4 className="text-base font-bold text-on-surface">Tải lại dữ liệu từ máy chủ</h4>
+              <p className="text-sm text-on-surface-variant">Dùng khi máy chủ báo đã được khôi phục từ bản sao lưu. Dữ liệu trên thiết bị được thay bằng dữ liệu của máy chủ.</p>
+              <button type="button" disabled={busy} onClick={redownload} className="m3-btn-outlined w-full !min-h-11 text-sm">Tải lại dữ liệu</button>
             </div>
           )}
 

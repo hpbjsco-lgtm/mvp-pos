@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { createDocumentNumber } from '../sync/documentNumbers';
 import React, { useMemo, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { BankAccount, CashVoucher, Customer, FundType, Order } from '../types';
@@ -25,6 +26,8 @@ interface CashbookSectionProps {
   vouchers: CashVoucher[];
   setVouchers: React.Dispatch<React.SetStateAction<CashVoucher[]>>;
   staffName: string;
+  /** Store the vouchers belong to; voucher codes are issued per store. */
+  storeId: string;
   triggerBeep: (success: boolean) => void;
 }
 
@@ -41,7 +44,7 @@ type VoucherForm = {
  * Sổ quỹ & Dòng tiền: theo dõi thu / chi theo từng loại quỹ (tiền mặt, ngân hàng, ví điện tử) và từng loại thu chi.
  * Khoản thu từ bán hàng được lấy tự động từ hóa đơn; phiếu thu / chi khác lập tay.
  */
-export default function CashbookSection({ simOrders, customers, bankAccounts, setBankAccounts, vouchers, setVouchers, staffName, triggerBeep }: CashbookSectionProps) {
+export default function CashbookSection({ simOrders, customers, bankAccounts, setBankAccounts, vouchers, setVouchers, staffName, storeId, triggerBeep }: CashbookSectionProps) {
   const [fund, setFund] = useState<FundType | 'all'>('all');
   const [accountId, setAccountId] = useState('');
   const [preset, setPreset] = useState<RangePreset>('month');
@@ -86,14 +89,16 @@ export default function CashbookSection({ simOrders, customers, bankAccounts, se
     triggerBeep(true);
   };
 
-  const saveVoucher = (e: React.FormEvent) => {
+  const saveVoucher = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form) return;
     if (form.amount <= 0) { setFormError('Vui lòng nhập số tiền lớn hơn 0.'); return; }
     if (form.fund === 'bank' && !form.bankAccountId) { setFormError('Chưa có tài khoản ngân hàng. Hãy thêm tài khoản trước.'); return; }
+    const code = await createDocumentNumber(form.type, storeId, () => nextVoucherCode(vouchers, form.type));
     const voucher: CashVoucher = {
       id: `CV-${Date.now()}`,
-      code: nextVoucherCode(vouchers, form.type),
+      code: code.number,
+      tempCode: code.tempNumber || undefined,
       type: form.type,
       fund: form.fund,
       bankAccountId: form.fund === 'bank' ? form.bankAccountId : undefined,
