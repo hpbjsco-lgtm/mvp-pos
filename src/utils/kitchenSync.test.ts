@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { KitchenItem, KitchenStatus } from '../types';
-import { applyLineEditToKitchen, removePortionsFromKitchen } from './kitchenSync';
+import { applyLineEditToKitchen, moveKitchenPortions, relabelKitchenTickets, removePortionsFromKitchen } from './kitchenSync';
 
 const ticket = (id: string, quantity: number, extra: Partial<KitchenItem> = {}): KitchenItem => ({
   id, orderId: 'NB-1', productId: 'p1', productName: 'Bun bo', quantity, status: KitchenStatus.PENDING,
@@ -45,5 +45,29 @@ describe('applyLineEditToKitchen', () => {
     const result = applyLineEditToKitchen([ticket('a', 1), ticket('b', 1, { status: KitchenStatus.SERVED })], isBunBoNho, 'size', 'Lon');
     expect(result[0].size).toBe('Lon');
     expect(result[1].size).toBe('Nho');
+  });
+});
+
+describe('relabelKitchenTickets', () => {
+  it('relabels only the tickets of the order', () => {
+    const mine = ticket('a', 1, { tableNumber: 'Ban 02' });
+    const other = ticket('b', 1, { tableNumber: 'Ban 05' });
+    const result = relabelKitchenTickets([mine, other], k => k.tableNumber === 'Ban 02', 'Ban 01 + Ban 02');
+    expect(result[0].tableNumber).toBe('Ban 01 + Ban 02');
+    expect(result[1].tableNumber).toBe('Ban 05');
+  });
+});
+
+describe('moveKitchenPortions', () => {
+  it('relabels a ticket that moves completely', () => {
+    const result = moveKitchenPortions([ticket('a', 2, { tableNumber: 'Mang ve' })], isBunBoNho, 2, 'Mang di', () => 'copy');
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ id: 'a', quantity: 2, tableNumber: 'Mang di' });
+  });
+
+  it('splits a ticket when only some portions move and keeps its status', () => {
+    const result = moveKitchenPortions([ticket('a', 3, { tableNumber: 'Mang ve', status: KitchenStatus.PREPARING })], isBunBoNho, 1, 'Mang di', () => 'copy');
+    expect(result.find(k => k.id === 'a')).toMatchObject({ quantity: 2, tableNumber: 'Mang ve' });
+    expect(result.find(k => k.id === 'copy')).toMatchObject({ quantity: 1, tableNumber: 'Mang di', status: KitchenStatus.PREPARING });
   });
 });

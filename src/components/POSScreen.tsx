@@ -18,7 +18,7 @@ import KiotCheckoutDialog from './KiotCheckoutDialog';
 import BankAccountsDialog from './BankAccountsDialog';
 import { buildTransferInfo } from '../utils/transferInfo';
 import { printKitchenTicketIfEnabled } from '../printing/kitchenPrinting';
-import { applyLineEditToKitchen, isKitchenTicketOpen, removePortionsFromKitchen, type KitchenEditableField } from '../utils/kitchenSync';
+import { applyLineEditToKitchen, isKitchenTicketOpen, moveKitchenPortions, relabelKitchenTickets, removePortionsFromKitchen, type KitchenEditableField } from '../utils/kitchenSync';
 import {
   OrderOptionsMenu, OptionIcons, MergeTablesDialog, TransferTableDialog, SplitMergeOrderDialog,
   ReservationDialog, KitchenHistoryDialog, OrderInfoDialog, type OptionItem
@@ -322,11 +322,29 @@ export default function POSScreen({
   };
   const isKitchenActive = isKitchenTicketOpen;
 
-  /** True for a kitchen ticket of the current order that was sent for exactly this cart line. */
-  const kitchenTicketBelongsToLine = (line: CartLine) => (k: KitchenItem) =>
-    isKitchenItemOfCurrentOrder(k) && k.productId === line.productId && (k.note || '') === (line.note || '')
+  /** True for a kitchen ticket whose dish and options equal those of a cart line. */
+  const ticketMatchesLine = (k: KitchenItem, line: CartLine) =>
+    k.productId === line.productId && (k.note || '') === (line.note || '')
     && (k.size || '') === (line.size || '') && (k.sugarLevel || '') === (line.sugarLevel || '')
     && (k.iceLevel || '') === (line.iceLevel || '') && (k.toppings || '') === toppingsText(line, simProducts);
+
+  /** True for a kitchen ticket of the current order that was sent for exactly this cart line. */
+  const kitchenTicketBelongsToLine = (line: CartLine) => (k: KitchenItem) =>
+    isKitchenItemOfCurrentOrder(k) && ticketMatchesLine(k, line);
+
+  /**
+   * Recognises the kitchen tickets of the order held by a table (or by Mang về / Giao đi) as the tables were
+   * before a table operation: same table label and sent since the order was opened.
+   */
+  const kitchenOrderMatcher = (tables: DiningTable[], cartId: string) => {
+    const virtual = isVirtualCartId(cartId);
+    const names = new Set(getGroupTables(tables, cartId).map(t => t.name));
+    const label = getGroupLabel(tables, cartId);
+    const openedAt = virtual ? undefined : tables.find(t => t.id === resolvePrimaryId(tables, cartId))?.openedAt;
+    const since = openedAt ? new Date(openedAt).getTime() - 60000 : new Date(new Date().setHours(0, 0, 0, 0)).getTime();
+    return (k: KitchenItem) => simStoreType === 'fnb' && new Date(k.createdAt).getTime() >= since
+      && (virtual ? k.tableNumber === label : (k.tableNumber || '').split(' + ').some(n => names.has(n)));
+  };
 
   /** Takes portions of a line off its kitchen tickets so the kitchen screen keeps the same count as the cart. */
   const removeKitchenPortions = (line: CartLine, portions: number) => {
@@ -510,7 +528,13 @@ export default function POSScreen({
   };
 
   const handleMergeTables = (otherIds: string[]) => {
-    applyTableResult(mergeTables(simTables, simCarts, currentCartId, otherIds));
+    const result = mergeTables(simTables, simCarts, currentCartId, otherIds);
+    // Kitchen tickets of every merged order show the merged table
+    const mergedLabel = getGroupLabel(result.tables, currentCartId);
+    const orders = [...new Set([currentCartId, ...otherIds].map(id => resolvePrimaryId(simTables, id)))]
+      .map(id => kitchenOrderMatcher(simTables, id));
+    setSimKitchenItems(prev => orders.reduce((items, matches) => relabelKitchenTickets(items, matches, mergedLabel), prev));
+    applyTableResult(result);
     logOperation('Màn hình bán hàng (POS)', 'Gộp bàn', { primary: currentCartId, merged: otherIds });
     setActiveDialog(null);
     playBeep(true);
@@ -523,7 +547,11 @@ export default function POSScreen({
   };
 
   const handleTransferTable = (toId: string) => {
-    applyTableResult(transferTable(simTables, simCarts, currentCartId, toId));
+    const result = transferTable(simTables, simCarts, currentCartId, toId);
+    if (result.tables !== simTables) {
+      setSimKitchenItems(prev => relabelKitchenTickets(prev, kitchenOrderMatcher(simTables, currentCartId), getGroupLabel(result.tables, toId)));
+    }
+    applyTableResult(result);
     logOperation('Màn hình bán hàng (POS)', 'Chuyển bàn', { from: currentCartId, to: toId });
     setSimSelectedTableId(toId);
     setActiveDialog(null);
@@ -531,7 +559,20 @@ export default function POSScreen({
   };
 
   const handleMoveItems = (toId: string, selection: MoveSelection) => {
-    applyTableResult(moveItems(simTables, simCarts, currentCartId, toId, selection));
+    const result = moveItems(simTables, simCarts, currentCartId, toId, selection);
+    // Portions already sent move with their kitchen tickets to the order they now belong to
+    const sourceOrder = kitchenOrderMatcher(simTables, currentCartId);
+    const destinationLabel = getGroupLabel(result.tables, toId);
+    const moves = currentCart
+      .map(line => ({ line, portions: Math.min(line.sentQuantity || 0, Math.max(0, Math.min(selection[lineKey(line)] || 0, line.quantity))) }))
+      .filter(move => move.portions > 0);
+    if (moves.length > 0) {
+      setSimKitchenItems(prev => moves.reduce((items, { line, portions }) => moveKitchenPortions(
+        items, k => sourceOrder(k) && ticketMatchesLine(k, line), portions, destinationLabel,
+        () => `K-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      ), prev));
+    }
+    applyTableResult(result);
     logOperation('Màn hình bán hàng (POS)', 'Tách / ghép đơn', { from: currentCartId, to: toId, selection });
     setActiveDialog(null);
     playBeep(true);

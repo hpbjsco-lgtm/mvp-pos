@@ -68,3 +68,60 @@ export function removePortionsFromKitchen(
   }
   return items.map(item => changes.get(item.id) ?? item);
 }
+
+/**
+ * Gives the tickets of one order a new table label, so the kitchen screen shows the merged table or the
+ * table the order was moved to.
+ *
+ * @param items All kitchen tickets.
+ * @param belongsToOrder True for a ticket of the order that changes its label.
+ * @param label New label, for example "Bàn 01 + Bàn 02" or "Mang về".
+ * @returns A new list; tickets of other orders are returned as they are.
+ */
+export function relabelKitchenTickets(
+  items: KitchenItem[],
+  belongsToOrder: (item: KitchenItem) => boolean,
+  label: string,
+): KitchenItem[] {
+  return items.map(item => (belongsToOrder(item) ? { ...item, tableNumber: label } : item));
+}
+
+/**
+ * Moves portions of a line from one order to another on the kitchen screen (split or join orders). Open
+ * tickets are taken newest first; a ticket that moves completely only changes its label, a ticket that
+ * moves in part is reduced and a copy with the same status and the new label is added.
+ *
+ * @param items All kitchen tickets.
+ * @param belongsToLine True for a ticket sent for the line in the source order.
+ * @param portions Number of sent portions that move.
+ * @param toLabel Table label of the order the portions go to.
+ * @param newTicketId Creates the id of a ticket copy.
+ * @returns A new list.
+ */
+export function moveKitchenPortions(
+  items: KitchenItem[],
+  belongsToLine: (item: KitchenItem) => boolean,
+  portions: number,
+  toLabel: string,
+  newTicketId: () => string,
+): KitchenItem[] {
+  if (portions <= 0) return items;
+  const newestFirst = items
+    .filter(item => isKitchenTicketOpen(item) && belongsToLine(item))
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const changes = new Map<string, KitchenItem>();
+  const copies: KitchenItem[] = [];
+  let left = portions;
+  for (const ticket of newestFirst) {
+    if (left <= 0) break;
+    const taken = Math.min(ticket.quantity, left);
+    left -= taken;
+    if (taken >= ticket.quantity) {
+      changes.set(ticket.id, { ...ticket, tableNumber: toLabel });
+    } else {
+      changes.set(ticket.id, { ...ticket, quantity: ticket.quantity - taken });
+      copies.push({ ...ticket, id: newTicketId(), quantity: taken, tableNumber: toLabel });
+    }
+  }
+  return [...copies, ...items.map(item => changes.get(item.id) ?? item)];
+}
