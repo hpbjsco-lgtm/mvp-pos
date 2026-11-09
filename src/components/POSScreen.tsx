@@ -876,7 +876,7 @@ export default function POSScreen({
 
       // F&B: trừ kho theo công thức món chế biến (nguyên liệu, FEFO) và trừ tồn trực tiếp món thường có quản lý lô
       if (simStoreType === 'fnb') {
-        const sold = currentCart.map(l => ({ productId: l.productId, quantity: l.quantity }));
+        const sold = currentCart.map(l => ({ productId: l.productId, quantity: l.quantity, toppings: l.toppings }));
         const recipePlan = planRecipeDeduction(sold, simProducts, simIngredients, simIngredientBatches);
         if (recipePlan.picks.length > 0) {
           const takeByBatch = new Map<string, number>();

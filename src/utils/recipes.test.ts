@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isDrinkProduct, planRecipeDeduction, recipeBaseQty, recipeCost } from './recipes';
+import { isDrinkProduct, planDirectDeduction, planRecipeDeduction, recipeBaseQty, recipeCost } from './recipes';
 import { InventoryBatch, Product } from '../types';
 
 const prod = (id: string, extra: Partial<Product>): Product => ({ id, name: id, sku: id, price: 0, cost: 0, category: 'x', isAvailable: true, createdAt: '', ...extra });
@@ -42,3 +42,55 @@ describe('recipes', () => {
     expect(isDrinkProduct({ category: 'Món ăn' })).toBe(false);
   });
 });
+
+describe('toppings', () => {
+  const pearl = prod('pearl', { isTopping: true, toppingKind: 'prepared', recipe: [{ ingredientId: 'tapioca', quantity: 30, unit: 'Gram' }] });
+  const tapioca = prod('tapioca', { unit: 'Gram', cost: 100 });
+  const can = prod('can', { isTopping: true, toppingKind: 'regular' });
+  const stocked = prod('stocked', { isTopping: true, toppingKind: 'made' });
+
+  it('a prepared topping takes its ingredients: topping quantity x portions of the dish', () => {
+    const plan = planRecipeDeduction(
+      [{ productId: 'latte', quantity: 2, toppings: [{ productId: 'pearl', quantity: 2 }] }],
+      [latte, pearl], [milk, coffee, tapioca],
+      [batch('t1', 'tapioca', 1000, '2027-01-01'), batch('m1', 'milk', 5, '2027-01-01'), batch('c1', 'coffee', 1000, '2027-01-01')],
+    );
+    expect(plan.picks.find(p => p.batch.id === 't1')!.take).toBe(30 * 2 * 2);
+    // The dish itself still takes its own recipe
+    expect(plan.picks.find(p => p.batch.id === 'm1')!.take).toBeCloseTo(0.4);
+  });
+
+  it('counts a topping even when the dish itself takes no ingredients', () => {
+    const soda = prod('soda', { dishKind: 'regular' });
+    const plan = planRecipeDeduction([{ productId: 'soda', quantity: 1, toppings: [{ productId: 'pearl', quantity: 1 }] }], [soda, pearl], [tapioca], [batch('t1', 'tapioca', 100, '2027-01-01')]);
+    expect(plan.picks.map(p => [p.batch.id, p.take])).toEqual([['t1', 30]]);
+  });
+
+  it('reports a shortage of a topping ingredient instead of going negative', () => {
+    const plan = planRecipeDeduction([{ productId: 'latte', quantity: 1, toppings: [{ productId: 'pearl', quantity: 1 }] }], [latte, pearl], [milk, coffee, tapioca], [batch('t1', 'tapioca', 10, '2027-01-01')]);
+    expect(plan.shortages.find(s => s.ingredientId === 'tapioca')!.missing).toBe(20);
+  });
+
+  it('ignores toppings that are regular, unknown, or not toppings at all', () => {
+    const notTopping = prod('notTopping', { toppingKind: 'prepared', recipe: [{ ingredientId: 'tapioca', quantity: 5 }] });
+    const plan = planRecipeDeduction(
+      [{ productId: 'latte', quantity: 1, toppings: [{ productId: 'can', quantity: 1 }, { productId: 'ghost', quantity: 1 }, { productId: 'notTopping', quantity: 1 }] }],
+      [latte, can, notTopping], [milk, coffee, tapioca], [batch('t1', 'tapioca', 100, '2027-01-01'), batch('m1', 'milk', 5, '2027-01-01'), batch('c1', 'coffee', 100, '2027-01-01')],
+    );
+    expect(plan.picks.some(p => p.batch.id === 't1')).toBe(false);
+  });
+
+  it('takes regular and made toppings straight from their own batches, in FEFO order', () => {
+    const lines = [{ productId: 'latte', quantity: 3, toppings: [{ productId: 'can', quantity: 1 }, { productId: 'stocked', quantity: 2 }] }];
+    const plan = planDirectDeduction(lines, [latte, can, stocked], [batch('can2', 'can', 5, '2027-06-01'), batch('can1', 'can', 2, '2027-01-01'), batch('s1', 'stocked', 10, '2027-01-01')]);
+    expect(plan.picks.map(p => [p.batch.id, p.take])).toEqual([['can1', 2], ['can2', 1], ['s1', 6]]);
+    expect(plan.shortages).toEqual([]);
+  });
+
+  it('reports missing stock of a regular topping and skips toppings without batches', () => {
+    const plan = planDirectDeduction([{ productId: 'latte', quantity: 2, toppings: [{ productId: 'can', quantity: 1 }, { productId: 'stocked', quantity: 1 }] }], [latte, can, stocked], [batch('can1', 'can', 1, '2027-01-01')]);
+    expect(plan.shortages).toEqual([{ ingredientId: 'can', missing: 1 }]);
+    expect(plan.picks.map(p => p.batch.id)).toEqual(['can1']);
+  });
+});
+

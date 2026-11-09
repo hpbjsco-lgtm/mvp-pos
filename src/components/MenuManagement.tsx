@@ -335,7 +335,7 @@ export default function MenuManagement({
       )}
 
       {toppingDialog && (
-        <ToppingDialog topping={toppingDialog.topping} products={simProducts} onSave={handleSaveTopping} onClose={() => setToppingDialog(null)} />
+        <ToppingDialog topping={toppingDialog.topping} products={simProducts} ingredients={ingredients} onSave={handleSaveTopping} onClose={() => setToppingDialog(null)} />
       )}
 
       {/* Modal thêm món / sản phẩm mới */}

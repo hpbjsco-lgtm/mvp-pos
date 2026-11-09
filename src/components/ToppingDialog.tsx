@@ -5,7 +5,9 @@
 
 import React, { useMemo, useState } from 'react';
 import { Search, Trash2, X } from 'lucide-react';
-import { Product } from '../types';
+import { Product, RecipeItem } from '../types';
+import { recipeCost } from '../utils/recipes';
+import RecipeEditor from './RecipeEditor';
 import { fileToResizedDataUrl } from '../utils/imageUpload';
 
 interface ToppingDialogProps {
@@ -13,6 +15,8 @@ interface ToppingDialogProps {
   topping?: Product;
   /** Toàn bộ sản phẩm (để chọn món gắn topping). */
   products: Product[];
+  /** Nguyên vật liệu trong kho (thành phần công thức của topping chế biến). */
+  ingredients: Product[];
   onSave: (topping: Product) => void;
   onClose: () => void;
 }
@@ -24,7 +28,7 @@ const KINDS: { id: NonNullable<Product['toppingKind']>; title: string; desc: str
 ];
 
 /** Tạo / sửa topping: thông tin, giá, loại topping, và gắn vào các món (theo từng món hoặc theo nhóm). */
-export default function ToppingDialog({ topping, products, onSave, onClose }: ToppingDialogProps) {
+export default function ToppingDialog({ topping, products, ingredients, onSave, onClose }: ToppingDialogProps) {
   const dishes = useMemo(() => products.filter(p => !p.isTopping), [products]);
   const categories = useMemo(() => Array.from(new Set<string>(dishes.map(d => d.category))).sort((a, b) => a.localeCompare(b, 'vi')), [dishes]);
   const existingGroups = useMemo(() => Array.from(new Set<string>(products.filter(p => p.isTopping).map(p => p.category))), [products]);
@@ -33,6 +37,7 @@ export default function ToppingDialog({ topping, products, onSave, onClose }: To
   const [category, setCategory] = useState(topping?.category || 'Topping');
   const [price, setPrice] = useState<number>(topping?.price ?? 5000);
   const [kind, setKind] = useState<NonNullable<Product['toppingKind']>>(topping?.toppingKind || 'prepared');
+  const [recipe, setRecipe] = useState<RecipeItem[]>(topping?.recipe || []);
   const [allowSale, setAllowSale] = useState(topping?.isAvailable ?? true);
   const [imageUrl, setImageUrl] = useState(topping?.imageUrl || '');
   const [attachOn, setAttachOn] = useState(topping ? (topping.toppingFor || []).length > 0 : true);
@@ -48,23 +53,26 @@ export default function ToppingDialog({ topping, products, onSave, onClose }: To
 
   const save = (andNew: boolean) => {
     if (!name.trim()) { setError('Vui lòng nhập tên topping.'); return; }
+    if (kind === 'prepared' && recipe.some(r => !(r.quantity > 0))) { setError('Số lượng của mỗi nguyên liệu phải lớn hơn 0.'); return; }
+    const hasRecipe = kind === 'prepared' && recipe.length > 0;
     const product: Product = {
       id: topping?.id || `TP-${Date.now()}`,
       sku: topping?.sku || `TP-${Date.now().toString().slice(-6)}`,
       name: name.trim(),
       price: Math.max(0, price || 0),
-      cost: topping?.cost || 0,
+      cost: hasRecipe ? recipeCost(recipe, ingredients) : topping?.cost || 0,
       category: category.trim() || 'Topping',
       imageUrl: imageUrl || undefined,
       isAvailable: allowSale,
       isTopping: true,
       toppingKind: kind,
+      recipe: hasRecipe ? recipe : undefined,
       toppingFor: attachOn ? attached : [],
       createdAt: topping?.createdAt || new Date().toISOString(),
     };
     onSave(product);
     if (andNew) {
-      setName(''); setPrice(5000); setImageUrl(''); setAttached(attachOn ? attached : []); setError('');
+      setName(''); setPrice(5000); setImageUrl(''); setRecipe([]); setAttached(attachOn ? attached : []); setError('');
     } else onClose();
   };
 
@@ -127,6 +135,8 @@ export default function ToppingDialog({ topping, products, onSave, onClose }: To
               ))}
             </div>
           </div>
+
+          {kind === 'prepared' && <RecipeEditor ingredients={ingredients} recipe={recipe} onChange={setRecipe} />}
 
           <div className="rounded-xl border border-outline-variant p-4 space-y-3">
             <label className="flex items-start justify-between gap-4 cursor-pointer">
