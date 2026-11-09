@@ -120,12 +120,13 @@ export enum PaymentMethod {
   CASH = 'cash',
   CARD = 'card',
   QR = 'qr',
+  WALLET = 'wallet', // Ví điện tử (MoMo, ZaloPay...): thu ngân tự xác nhận đã nhận tiền
   MIXED = 'mixed' // Thanh toán kết hợp nhiều phương thức (chi tiết ở Order.payments)
 }
 
 /** Một khoản thanh toán trong đơn (dùng cho thanh toán kết hợp). */
 export interface PaymentPart {
-  method: 'cash' | 'qr' | 'card';
+  method: 'cash' | 'qr' | 'card' | 'wallet';
   amount: number;
   /** Tài khoản ngân hàng nhận tiền (chuyển khoản / thẻ) - để ghi sổ quỹ đúng tài khoản. */
   bankAccountId?: string;

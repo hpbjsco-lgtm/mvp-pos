@@ -4,9 +4,10 @@
  */
 
 import React from 'react';
-import { ArrowLeft, Award, Banknote, QrCode, CreditCard } from 'lucide-react';
+import { ArrowLeft, Award, Banknote, QrCode, CreditCard, Wallet } from 'lucide-react';
 import { BankAccount, Customer } from '../types';
 import { buildVietQRPayload } from '../utils/vietqr';
+import type { SimpleMethod } from '../utils/payments';
 import { findBank } from '../utils/banks';
 import QrCodeImage from './QrCodeImage';
 
@@ -33,8 +34,8 @@ interface CheckoutScreenProps {
   setNewCustPhone: (v: string) => void;
   handleAddNewCustomer: (e: React.FormEvent) => void;
   pointsToEarn: number;
-  paymentMethod: 'cash' | 'qr' | 'card';
-  setPaymentMethod: (m: 'cash' | 'qr' | 'card') => void;
+  paymentMethod: SimpleMethod;
+  setPaymentMethod: (m: SimpleMethod) => void;
   cashPadInput: string;
   cashChangeDue: number;
   handleCashPadPress: (v: string) => void;
@@ -42,17 +43,18 @@ interface CheckoutScreenProps {
   setCashChangeDue: (v: number) => void;
   processing: boolean;
   onBack: () => void;
-  onComplete: (method: 'cash' | 'qr' | 'card') => void;
+  onComplete: (method: SimpleMethod) => void;
   playBeep: (success: boolean) => void;
   /** Tài khoản ngân hàng nhận tiền (dùng tài khoản mặc định để hiện QR chuyển khoản). */
   bankAccounts?: BankAccount[];
   qrMemo?: string;
 }
 
-const paymentMethods: { id: 'cash' | 'qr' | 'card'; label: string; icon: typeof Banknote }[] = [
+const paymentMethods: { id: SimpleMethod; label: string; icon: typeof Banknote }[] = [
   { id: 'cash', label: 'Tiền mặt', icon: Banknote },
   { id: 'qr', label: 'Quét mã QR', icon: QrCode },
-  { id: 'card', label: 'Thẻ ngân hàng', icon: CreditCard }
+  { id: 'card', label: 'Thẻ ngân hàng', icon: CreditCard },
+  { id: 'wallet', label: 'Ví điện tử', icon: Wallet },
 ];
 
 /** Màn hình Thanh toán độc lập — tách khỏi màn hình chọn món, theo đúng luồng thao tác trong bộ thiết kế F&B. */
@@ -100,7 +102,7 @@ export default function CheckoutScreen({
   const [showDiscountVat, setShowDiscountVat] = React.useState(discountInput > 0 || vatPercent > 0);
   const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
 
-  const handlePickPaymentMethod = (id: 'cash' | 'qr' | 'card') => {
+  const handlePickPaymentMethod = (id: SimpleMethod) => {
     setPaymentMethod(id);
     if (id !== 'cash') {
       setCashPadInput(grandTotal.toString());
@@ -374,6 +376,14 @@ export default function CheckoutScreen({
             <div className="pt-2 border-t border-outline-variant text-center space-y-2">
               <div className="w-full min-h-16 rounded-2xl bg-surface-container flex items-center justify-center gap-2 text-on-surface-variant">
                  Chờ quẹt / chạm thẻ trên máy POS
+              </div>
+            </div>
+          )}
+
+          {paymentMethod === 'wallet' && (
+            <div className="pt-2 border-t border-outline-variant text-center space-y-2">
+              <div className="w-full min-h-16 rounded-2xl bg-surface-container flex items-center justify-center gap-2 px-3 text-on-surface-variant">
+                 Khách thanh toán {grandTotal.toLocaleString('vi-VN')} đ bằng ví điện tử. Xác nhận khi đã nhận tiền.
               </div>
             </div>
           )}

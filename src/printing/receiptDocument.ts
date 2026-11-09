@@ -138,7 +138,7 @@ export function buildReceiptDocument(input: ReceiptInput): ReceiptDocument {
       for (const payment of order.payments) row(`${PAYMENT_LABELS[payment.method]}:`, formatMoney(payment.amount), { size: 'small' });
       row('Khách đưa (kết hợp):', formatMoney(order.paidAmount), { size: 'small' });
     } else {
-      const methodLabel = order.paymentMethod === 'cash' ? 'Tiền mặt' : order.paymentMethod === 'qr' ? 'Chuyển khoản QR' : 'Thẻ ngân hàng';
+      const methodLabel = order.paymentMethod === 'cash' ? 'Tiền mặt' : order.paymentMethod === 'qr' ? 'Chuyển khoản QR' : order.paymentMethod === 'wallet' ? 'Ví điện tử' : 'Thẻ ngân hàng';
       row(`Khách đưa (${methodLabel}):`, formatMoney(order.paidAmount), { size: 'small' });
     }
     row('Tiền trả lại:', formatMoney(order.changeAmount), { size: 'small' });

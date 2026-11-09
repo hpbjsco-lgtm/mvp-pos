@@ -40,7 +40,7 @@ export function buildLedger(orders: Order[], vouchers: CashVoucher[], accounts: 
   for (const o of orders) {
     const voided = (o.status || 'completed') === 'void';
     getOrderPayments(o).forEach((p, i) => {
-      const fund: FundType = p.method === 'cash' ? 'cash' : 'bank';
+      const fund: FundType = p.method === 'cash' ? 'cash' : p.method === 'wallet' ? 'wallet' : 'bank';
       entries.push({
         id: `sale-${o.id}-${i}`,
         code: o.orderNumber,

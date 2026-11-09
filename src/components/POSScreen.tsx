@@ -19,6 +19,7 @@ import BankAccountsDialog from './BankAccountsDialog';
 import { buildTransferInfo } from '../utils/transferInfo';
 import { printKitchenTicketIfEnabled } from '../printing/kitchenPrinting';
 import { createDocumentNumber } from '../sync/documentNumbers';
+import { PAYMENT_METHOD_OF, type SimpleMethod } from '../utils/payments';
 import { applyLineEditToKitchen, isKitchenTicketOpen, moveKitchenPortions, relabelKitchenTickets, removePortionsFromKitchen, type KitchenEditableField } from '../utils/kitchenSync';
 import {
   OrderOptionsMenu, OptionIcons, MergeTablesDialog, TransferTableDialog, SplitMergeOrderDialog,
@@ -195,7 +196,7 @@ export default function POSScreen({
   const currentCart = simCarts[currentCartId] || [];
 
   // Phương thức thanh toán đang chọn trên màn Checkout
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'qr' | 'card'>('cash');
+  const [paymentMethod, setPaymentMethod] = useState<SimpleMethod>('cash');
 
   // Giảm giá & Thuế VAT áp dụng cho đơn hiện tại
   const [discountInput, setDiscountInput] = useState<number>(0);
@@ -823,7 +824,7 @@ export default function POSScreen({
   };
 
   // Execute checkout and finalize order payment
-  const handleCheckoutSubmit = (method: 'cash' | 'qr' | 'card' | 'mixed', mixed?: { parts: PaymentPart[]; received: number; change: number }, bankAccountId?: string) => {
+  const handleCheckoutSubmit = (method: SimpleMethod | 'mixed', mixed?: { parts: PaymentPart[]; received: number; change: number }, bankAccountId?: string) => {
     if (currentCart.length === 0) {
       playBeep(false);
       return;
@@ -942,12 +943,12 @@ export default function POSScreen({
         taxAmount,
         totalAmount: grandTotal,
         paymentMethod: method === 'mixed'
-          ? (mixed && mixed.parts.length > 1 ? PaymentMethod.MIXED : (mixed?.parts[0]?.method === 'qr' ? PaymentMethod.QR : mixed?.parts[0]?.method === 'card' ? PaymentMethod.CARD : PaymentMethod.CASH))
-          : method === 'cash' ? PaymentMethod.CASH : method === 'qr' ? PaymentMethod.QR : PaymentMethod.CARD,
+          ? (mixed && mixed.parts.length > 1 ? PaymentMethod.MIXED : PAYMENT_METHOD_OF[mixed?.parts[0]?.method ?? 'cash'])
+          : PAYMENT_METHOD_OF[method],
         // Luôn ghi chi tiết khoản thanh toán để sổ quỹ biết tiền vào quỹ nào / tài khoản nào
         payments: method === 'mixed' && mixed
-          ? mixed.parts.map(p => (p.method === 'cash' ? p : { ...p, bankAccountId }))
-          : [{ method: method as 'cash' | 'qr' | 'card', amount: grandTotal, ...(method !== 'cash' && bankAccountId ? { bankAccountId } : {}) }],
+          ? mixed.parts.map(p => (p.method === 'cash' || p.method === 'wallet' ? p : { ...p, bankAccountId }))
+          : [{ method: method as SimpleMethod, amount: grandTotal, ...(method !== 'cash' && method !== 'wallet' && bankAccountId ? { bankAccountId } : {}) }],
         paidAmount: method === 'mixed' && mixed ? mixed.received : method === 'cash' ? (parseInt(cashPadInput) || grandTotal) : grandTotal,
         changeAmount: method === 'mixed' && mixed ? mixed.change : method === 'cash' ? cashChangeDue : 0,
         staffId: fbUserProfile?.uid || 'staff-01',

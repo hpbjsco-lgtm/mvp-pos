@@ -95,3 +95,14 @@ describe('ledger counterparty of a sale', () => {
     expect(buildLedger([sale({})], [], [])[0].counterparty).toBe('Khách lẻ');
   });
 });
+
+describe('wallet sales in the cashbook', () => {
+  it('goes to the wallet fund without a bank account, while transfers still go to the bank', () => {
+    const entries = buildLedger([order('W', 90000, [{ method: 'wallet', amount: 40000 }, { method: 'qr', amount: 50000 }])], [], [acc('b1', true)]);
+    const wallet = entries.find(e => e.fund === 'wallet')!;
+    expect(wallet).toMatchObject({ amount: 40000, kind: 'receipt', status: 'paid' });
+    expect(wallet.bankAccountId).toBeUndefined();
+    expect(entries.find(e => e.fund === 'bank')).toMatchObject({ amount: 50000, bankAccountId: 'b1' });
+  });
+});
+

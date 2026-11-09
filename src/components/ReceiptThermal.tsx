@@ -242,7 +242,7 @@ export default function ReceiptThermal({
                 </>
               ) : (
               <div className="flex justify-between text-[10px] text-on-surface-variant font-normal">
-                <span>Khách đưa ({order.paymentMethod === 'cash' ? 'Tiền mặt' : order.paymentMethod === 'qr' ? 'Chuyển khoản QR' : 'Thẻ ngân hàng'}):</span>
+                <span>Khách đưa ({order.paymentMethod === 'cash' ? 'Tiền mặt' : order.paymentMethod === 'qr' ? 'Chuyển khoản QR' : order.paymentMethod === 'wallet' ? 'Ví điện tử' : 'Thẻ ngân hàng'}):</span>
                 <span>{order.paidAmount.toLocaleString('vi-VN')} đ</span>
               </div>
               )}

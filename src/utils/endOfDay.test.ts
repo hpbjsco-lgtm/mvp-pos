@@ -87,3 +87,17 @@ describe('computeEndOfDay', () => {
     expect(eodRange('yesterday').to).toBeLessThan(eodRange('today').from);
   });
 });
+
+describe('wallet in the end-of-day report', () => {
+  it('shows sales paid by wallet, also inside a mixed payment', () => {
+    const report = computeEndOfDay({
+      orders: [
+        order('W1', { totalAmount: 30000, payments: [{ method: 'wallet', amount: 30000 }], paymentMethod: PaymentMethod.WALLET }),
+        order('W2', { totalAmount: 50000, payments: [{ method: 'cash', amount: 20000 }, { method: 'wallet', amount: 30000 }], paymentMethod: PaymentMethod.MIXED }),
+      ],
+      vouchers: [], accounts: [], carts: {}, products: [], tables: [], zones: [], ...range,
+    } as Parameters<typeof computeEndOfDay>[0]);
+    expect(report.salesByMethod).toMatchObject({ wallet: 60000, cash: 20000, total: 80000 });
+  });
+});
+

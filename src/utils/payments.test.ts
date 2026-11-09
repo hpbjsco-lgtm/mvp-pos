@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { applyMixedPayment, getOrderPayments } from './payments';
+import { applyMixedPayment, getOrderPayments, PAYMENT_LABELS, PAYMENT_METHOD_OF } from './payments';
 import { PaymentMethod } from '../types';
 
 describe('applyMixedPayment', () => {
@@ -36,3 +36,25 @@ describe('getOrderPayments', () => {
     expect(getOrderPayments({ paymentMethod: PaymentMethod.MIXED, totalAmount: 3, payments })).toBe(payments);
   });
 });
+
+describe('wallet (ví điện tử)', () => {
+  it('counts as non-cash in a mixed payment and is recorded as its own part', () => {
+    const r = applyMixedPayment(100000, { cash: 40000, qr: 0, card: 0, wallet: 60000 });
+    expect(r.valid).toBe(true);
+    expect(r.parts).toEqual([{ method: 'cash', amount: 40000 }, { method: 'wallet', amount: 60000 }]);
+    expect(r.change).toBe(0);
+  });
+  it('cannot exceed the total together with transfer and card, and cash must cover the rest', () => {
+    expect(applyMixedPayment(100000, { cash: 0, qr: 50000, card: 30000, wallet: 30000 }).valid).toBe(false);
+    expect(applyMixedPayment(100000, { cash: 10000, qr: 0, card: 0, wallet: 60000 }).error).toContain('Còn thiếu 30.000');
+  });
+  it('keeps working without the wallet field, as old callers do', () => {
+    expect(applyMixedPayment(100000, { cash: 100000, qr: 0, card: 0 }).parts).toEqual([{ method: 'cash', amount: 100000 }]);
+  });
+  it('an order paid in full by wallet is one wallet payment, also for old-style orders without a list', () => {
+    expect(getOrderPayments({ payments: undefined, paymentMethod: PaymentMethod.WALLET, totalAmount: 25000 })).toEqual([{ method: 'wallet', amount: 25000 }]);
+    expect(PAYMENT_LABELS.wallet).toBe('Ví điện tử');
+    expect(PAYMENT_METHOD_OF.wallet).toBe(PaymentMethod.WALLET);
+  });
+});
+

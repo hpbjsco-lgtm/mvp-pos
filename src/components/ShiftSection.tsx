@@ -38,12 +38,13 @@ export default function ShiftSection({
     ))
     : [];
   // Doanh thu theo phương thức: tính theo từng khoản thanh toán (đơn thanh toán kết hợp được tách ra)
-  const revenueBy = (method: 'cash' | 'card' | 'qr') =>
+  const revenueBy = (method: 'cash' | 'card' | 'qr' | 'wallet') =>
     shiftOrders.reduce((sum, o) => sum + getOrderPayments(o).filter(p => p.method === method).reduce((s, p) => s + p.amount, 0), 0);
   const cashRevenue = revenueBy('cash');
   const cardRevenue = revenueBy('card');
   const qrRevenue = revenueBy('qr');
-  const totalRevenue = cashRevenue + cardRevenue + qrRevenue;
+  const walletRevenue = revenueBy('wallet');
+  const totalRevenue = cashRevenue + cardRevenue + qrRevenue + walletRevenue;
   const expectedCash = (openShift?.openingCash || 0) + cashRevenue;
 
   const handleOpenShift = (e: React.FormEvent) => {
@@ -149,6 +150,7 @@ export default function ShiftSection({
               <div className={tile}><p className="text-lg text-on-surface">Tiền mặt</p><p className="text-xl font-bold">{cashRevenue.toLocaleString('vi-VN')}đ</p></div>
               <div className={tile}><p className="text-lg text-on-surface">Chuyển khoản / QR</p><p className="text-xl font-bold">{qrRevenue.toLocaleString('vi-VN')}đ</p></div>
               <div className={tile}><p className="text-lg text-on-surface">Thẻ tín dụng</p><p className="text-xl font-bold">{cardRevenue.toLocaleString('vi-VN')}đ</p></div>
+              <div className={tile}><p className="text-lg text-on-surface">Ví điện tử</p><p className="text-xl font-bold">{walletRevenue.toLocaleString('vi-VN')}đ</p></div>
               <div className={tile}><p className="text-lg text-on-surface">Quỹ đầu ca</p><p className="text-xl font-bold">{openShift.openingCash.toLocaleString('vi-VN')}đ</p></div>
               <div className="rounded-xl bg-primary-container p-4 space-y-1">
                 <p className="text-lg text-on-primary-container">Tổng doanh thu tạm tính</p>

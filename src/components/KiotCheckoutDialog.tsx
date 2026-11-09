@@ -9,7 +9,7 @@ import { BankAccount, Customer, PaymentPart } from '../types';
 import { buildVietQRPayload } from '../utils/vietqr';
 import { findBank } from '../utils/banks';
 import QrCodeImage from './QrCodeImage';
-import { applyMixedPayment, PAYMENT_LABELS } from '../utils/payments';
+import { applyMixedPayment, PAYMENT_LABELS, type MixedInput, type SimpleMethod } from '../utils/payments';
 
 export interface CheckoutLine {
   name: string;
@@ -36,15 +36,15 @@ interface KiotCheckoutDialogProps {
   selectedCustomerId: string;
   setSelectedCustomerId: (id: string) => void;
   pointsToEarn: number;
-  paymentMethod: 'cash' | 'qr' | 'card';
-  setPaymentMethod: (m: 'cash' | 'qr' | 'card') => void;
+  paymentMethod: SimpleMethod;
+  setPaymentMethod: (m: SimpleMethod) => void;
   cashPadInput: string;
   setCashPadInput: (v: string) => void;
   setCashChangeDue: (v: number) => void;
   processing: boolean;
   onClose: () => void;
   /** method 'mixed' kèm danh sách khoản thanh toán + tiền khách đưa tổng cộng khi thanh toán kết hợp. */
-  onPay: (method: 'cash' | 'qr' | 'card' | 'mixed', mixed?: { parts: PaymentPart[]; received: number; change: number }, bankAccountId?: string) => void;
+  onPay: (method: SimpleMethod | 'mixed', mixed?: { parts: PaymentPart[]; received: number; change: number }, bankAccountId?: string) => void;
   bankAccounts: BankAccount[];
   /** Mở hộp thoại quản lý / thêm tài khoản ngân hàng. */
   onManageBankAccounts: () => void;
@@ -84,7 +84,7 @@ export default function KiotCheckoutDialog(props: KiotCheckoutDialogProps) {
   const [touched, setTouched] = useState(false);
   // Thanh toán kết hợp
   const [mixedOpen, setMixedOpen] = useState(false);
-  const [mixed, setMixed] = useState<{ cash: number; qr: number; card: number } | null>(null);
+  const [mixed, setMixed] = useState<MixedInput | null>(null);
   const mixedResult = mixed ? applyMixedPayment(grandTotal, mixed) : null;
 
   // Tài khoản nhận chuyển khoản + mã QR
@@ -159,8 +159,8 @@ export default function KiotCheckoutDialog(props: KiotCheckoutDialogProps) {
     g.items.push({ line, index });
   });
 
-  const methods: { id: 'cash' | 'qr' | 'card'; label: string }[] = [
-    { id: 'cash', label: 'Tiền mặt' }, { id: 'qr', label: 'Chuyển khoản' }, { id: 'card', label: 'Thẻ' },
+  const methods: { id: SimpleMethod; label: string }[] = [
+    { id: 'cash', label: 'Tiền mặt' }, { id: 'qr', label: 'Chuyển khoản' }, { id: 'card', label: 'Thẻ' }, { id: 'wallet', label: 'Ví điện tử' },
   ];
   const suggestions = paymentMethod === 'cash' ? suggestAmounts(grandTotal) : [];
   const qrAmount = usingMixed ? (mixedResult!.parts.find(p => p.method === 'qr')?.amount || 0) : paymentMethod === 'qr' ? grandTotal : 0;
@@ -386,6 +386,9 @@ export default function KiotCheckoutDialog(props: KiotCheckoutDialogProps) {
               {!usingMixed && paymentMethod === 'card' && (
                 <p className="text-sm text-on-surface-variant">Quẹt thẻ trên máy POS ngân hàng số tiền <strong>{money(grandTotal)} đ</strong>, rồi xác nhận.</p>
               )}
+              {!usingMixed && paymentMethod === 'wallet' && (
+                <p className="text-sm text-on-surface-variant">Khách thanh toán <strong>{money(grandTotal)} đ</strong> bằng ví điện tử. Thu ngân xác nhận khi đã nhận tiền rồi bấm Thanh toán.</p>
+              )}
             </div>
 
             <div className="flex items-center justify-between text-base">
@@ -434,22 +437,23 @@ export default function KiotCheckoutDialog(props: KiotCheckoutDialogProps) {
 /** Hộp thoại "Kết hợp phương thức": mỗi phương thức một ô tiền; tổng phải đủ số khách cần trả. */
 function MixedPaymentDialog({ total, initial, onCancel, onConfirm }: {
   total: number;
-  initial: { cash: number; qr: number; card: number } | null;
+  initial: MixedInput | null;
   onCancel: () => void;
-  onConfirm: (v: { cash: number; qr: number; card: number }) => void;
+  onConfirm: (v: MixedInput) => void;
 }) {
-  const [on, setOn] = useState({ cash: initial ? initial.cash > 0 : true, qr: initial ? initial.qr > 0 : true, card: initial ? initial.card > 0 : false });
-  const [amt, setAmt] = useState({ cash: initial?.cash ?? 0, qr: initial?.qr ?? 0, card: initial?.card ?? 0 });
+  const [on, setOn] = useState({ cash: initial ? initial.cash > 0 : true, qr: initial ? initial.qr > 0 : true, card: initial ? initial.card > 0 : false, wallet: initial ? (initial.wallet ?? 0) > 0 : false });
+  const [amt, setAmt] = useState({ cash: initial?.cash ?? 0, qr: initial?.qr ?? 0, card: initial?.card ?? 0, wallet: initial?.wallet ?? 0 });
 
-  const value = { cash: on.cash ? amt.cash : 0, qr: on.qr ? amt.qr : 0, card: on.card ? amt.card : 0 };
+  const value = { cash: on.cash ? amt.cash : 0, qr: on.qr ? amt.qr : 0, card: on.card ? amt.card : 0, wallet: on.wallet ? amt.wallet : 0 };
+  const entered = value.cash + value.qr + value.card + value.wallet;
   const result = applyMixedPayment(total, value);
-  const remaining = Math.max(0, total - (value.cash + value.qr + value.card));
+  const remaining = Math.max(0, total - entered);
 
-  const rows: { key: 'cash' | 'qr' | 'card'; label: string }[] = [
-    { key: 'cash', label: 'Tiền mặt' }, { key: 'qr', label: 'Chuyển khoản' }, { key: 'card', label: 'Thẻ' },
+  const rows: { key: SimpleMethod; label: string }[] = [
+    { key: 'cash', label: 'Tiền mặt' }, { key: 'qr', label: 'Chuyển khoản' }, { key: 'card', label: 'Thẻ' }, { key: 'wallet', label: 'Ví điện tử' },
   ];
 
-  const toggle = (k: 'cash' | 'qr' | 'card') => {
+  const toggle = (k: SimpleMethod) => {
     const nowOn = !on[k];
     setOn({ ...on, [k]: nowOn });
     // Bật thêm phương thức thì điền sẵn phần còn thiếu
@@ -466,7 +470,7 @@ function MixedPaymentDialog({ total, initial, onCancel, onConfirm }: {
 
         <div className="space-y-1 text-base">
           <p className="flex justify-between"><span className="font-bold">Tổng thanh toán</span><strong>{money(total)}</strong></p>
-          <p className="flex justify-between"><span className="font-bold">Khách thanh toán</span><strong>{money(value.cash + value.qr + value.card)}</strong></p>
+          <p className="flex justify-between"><span className="font-bold">Khách thanh toán</span><strong>{money(entered)}</strong></p>
         </div>
 
         <div className="space-y-2">
@@ -502,7 +506,7 @@ function MixedPaymentDialog({ total, initial, onCancel, onConfirm }: {
           ))}
         </div>
 
-        {!result.valid && value.cash + value.qr + value.card > 0 && (
+        {!result.valid && entered > 0 && (
           <p className="text-sm font-semibold text-error">{result.error}</p>
         )}
         {result.valid && result.change > 0 && (

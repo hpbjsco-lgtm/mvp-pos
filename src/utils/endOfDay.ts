@@ -85,8 +85,8 @@ export function computeEndOfDay(input: EodInput): EodReport {
 
   // Thu bán hàng theo phương thức
   const parts = done.flatMap(o => getOrderPayments(o));
-  const methodSum = (m: 'cash' | 'qr' | 'card') => sum(parts.filter(p => p.method === m).map(p => p.amount));
-  const salesByMethod = { total: sum(parts.map(p => p.amount)), cash: methodSum('cash'), transfer: methodSum('qr'), card: methodSum('card'), wallet: 0 };
+  const methodSum = (m: 'cash' | 'qr' | 'card' | 'wallet') => sum(parts.filter(p => p.method === m).map(p => p.amount));
+  const salesByMethod = { total: sum(parts.map(p => p.amount)), cash: methodSum('cash'), transfer: methodSum('qr'), card: methodSum('card'), wallet: methodSum('wallet') };
 
   // Phiếu thu / chi lập tay theo quỹ
   const ledger = buildLedger([], periodVouchers, accounts).filter(e => e.status === 'paid');
