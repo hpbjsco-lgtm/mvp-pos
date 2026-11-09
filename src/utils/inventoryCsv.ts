@@ -33,7 +33,7 @@ const COMMENT = '#';
 const yesNo = (value: boolean) => (value ? 'Có' : 'Không');
 const GROUP_LABELS = { ingredient: 'Nguyên vật liệu', tool: 'Công cụ dụng cụ' } as const;
 const TYPE_LABELS: Record<InventoryTransactionType, string> = {
-  [InventoryTransactionType.IMPORT]: 'Nhập', [InventoryTransactionType.EXPORT]: 'Xuất', [InventoryTransactionType.ADJUSTMENT]: 'Điều chỉnh',
+  [InventoryTransactionType.IMPORT]: 'Nhập', [InventoryTransactionType.EXPORT]: 'Xuất', [InventoryTransactionType.ADJUSTMENT]: 'Điều chỉnh', [InventoryTransactionType.STOCKTAKE]: 'Kiểm kho',
 };
 
 /**

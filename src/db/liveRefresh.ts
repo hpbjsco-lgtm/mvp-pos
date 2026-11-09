@@ -22,6 +22,8 @@ export interface ReloadPlan {
   keys: CollectionKey[];
   /** True when the carts must be reloaded. */
   carts: boolean;
+  /** True when the store row (its settings) must be reloaded. */
+  store: boolean;
 }
 
 /** Tables that make up the carts of the tables and of takeaway orders. */
@@ -29,7 +31,7 @@ const CART_TABLES = new Set(['carts', 'cart_items']);
 
 /**
  * Works out what to reload after the given tables changed. Tables the app does not keep in memory
- * (for example the change log or the activity log) need no reload.
+ * (for example the change log or the activity log) need no reload. A change of the store row reloads the store settings.
  *
  * @param tables Table names reported by the server.
  * @returns The collections and carts to reload.
@@ -40,7 +42,7 @@ export function planReload(tables: string[]): ReloadPlan {
     const spec = COLLECTIONS[key];
     return changed.has(spec.table) || (spec.children !== undefined && changed.has(spec.children.table));
   });
-  return { keys, carts: tables.some((table) => CART_TABLES.has(table)) };
+  return { keys, carts: tables.some((table) => CART_TABLES.has(table)), store: tables.includes('stores') };
 }
 
 /**

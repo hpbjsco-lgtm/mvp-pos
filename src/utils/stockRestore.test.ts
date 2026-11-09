@@ -55,10 +55,26 @@ describe('planStockRestore', () => {
     expect(plan.batchQuantities.size).toBe(0);
   });
 
-  it('knows when the stock of the order was already put back', () => {
-    const restore: InventoryTransaction = { ...exportVoucher('r1', 'o1', []), type: InventoryTransactionType.ADJUSTMENT, note: `${STOCK_RESTORE_NOTE_PREFIX}HD00001` };
-    const plan = planStockRestore('o1', [exportVoucher('t1', 'o1', [{ productId: 'milk', batchId: 'b1', batchCode: 'L1', quantity: 1 }]), restore], [batch('b1', 'milk', 'L1')]);
-    expect(plan.alreadyRestored).toBe(true);
+  it('knows when the stock of the order was already put back, and returns only what is still out', () => {
+    const exported = exportVoucher('t1', 'o1', [{ productId: 'milk', batchId: 'b1', batchCode: 'L1', quantity: 3 }]);
+    const restoreOf = (quantity: number): InventoryTransaction => ({
+      ...exportVoucher('r1', 'o1', [{ productId: 'milk', batchId: 'b1', batchCode: 'L1', quantity }]), type: InventoryTransactionType.ADJUSTMENT, note: `${STOCK_RESTORE_NOTE_PREFIX}HD00001`,
+    });
+    const all = planStockRestore('o1', [exported, restoreOf(3)], [batch('b1', 'milk', 'L1')]);
+    expect(all.alreadyRestored).toBe(true);
+    expect(all.batchQuantities.size).toBe(0);
+    const part = planStockRestore('o1', [exported, restoreOf(1)], [batch('b1', 'milk', 'L1')]);
+    expect(part.alreadyRestored).toBe(false);
+    expect(part.batchQuantities.get('b1')).toBe(2);
+    expect(part.adjustmentItems[0].quantity).toBe(2);
+  });
+
+  it('counts what the kitchen put back when it cancelled a dish, so cancelling the order does not return it twice', () => {
+    const exported = exportVoucher('t1', 'o1', [{ productId: 'milk', batchId: 'b1', batchCode: 'L1', quantity: 3 }]);
+    const kitchenRestore: InventoryTransaction = {
+      ...exportVoucher('r1', 'o1', [{ productId: 'milk', batchId: 'b1', batchCode: 'L1', quantity: 1 }]), type: InventoryTransactionType.ADJUSTMENT, note: 'Hoàn kho do hủy món Bàn 1',
+    };
+    expect(planStockRestore('o1', [exported, kitchenRestore], [batch('b1', 'milk', 'L1')]).batchQuantities.get('b1')).toBe(2);
   });
 
   it('does not treat an ordinary stock adjustment of the same order as a restore', () => {

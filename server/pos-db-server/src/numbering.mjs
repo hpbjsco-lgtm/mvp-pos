@@ -17,6 +17,7 @@ export const NUMBER_KINDS = Object.freeze({
   export: { prefix: 'PXK', pad: 4, table: 'inventory_transactions', column: 'transaction_number', where: "type = 'export'" },
   receipt: { prefix: 'PT', pad: 4, table: 'cash_vouchers', column: 'code', where: "voucher_type = 'receipt'" },
   payment: { prefix: 'PC', pad: 4, table: 'cash_vouchers', column: 'code', where: "voucher_type = 'payment'" },
+  stocktake: { prefix: 'KK', pad: 4, table: 'inventory_transactions', column: 'transaction_number', where: "type = 'stocktake'" },
 });
 
 /**

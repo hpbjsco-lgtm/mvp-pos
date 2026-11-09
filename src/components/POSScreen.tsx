@@ -10,7 +10,7 @@ import {
   LayoutGrid, UtensilsCrossed, Landmark, ShoppingCart, ArrowRight,
   ArrowLeft, MoreVertical, Users, Timer, CalendarClock, Link2, History
 } from 'lucide-react';
-import { BankAccount, InventoryTransaction, InventoryTransactionType, PaymentPart, Product, DiningTable, Zone, KitchenItem, Order, PaymentMethod, TableStatus, KitchenStatus, InventoryBatch, Customer } from '../types';
+import { BankAccount, InventoryTransaction, InventoryTransactionType, PaymentPart, Product, DiningTable, Zone, KitchenItem, Order, PaymentMethod, TableStatus, KitchenStatus, InventoryBatch, Customer, StockPick } from '../types';
 import TableMap from './TableMap';
 import TableBoard from './TableBoard';
 import KiotTableGrid from './KiotTableGrid';
@@ -19,6 +19,9 @@ import BankAccountsDialog from './BankAccountsDialog';
 import { buildTransferInfo } from '../utils/transferInfo';
 import { printKitchenTicketIfEnabled } from '../printing/kitchenPrinting';
 import { createDocumentNumber } from '../sync/documentNumbers';
+import {
+  applyRestore, buildStockVoucher, deductForLines, describeShortages, KITCHEN_RESTORE_NOTE_PREFIX, settleKitchenStock, unstockedLines, type KitchenRestore,
+} from '../utils/kitchenStock';
 import { PAYMENT_METHOD_OF, type SimpleMethod } from '../utils/payments';
 import { applyLineEditToKitchen, isKitchenTicketOpen, moveKitchenPortions, relabelKitchenTickets, removePortionsFromKitchen, type KitchenEditableField } from '../utils/kitchenSync';
 import {
@@ -32,7 +35,8 @@ import { categoryPlaceholderColor } from '../utils/categoryColor';
 import { useMediaQuery } from '../utils/useMediaQuery';
 import { changeTopping, lineUnitPrice, toppingsFor, toppingsText } from '../utils/toppings';
 import { defaultSize, hasSizes, priceLabel } from '../utils/sizes';
-import { isDrinkProduct, planDirectDeduction, planRecipeDeduction } from '../utils/recipes';
+import { isDrinkProduct } from '../utils/recipes';
+import { lineUnitCost, orderCost } from '../utils/costing';
 import { sortByBestSeller } from '../utils/salesRanking';
 import {
   lineKey, isVirtualCartId, resolvePrimaryId, getGroupLabel, getGroupTables, getTableStats, formatElapsed,
@@ -80,6 +84,8 @@ interface POSScreenProps {
   fbUserProfile: any;
   /** Store the orders belong to; document numbers are issued per store. */
   storeId: string;
+  /** False when the store left stock to imports, exports and counts: sending to the kitchen and paying then take no stock. */
+  autoStockDeduction: boolean;
   fbStoreProfile: any;
   triggerBeep: (success: boolean) => void;
   simBatches: InventoryBatch[];
@@ -115,6 +121,7 @@ export default function POSScreen({
   simUserRole,
   fbUserProfile,
   storeId,
+  autoStockDeduction,
   fbStoreProfile,
   triggerBeep,
   simBatches,
@@ -354,18 +361,65 @@ export default function POSScreen({
       && (virtual ? k.tableNumber === label : (k.tableNumber || '').split(' + ').some(n => names.has(n)));
   };
 
+  /** Latest kitchen tickets, kept current between renders so two changes in one action both apply. */
+  const kitchenRef = useRef<KitchenItem[]>(simKitchenItems);
+  kitchenRef.current = simKitchenItems;
+
+  /**
+   * Puts stock back for dishes whose kitchen tickets were cancelled or reduced: the quantities return to the batches
+   * they were taken from, and an adjustment voucher records it for each send-to-kitchen action.
+   *
+   * @param restores Stock to put back, per send action.
+   */
+  const restoreKitchenStock = async (restores: KitchenRestore[]) => {
+    for (const restore of restores) {
+      for (const kind of ['ingredient', 'product'] as const) {
+        const picks = restore.picks.filter(pick => pick.kind === kind);
+        if (picks.length === 0) continue;
+        (kind === 'ingredient' ? setSimIngredientBatches : setSimBatches)(prev => applyRestore(prev, picks));
+        const stamp = Date.now();
+        const number = await createDocumentNumber('export', storeId, () => `PXK-${stamp.toString().slice(-5)}`);
+        (kind === 'ingredient' ? setSimIngredientTransactions : setSimTransactions)(prev => [buildStockVoucher({
+          id: `TX-${stamp}-${kind === 'ingredient' ? 'RI' : 'RP'}-${restore.sendId}`,
+          transactionNumber: number.number,
+          tempCode: number.tempNumber || undefined,
+          staffId: fbUserProfile?.uid || 'staff-01',
+          note: `${KITCHEN_RESTORE_NOTE_PREFIX}${restore.tableNumber}`.trim(),
+          createdAt: new Date().toISOString(),
+          kitchenBatchId: restore.sendId,
+        }, InventoryTransactionType.ADJUSTMENT, picks), ...prev]);
+      }
+    }
+  };
+
+  /**
+   * Changes the kitchen tickets and keeps stock in line: dishes that were cancelled or reduced give their stock back.
+   * Every change to kitchen tickets on this screen goes through here.
+   *
+   * @param change Returns the new list of tickets from the current one.
+   */
+  const changeKitchenItems = (change: (items: KitchenItem[]) => KitchenItem[]) => {
+    const next = change(kitchenRef.current);
+    const settled = simStoreType === 'fnb' ? settleKitchenStock(next) : { items: next, restores: [] as KitchenRestore[] };
+    kitchenRef.current = settled.items;
+    setSimKitchenItems(() => settled.items);
+    if (settled.restores.length > 0) {
+      restoreKitchenStock(settled.restores).catch(error => alert(`Không hoàn được kho cho món đã hủy: ${(error as Error).message}`));
+    }
+  };
+
   /** Takes portions of a line off its kitchen tickets so the kitchen screen keeps the same count as the cart. */
   const removeKitchenPortions = (line: CartLine, portions: number) => {
     if (simStoreType !== 'fnb' || portions <= 0) return;
-    setSimKitchenItems(prev => removePortionsFromKitchen(
-      prev, kitchenTicketBelongsToLine(line), portions, fbUserProfile?.name || '', new Date().toISOString(),
+    changeKitchenItems(items => removePortionsFromKitchen(
+      items, kitchenTicketBelongsToLine(line), portions, fbUserProfile?.name || '', new Date().toISOString(),
     ));
   };
 
   // Đánh dấu "Đã hủy" các món bếp chưa phục vụ của đơn hiện tại (có thể giới hạn theo một dòng món)
   const cancelKitchenItems = (line?: CartLine) => {
     const belongsToLine = line ? kitchenTicketBelongsToLine(line) : undefined;
-    setSimKitchenItems(prev => prev.map(k => {
+    changeKitchenItems(items => items.map(k => {
       if (!isKitchenItemOfCurrentOrder(k) || !isKitchenActive(k)) return k;
       if (belongsToLine && !belongsToLine(k)) return k;
       return { ...k, status: KitchenStatus.CANCELLED, cancelledAt: new Date().toISOString(), cancelledBy: fbUserProfile?.name || '' };
@@ -483,7 +537,7 @@ export default function POSScreen({
   /** Shows a size / sugar / ice / note edit of a line already sent to the kitchen on the kitchen screen too. */
   const updateKitchenForLineEdit = (line: CartLine, field: KitchenEditableField, value: string) => {
     if (simStoreType !== 'fnb' || (line.sentQuantity || 0) <= 0) return;
-    setSimKitchenItems(prev => applyLineEditToKitchen(prev, kitchenTicketBelongsToLine(line), field, value));
+    changeKitchenItems(items => applyLineEditToKitchen(items, kitchenTicketBelongsToLine(line), field, value));
   };
 
   // Add individual order notes
@@ -541,7 +595,7 @@ export default function POSScreen({
     const mergedLabel = getGroupLabel(result.tables, currentCartId);
     const orders = [...new Set([currentCartId, ...otherIds].map(id => resolvePrimaryId(simTables, id)))]
       .map(id => kitchenOrderMatcher(simTables, id));
-    setSimKitchenItems(prev => orders.reduce((items, matches) => relabelKitchenTickets(items, matches, mergedLabel), prev));
+    changeKitchenItems(current => orders.reduce((items, matches) => relabelKitchenTickets(items, matches, mergedLabel), current));
     applyTableResult(result);
     logOperation('Màn hình bán hàng (POS)', 'Gộp bàn', { primary: currentCartId, merged: otherIds });
     setActiveDialog(null);
@@ -557,7 +611,7 @@ export default function POSScreen({
   const handleTransferTable = (toId: string) => {
     const result = transferTable(simTables, simCarts, currentCartId, toId);
     if (result.tables !== simTables) {
-      setSimKitchenItems(prev => relabelKitchenTickets(prev, kitchenOrderMatcher(simTables, currentCartId), getGroupLabel(result.tables, toId)));
+      changeKitchenItems(items => relabelKitchenTickets(items, kitchenOrderMatcher(simTables, currentCartId), getGroupLabel(result.tables, toId)));
     }
     applyTableResult(result);
     logOperation('Màn hình bán hàng (POS)', 'Chuyển bàn', { from: currentCartId, to: toId });
@@ -575,10 +629,10 @@ export default function POSScreen({
       .map(line => ({ line, portions: Math.min(line.sentQuantity || 0, Math.max(0, Math.min(selection[lineKey(line)] || 0, line.quantity))) }))
       .filter(move => move.portions > 0);
     if (moves.length > 0) {
-      setSimKitchenItems(prev => moves.reduce((items, { line, portions }) => moveKitchenPortions(
+      changeKitchenItems(current => moves.reduce((items, { line, portions }) => moveKitchenPortions(
         items, k => sourceOrder(k) && ticketMatchesLine(k, line), portions, destinationLabel,
         () => `K-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      ), prev));
+      ), current));
     }
     applyTableResult(result);
     logOperation('Màn hình bán hàng (POS)', 'Tách / ghép đơn', { from: currentCartId, to: toId, selection });
@@ -753,6 +807,32 @@ export default function POSScreen({
     playBeep(true);
   };
 
+  /**
+   * Writes the export vouchers of a send-to-kitchen action (one for ingredients, one for dishes with their own stock).
+   * They carry the send id until the order is paid, when they are linked to the order.
+   *
+   * @param sendId Id of the send action.
+   * @param picks Everything taken from stock by the action.
+   * @param short True when some item did not have enough stock.
+   */
+  const recordKitchenExport = async (sendId: string, picks: StockPick[], short: boolean) => {
+    for (const kind of ['ingredient', 'product'] as const) {
+      const ofKind = picks.filter(pick => pick.kind === kind);
+      if (ofKind.length === 0) continue;
+      const stamp = Date.now();
+      const number = await createDocumentNumber('export', storeId, () => `PXK-${stamp.toString().slice(-5)}`);
+      (kind === 'ingredient' ? setSimIngredientTransactions : setSimTransactions)(prev => [buildStockVoucher({
+        id: `TX-${stamp}-${kind === 'ingredient' ? 'KI' : 'KP'}-${sendId}`,
+        transactionNumber: number.number,
+        tempCode: number.tempNumber || undefined,
+        staffId: fbUserProfile?.uid || 'staff-01',
+        note: `Báo bếp ${selectedTableName}${short ? ' (thiếu tồn)' : ''}`,
+        createdAt: new Date().toISOString(),
+        kitchenBatchId: sendId,
+      }, InventoryTransactionType.EXPORT, ofKind), ...prev]);
+    }
+  };
+
   // Push Active order items to Kitchen monitor queue
   const handleSendToKitchen = async () => {
     if (currentCart.length === 0) {
@@ -771,9 +851,27 @@ export default function POSScreen({
       return;
     }
 
+    // F&B: kho trừ ngay khi báo bếp. Thiếu tồn thì chỉ cảnh báo (kho sẽ hiện số âm), không chặn.
+    const deduction = simStoreType === 'fnb' && autoStockDeduction
+      ? deductForLines(
+        unsent.map(({ item, delta }) => ({ productId: item.productId, quantity: delta, toppings: item.toppings })),
+        simProducts, simIngredients, { ingredientBatches: simIngredientBatches, batches: simBatches },
+      )
+      : null;
+    if (deduction && deduction.shortages.length > 0) {
+      const lines = describeShortages(deduction.shortages, (kind, productId) => {
+        const item = (kind === 'ingredient' ? simIngredients : simProducts).find(p => p.id === productId);
+        return { name: item?.name || productId, unit: item?.unit || '' };
+      });
+      if (!confirm(`Thiếu tồn kho:\n- ${lines.join('\n- ')}\n\nVẫn báo bếp? Kho sẽ hiển thị số âm.`)) {
+        playBeep(false);
+        return;
+      }
+    }
+
     // Mọi món của cùng một lần báo bếp dùng chung mã lô -> gom thành một mục trong lịch sử báo bếp
     const batchId = `NB-${Date.now()}`;
-    const itemsToSend: KitchenItem[] = unsent.map(({ item, delta }) => {
+    const itemsToSend: KitchenItem[] = unsent.map(({ item, delta }, index) => {
       const prod = simProducts.find(p => p.id === item.productId);
       return {
         id: `K-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
@@ -789,6 +887,8 @@ export default function POSScreen({
         sugarLevel: item.sugarLevel,
         iceLevel: item.iceLevel,
         toppings: toppingsText(item, simProducts) || undefined,
+        // Phiếu ghi số phần đã trừ kho và các lô đã trừ, để hoàn lại khi món bị hủy
+        ...(deduction ? { stockPortions: delta, stockPicks: deduction.picksPerLine[index] } : {}),
         createdAt: new Date().toISOString()
       };
     });
@@ -799,7 +899,14 @@ export default function POSScreen({
       [currentCartId]: (prev[currentCartId] || []).map(l => ({ ...l, sentQuantity: l.quantity }))
     }));
 
-    setSimKitchenItems(prev => [...itemsToSend, ...prev]);
+    kitchenRef.current = [...itemsToSend, ...kitchenRef.current];
+    setSimKitchenItems(() => kitchenRef.current);
+    if (deduction) {
+      setSimIngredientBatches(() => deduction.state.ingredientBatches);
+      setSimBatches(() => deduction.state.batches);
+      recordKitchenExport(batchId, deduction.picksPerLine.flat(), deduction.shortages.length > 0)
+        .catch(error => alert(`Đã báo bếp nhưng không ghi được phiếu xuất kho: ${(error as Error).message}`));
+    }
 
     // The dishes are already sent; a printer problem must not undo that, so it is only reported
     printKitchenTicketIfEnabled({
@@ -848,6 +955,8 @@ export default function POSScreen({
           name: prod.name,
           quantity: cartItem.quantity,
           price: lineUnitPrice(cartItem, simProducts),
+          // Cost set up for the dish and its toppings, kept on the order so later changes do not alter past profit
+          cost: lineUnitCost(cartItem, simProducts),
           toppings: (cartItem.toppings || []).map(t => {
             const tp = simProducts.find(p => p.id === t.productId);
             return { name: tp?.name || 'Topping', price: tp?.price || 0, quantity: t.quantity };
@@ -875,50 +984,44 @@ export default function POSScreen({
         }));
       }
 
-      // F&B: trừ kho theo công thức món chế biến (nguyên liệu, FEFO) và trừ tồn trực tiếp món thường có quản lý lô
+      // F&B: kho đã được trừ lúc báo bếp cho các phần đã báo; ở đây chỉ trừ các phần chưa báo bếp (số lượng - số phần đã trừ).
+      // Thiếu tồn thì vẫn trừ (kho hiện số âm), phần thiếu ghi chú trên phiếu.
       if (simStoreType === 'fnb') {
-        const sold = currentCart.map(l => ({ productId: l.productId, quantity: l.quantity, toppings: l.toppings }));
-        const recipePlan = planRecipeDeduction(sold, simProducts, simIngredients, simIngredientBatches);
-        if (recipePlan.picks.length > 0) {
-          const takeByBatch = new Map<string, number>();
-          recipePlan.picks.forEach(p => takeByBatch.set(p.batch.id, (takeByBatch.get(p.batch.id) || 0) + p.take));
-          setSimIngredientBatches(prev => prev.map(b => (takeByBatch.has(b.id) ? { ...b, quantity: Math.max(0, +(b.quantity - (takeByBatch.get(b.id) || 0)).toFixed(6)) } : b)));
-          const nowMs = Date.now();
-          const exportNumber = await createDocumentNumber('export', storeId, () => `PXK-${nowMs.toString().slice(-5)}`);
-          setSimIngredientTransactions(prev => [{
-            id: `TX-${nowMs}`,
-            transactionNumber: exportNumber.number,
-            tempCode: exportNumber.tempNumber || undefined,
+        const orderTickets = kitchenRef.current.filter(k => kitchenOrderMatcher(simTables, currentCartId)(k) && k.status !== KitchenStatus.CANCELLED);
+        // With automatic deduction off nothing is taken here; stock taken earlier (while it was on) is still linked below
+        const remaining = autoStockDeduction ? unstockedLines(currentCart, orderTickets, ticketMatchesLine) : [];
+        const deduction = deductForLines(remaining, simProducts, simIngredients, { ingredientBatches: simIngredientBatches, batches: simBatches });
+        setSimIngredientBatches(() => deduction.state.ingredientBatches);
+        setSimBatches(() => deduction.state.batches);
+        const short = deduction.shortages.length > 0;
+        const allPicks = deduction.picksPerLine.flat();
+        for (const kind of ['ingredient', 'product'] as const) {
+          const picks = allPicks.filter(pick => pick.kind === kind);
+          if (picks.length === 0) continue;
+          const stamp = Date.now();
+          const number = await createDocumentNumber('export', storeId, () => `PXK-${stamp.toString().slice(-5)}`);
+          // Written with the order id so cancelling the order can put this stock back
+          (kind === 'ingredient' ? setSimIngredientTransactions : setSimTransactions)(prev => [buildStockVoucher({
+            id: `TX-${stamp}-${kind === 'ingredient' ? 'I' : 'D'}`,
+            transactionNumber: number.number,
+            tempCode: number.tempNumber || undefined,
             orderId,
-            type: InventoryTransactionType.EXPORT,
-            items: recipePlan.picks.map(p => ({ productId: p.batch.productId, batchId: p.batch.id, batchCode: p.batch.batchCode, quantity: +p.take.toFixed(6), price: p.batch.importPrice })),
-            totalAmount: recipePlan.picks.reduce((s, p) => s + (p.batch.importPrice || 0) * p.take, 0),
             staffId: fbUserProfile?.uid || 'staff-01',
-            note: `Bán hàng ${orderNum}${recipePlan.shortages.length > 0 ? ' (thiếu tồn một số nguyên liệu)' : ''}`,
-            createdAt: new Date().toISOString()
-          }, ...prev]);
+            note: `Bán hàng ${orderNum}${short ? ' (thiếu tồn)' : ''}`,
+            createdAt: new Date().toISOString(),
+          }, InventoryTransactionType.EXPORT, picks), ...prev]);
         }
-        const directPlan = planDirectDeduction(sold, simProducts, simBatches);
-        if (directPlan.picks.length > 0) {
-          const takeByBatch = new Map<string, number>();
-          directPlan.picks.forEach(p => takeByBatch.set(p.batch.id, (takeByBatch.get(p.batch.id) || 0) + p.take));
-          setSimBatches(prev => prev.map(b => (takeByBatch.has(b.id) ? { ...b, quantity: Math.max(0, b.quantity - (takeByBatch.get(b.id) || 0)) } : b)));
-          // Written like the ingredient voucher, so cancelling the order can put this stock back too
-          const directMs = Date.now();
-          const directNumber = await createDocumentNumber('export', storeId, () => `PXK-${directMs.toString().slice(-5)}`);
-          setSimTransactions(prev => [{
-            id: `TX-${directMs}-D`,
-            transactionNumber: directNumber.number,
-            tempCode: directNumber.tempNumber || undefined,
-            orderId,
-            type: InventoryTransactionType.EXPORT,
-            items: directPlan.picks.map(p => ({ productId: p.batch.productId, batchId: p.batch.id, batchCode: p.batch.batchCode, quantity: +p.take.toFixed(6), price: p.batch.importPrice })),
-            totalAmount: directPlan.picks.reduce((s, p) => s + (p.batch.importPrice || 0) * p.take, 0),
-            staffId: fbUserProfile?.uid || 'staff-01',
-            note: `Bán hàng ${orderNum}${directPlan.shortages.length > 0 ? ' (thiếu tồn một số món)' : ''}`,
-            createdAt: new Date().toISOString()
-          }, ...prev]);
+
+        // The vouchers written when dishes were sent to the kitchen now belong to this order
+        const sendIds = new Set(orderTickets.map(k => k.orderId));
+        if (sendIds.size > 0) {
+          const link = (list: InventoryTransaction[]) => list.map(t => (t.kitchenBatchId && sendIds.has(t.kitchenBatchId) && !t.orderId ? { ...t, orderId } : t));
+          setSimIngredientTransactions(link);
+          setSimTransactions(link);
         }
+        // The order is paid: its tickets keep what they took, but must never give stock back from now on
+        const isOfOrder = kitchenOrderMatcher(simTables, currentCartId);
+        changeKitchenItems(items => items.map(k => (isOfOrder(k) && (k.stockPortions || k.stockPicks) ? { ...k, stockPortions: undefined, stockPicks: undefined } : k)));
       }
 
       const pointsEarned = Math.floor(grandTotal / 10000); // 1 point per 10k VND
@@ -942,6 +1045,8 @@ export default function POSScreen({
         discountAmount,
         taxAmount,
         totalAmount: grandTotal,
+        totalCost: orderCost(currentCart, simProducts),
+        costRecorded: true,
         paymentMethod: method === 'mixed'
           ? (mixed && mixed.parts.length > 1 ? PaymentMethod.MIXED : PAYMENT_METHOD_OF[mixed?.parts[0]?.method ?? 'cash'])
           : PAYMENT_METHOD_OF[method],

@@ -18,6 +18,7 @@ export type AppRole = 'sysadmin' | 'owner' | 'manager' | 'staff' | 'kitchen';
 export type ScreenId =
   | 'pos' | 'inventory' | 'reports' | 'account' | 'kitchen' | 'menu' | 'tables'
   | 'customers' | 'employees' | 'suppliers' | 'orders' | 'shifts' | 'cashbook' | 'eod'
+  | 'stockcheck' // nhân viên kiểm kho các hàng "kiểm mỗi ca" (đầu ca / cuối ca), chỉ ghi, không xem lịch sử
   | 'conflicts' // xung đột đồng bộ: chủ / quản lý, chỉ khi dùng máy chủ
   | 'stores' | 'accounts'; // chỉ dành cho sysadmin: quản lý cửa hàng / tài khoản trên máy
 
@@ -30,8 +31,8 @@ export const ROLE_SCREENS: Record<AppRole, ScreenId[]> = {
   sysadmin: ['stores', 'accounts'],
   owner: ALL_SCREENS,
   manager: ALL_SCREENS,
-  staff: ['pos'],
-  kitchen: ['kitchen'],
+  staff: ['pos', 'stockcheck'],
+  kitchen: ['kitchen', 'stockcheck'],
 };
 
 export const ROLE_LABELS: Record<AppRole, string> = {

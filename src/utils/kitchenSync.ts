@@ -4,6 +4,7 @@
  */
 
 import { KitchenItem, KitchenStatus } from '../types';
+import { splitTicketStock } from './kitchenStock';
 
 /** Kitchen tickets still being worked on; served or cancelled tickets are never changed. */
 export const isKitchenTicketOpen = (item: KitchenItem): boolean =>
@@ -89,7 +90,8 @@ export function relabelKitchenTickets(
 /**
  * Moves portions of a line from one order to another on the kitchen screen (split or join orders). Open
  * tickets are taken newest first; a ticket that moves completely only changes its label, a ticket that
- * moves in part is reduced and a copy with the same status and the new label is added.
+ * moves in part is reduced and a copy with the same status and the new label is added. The stock the ticket took
+ * is split in the same proportion.
  *
  * @param items All kitchen tickets.
  * @param belongsToLine True for a ticket sent for the line in the source order.
@@ -119,8 +121,10 @@ export function moveKitchenPortions(
     if (taken >= ticket.quantity) {
       changes.set(ticket.id, { ...ticket, tableNumber: toLabel });
     } else {
-      changes.set(ticket.id, { ...ticket, quantity: ticket.quantity - taken });
-      copies.push({ ...ticket, id: newTicketId(), quantity: taken, tableNumber: toLabel });
+      // The stock taken for the portions that move goes with them; the rest stays on the original ticket
+      const { kept, moved } = splitTicketStock(ticket, taken);
+      changes.set(ticket.id, { ...ticket, quantity: ticket.quantity - taken, ...kept });
+      copies.push({ ...ticket, id: newTicketId(), quantity: taken, tableNumber: toLabel, ...moved });
     }
   }
   return [...copies, ...items.map(item => changes.get(item.id) ?? item)];

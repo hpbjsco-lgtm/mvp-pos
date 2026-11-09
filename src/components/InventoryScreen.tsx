@@ -5,12 +5,14 @@
 
 import { createDocumentNumber } from '../sync/documentNumbers';
 import React, { useState } from 'react';
-import { Plus, X, ArrowUpFromLine, FileSpreadsheet } from 'lucide-react';
-import { Product, InventoryBatch, InventoryTransaction, InventoryTransactionType } from '../types';
+import { Plus, X, ArrowUpFromLine, ClipboardCheck, FileSpreadsheet } from 'lucide-react';
+import { Product, InventoryBatch, InventoryTransaction, InventoryTransactionType, Shift } from '../types';
 import { exportUnitNote, stockOf, toBaseQuantity, unitChoices } from '../utils/inventoryItems';
 import { batchesToCsv, batchTemplateCsv, parseBatchImport, parseProductImport, productsToCsv, productTemplateCsv, transactionsToCsv, type BatchImportItem } from '../utils/inventoryCsv';
 import { datedFileName, saveTextFile } from '../utils/downloadFile';
 import CsvImportDialog from './CsvImportDialog';
+import StocktakeFlow from './StocktakeFlow';
+import StocktakeHistory from './StocktakeHistory';
 import InventoryCatalog from './InventoryCatalog';
 import IngredientDialog from './IngredientDialog';
 import PageCard from './ui/PageCard';
@@ -32,6 +34,12 @@ interface InventoryScreenProps {
   simStoreType?: 'fnb' | 'retail';
   isOffline?: boolean;
   storeId: string;
+  /** Shifts, to tie a stocktake to the shift of the person who counts and to name the shift in the history. */
+  shifts: Shift[];
+  /** True when selling dishes takes stock automatically (F&B). */
+  autoStockDeduction: boolean;
+  /** Turns the automatic stock deduction on or off for the store. */
+  onChangeAutoStockDeduction: (enabled: boolean) => Promise<void>;
   /** Món bán + topping (hiện trong danh mục hàng ở chế độ F&B). */
   menuProducts?: Product[];
   /** Chuyển sang Thực đơn để tạo món / topping mới. */
@@ -59,6 +67,9 @@ export default function InventoryScreen({
   triggerBeep,
   fbUserProfile,
   storeId,
+  shifts,
+  autoStockDeduction,
+  onChangeAutoStockDeduction,
   simStoreType = 'fnb',
   menuProducts = [],
   onCreateDish,
@@ -71,9 +82,10 @@ export default function InventoryScreen({
   const isFnB = simStoreType === 'fnb';
 
   // F&B có 2 chế độ xem: Hàng hóa (danh mục) và Lô hàng & lịch sử; bán lẻ chỉ có lô hàng
-  const [view, setView] = useState<'catalog' | 'batches'>(simStoreType === 'fnb' ? 'catalog' : 'batches');
+  const [view, setView] = useState<'catalog' | 'batches' | 'stocktakes'>(simStoreType === 'fnb' ? 'catalog' : 'batches');
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [csvMenuOpen, setCsvMenuOpen] = useState(false);
+  const [stocktakeOpen, setStocktakeOpen] = useState(false);
   /** Which import dialog is open. */
   const [csvImport, setCsvImport] = useState<'products' | 'batches' | null>(null);
   const [itemDialog, setItemDialog] = useState<{ group: 'ingredient' | 'tool'; item?: Product } | null>(null);
@@ -113,8 +125,9 @@ export default function InventoryScreen({
   };
 
   // Capital Valuation Calculation
+  // Value at the price of each batch (the cost of the item when the batch has no price); a batch below zero counts negative
   const totalStockValuation = simBatches.reduce((sum, b) => {
-    const cost = b.importPrice || 10000;
+    const cost = b.importPrice ?? simProducts.find(p => p.id === b.productId)?.cost ?? 0;
     return sum + cost * b.quantity;
   }, 0);
 
@@ -200,6 +213,25 @@ export default function InventoryScreen({
     setSelectedProductId(prod.id);
     setAddModalOpen(false);
     triggerBeep(true);
+  };
+
+  /**
+   * Turns the automatic stock deduction on or off after the person confirms what it means.
+   *
+   * @param enabled True to take stock when dishes are sent to the kitchen or paid.
+   */
+  const changeAutoStockDeduction = async (enabled: boolean) => {
+    const message = enabled
+      ? 'Bật tự động trừ kho?\n\nTừ lúc này, báo bếp và thanh toán sẽ trừ kho theo công thức. Tồn kho hiện tại không đổi.'
+      : 'Tắt tự động trừ kho?\n\nBáo bếp và thanh toán sẽ không trừ kho nữa. Tồn kho chỉ thay đổi khi nhập kho, xuất kho hoặc kiểm kho. Các món đã báo bếp trước đó vẫn được hoàn kho nếu bị hủy.';
+    if (!confirm(message)) return;
+    try {
+      await onChangeAutoStockDeduction(enabled);
+      triggerBeep(true);
+    } catch (error) {
+      triggerBeep(false);
+      alert(`Không đổi được thiết lập: ${(error as Error).message}`);
+    }
   };
 
   // ---- Tệp CSV: xuất danh sách, tải file mẫu, nhập từ file ----
@@ -407,6 +439,10 @@ export default function InventoryScreen({
           </div>
         )}
 
+        <button onClick={() => { setStocktakeOpen(true); triggerBeep(true); }} className="m3-btn-outlined !min-h-11 text-sm">
+          <ClipboardCheck className="w-4 h-4" /> Kiểm kho
+        </button>
+
         <div className="relative">
           <button onClick={() => setCsvMenuOpen(v => !v)} className="m3-btn-outlined !min-h-11 text-sm"><FileSpreadsheet className="w-4 h-4" /> Tệp CSV ▾</button>
           {csvMenuOpen && (
@@ -446,8 +482,28 @@ export default function InventoryScreen({
       </div>
 
       {isFnB && (
-        <PageTabs options={[{ value: 'catalog', label: 'Hàng hóa' }, { value: 'batches', label: 'Lô hàng & Lịch sử' }]} value={view} onChange={setView} />
+        <label className="flex items-start gap-3 rounded-xl border border-outline-variant p-3 cursor-pointer">
+          <input type="checkbox" checked={autoStockDeduction} onChange={e => void changeAutoStockDeduction(e.target.checked)} className="mt-1 w-5 h-5 accent-primary" />
+          <span className="text-sm text-on-surface">
+            <strong className="block text-base">Tự động trừ kho khi bán</strong>
+            {autoStockDeduction
+              ? 'Báo bếp trừ kho theo công thức, hủy món thì hoàn lại. Món chưa báo bếp được trừ lúc thanh toán.'
+              : 'Đang tắt: bán hàng không đụng vào kho. Tồn kho chỉ thay đổi khi nhập kho, xuất kho hoặc kiểm kho.'}
+          </span>
+        </label>
       )}
+
+      <PageTabs
+        options={[
+          ...(isFnB ? [{ value: 'catalog' as const, label: 'Hàng hóa' }] : []),
+          { value: 'batches' as const, label: 'Lô hàng & Lịch sử' },
+          { value: 'stocktakes' as const, label: 'Lịch sử kiểm kho' },
+        ]}
+        value={view}
+        onChange={setView}
+      />
+
+      {view === 'stocktakes' && <StocktakeHistory transactions={simTransactions} products={simProducts} shifts={shifts} />}
 
       {isFnB && view === 'catalog' && (
         <InventoryCatalog
@@ -500,8 +556,8 @@ export default function InventoryScreen({
           { key: 'batch', header: 'Lô', render: b => <span className="font-mono">{b.batchCode}</span> },
           { key: 'mfg', header: 'NSX', render: b => b.manufactureDate || '' },
           { key: 'exp', header: 'HSD', render: b => b.expiryDate },
-          { key: 'price', header: 'Giá nhập (đ)', className: 'text-right', render: b => (b.importPrice || 10000).toLocaleString('vi-VN') },
-          { key: 'qty', header: 'SL nhập/Tồn', className: 'text-right', render: b => `${b.originalQuantity}/${b.quantity}` },
+          { key: 'price', header: 'Giá nhập (đ)', className: 'text-right', render: b => (b.importPrice ?? simProducts.find(p => p.id === b.productId)?.cost ?? 0).toLocaleString('vi-VN') },
+          { key: 'qty', header: 'SL nhập/Tồn', className: 'text-right', render: b => <span className={b.quantity < 0 ? 'text-error font-bold' : undefined} title={b.quantity < 0 ? 'Tồn âm: đã bán hoặc dùng nhiều hơn số đã nhập' : undefined}>{b.originalQuantity}/{b.quantity}</span> },
         ]}
         renderActions={b => <RowActions onDelete={() => handleDeleteBatch(b.id)} deleteLabel="Xóa lô hàng lỗi" />}
       />
@@ -669,13 +725,13 @@ export default function InventoryScreen({
           <div className="divide-y divide-outline-variant/60">
             {simTransactions.slice(0, 30).map(t => (
               <div key={t.id} className="py-2.5 flex items-start gap-3">
-                <span className={`m3-badge shrink-0 ${t.type === InventoryTransactionType.IMPORT ? 'm3-badge-success' : t.type === InventoryTransactionType.EXPORT ? 'bg-primary-container text-on-primary-container' : 'm3-badge-warning'}`}>
-                  {t.type === InventoryTransactionType.IMPORT ? 'Nhập' : t.type === InventoryTransactionType.EXPORT ? 'Xuất' : 'Điều chỉnh'}
+                <span className={`m3-badge shrink-0 ${t.type === InventoryTransactionType.IMPORT ? 'm3-badge-success' : t.type === InventoryTransactionType.EXPORT ? 'bg-primary-container text-on-primary-container' : t.type === InventoryTransactionType.STOCKTAKE ? 'm3-badge-neutral' : 'm3-badge-warning'}`}>
+                  {t.type === InventoryTransactionType.IMPORT ? 'Nhập' : t.type === InventoryTransactionType.EXPORT ? 'Xuất' : t.type === InventoryTransactionType.STOCKTAKE ? 'Kiểm kho' : 'Điều chỉnh'}
                 </span>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-on-surface font-mono">{t.transactionNumber}</p>
                   <p className="text-sm text-on-surface-variant truncate">
-                    {t.items.map(i => `${simProducts.find(p => p.id === i.productId)?.name || 'Hàng'} x${i.quantity}`).join(', ')}
+                    {t.items.map(i => `${simProducts.find(p => p.id === i.productId)?.name || 'Hàng'} ${t.type === InventoryTransactionType.STOCKTAKE ? (i.quantity > 0 ? `+${i.quantity}` : i.quantity) : `x${i.quantity}`}`).join(', ')}
                   </p>
                   {t.note && <p className="text-sm text-on-surface-variant truncate">{t.note}</p>}
                 </div>
@@ -696,6 +752,18 @@ export default function InventoryScreen({
           currentStock={itemDialog.item ? stockOf(itemDialog.item.id, simBatches) : 0}
           onSave={handleSaveItem}
           onClose={() => setItemDialog(null)}
+        />
+      )}
+
+      {stocktakeOpen && (
+        <StocktakeFlow
+          stock={{
+            products: simProducts, batches: simBatches, setBatches: setSimBatches, transactions: simTransactions, setTransactions: setSimTransactions, shifts, storeId,
+            user: { uid: fbUserProfile?.uid || 'staff-01', name: fbUserProfile?.name || '' }, triggerBeep,
+          }}
+          kind="periodic"
+          shiftItemsFirst={false}
+          onClose={() => setStocktakeOpen(false)}
         />
       )}
 

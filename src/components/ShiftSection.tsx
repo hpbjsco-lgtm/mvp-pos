@@ -5,11 +5,14 @@
 
 import { getOrderPayments } from '../utils/payments';
 import React, { useState } from 'react';
-import { Shift, Order } from '../types';
+import { InventoryTransactionType, Shift, Order, StocktakeKind } from '../types';
 import PageCard from './ui/PageCard';
+import StocktakeFlow, { type StockCheckDeps } from './StocktakeFlow';
 import DataTable from './ui/DataTable';
 
 interface ShiftSectionProps {
+  /** What a stocktake needs, so the shift can be checked at its start and end from here. */
+  stock: StockCheckDeps;
   simShifts: Shift[];
   setSimShifts: React.Dispatch<React.SetStateAction<Shift[]>>;
   simOrders: Order[];
@@ -18,6 +21,7 @@ interface ShiftSectionProps {
 }
 
 export default function ShiftSection({
+  stock,
   simShifts,
   setSimShifts,
   simOrders,
@@ -27,8 +31,11 @@ export default function ShiftSection({
   const [openingCashInput, setOpeningCashInput] = useState<number>(0);
   const [closingCashInput, setClosingCashInput] = useState<number>(0);
   const [closeStep, setCloseStep] = useState(false);
+  const [stocktakeKind, setStocktakeKind] = useState<StocktakeKind | null>(null);
 
   const openShift = simShifts.find(s => s.staffId === currentUser.uid && s.status === 'open');
+  /** Whether a stocktake of that kind was recorded for a shift. */
+  const checked = (shiftId: string, kind: StocktakeKind) => stock.transactions.some(t => t.type === InventoryTransactionType.STOCKTAKE && t.shiftId === shiftId && t.stocktakeKind === kind);
 
   const shiftOrders = openShift
     ? simOrders.filter(o => (
@@ -110,11 +117,25 @@ export default function ShiftSection({
             <button type="submit" className="m3-btn-filled w-full !rounded-xl !min-h-11">Mở ca cho {currentUser.name}</button>
           </form>
         ) : !closeStep ? (
-          <button onClick={() => { setClosingCashInput(expectedCash); setCloseStep(true); }} className="m3-btn-filled w-full !rounded-xl !min-h-11">
-            Đóng ca làm việc
-          </button>
+          <div className="space-y-3">
+            <div className="rounded-xl bg-surface-container-low p-3 text-sm space-y-2">
+              <p className="font-bold text-on-surface">Kiểm kho ca</p>
+              <p className={checked(openShift.id, 'open') ? 'text-secondary font-semibold' : 'text-on-surface-variant'}>Đầu ca: {checked(openShift.id, 'open') ? 'đã kiểm' : 'chưa kiểm'}</p>
+              {!checked(openShift.id, 'open') && <button type="button" onClick={() => setStocktakeKind('open')} className="m3-btn-outlined !min-h-10 text-sm">Kiểm kho đầu ca</button>}
+            </div>
+            <button onClick={() => { setClosingCashInput(expectedCash); setCloseStep(true); }} className="m3-btn-filled w-full !rounded-xl !min-h-11">
+              Đóng ca làm việc
+            </button>
+          </div>
         ) : (
           <form onSubmit={handleCloseShift} className="space-y-3">
+            {!checked(openShift.id, 'close') && (
+              <div className="rounded-xl bg-tertiary-container text-on-tertiary-container p-3 text-sm space-y-2">
+                <p className="font-bold">Chưa kiểm kho cuối ca</p>
+                <p>Nên đếm các hàng "kiểm mỗi ca" trước khi đóng ca để ghi lại hao hụt trong ca. Bạn vẫn đóng ca được nếu bỏ qua.</p>
+                <button type="button" onClick={() => setStocktakeKind('close')} className="m3-btn-outlined !min-h-10 text-sm">Kiểm kho cuối ca</button>
+              </div>
+            )}
             <div className="space-y-1">
               <label className="text-sm font-semibold text-on-surface-variant">Tiền mặt đếm thực tế (đ)</label>
               <input
@@ -178,6 +199,7 @@ export default function ShiftSection({
             { key: 'close', header: 'Thời gian đóng ca', render: s => (s.closedAt ? new Date(s.closedAt).toLocaleString('vi-VN') : '—') },
             { key: 'expected', header: 'Kỳ vọng', className: 'text-right', render: s => (s.closingCashExpected || 0).toLocaleString('vi-VN') },
             { key: 'actual', header: 'Thực tế', className: 'text-right', render: s => (s.closingCashActual || 0).toLocaleString('vi-VN') },
+            { key: 'stock', header: 'Kiểm kho', render: s => `Đầu ca: ${checked(s.id, 'open') ? 'có' : 'chưa'} · Cuối ca: ${checked(s.id, 'close') ? 'có' : 'chưa'}` },
             { key: 'diff', header: 'Chênh lệch', className: 'text-right', render: s => {
               const diff = (s.closingCashActual || 0) - (s.closingCashExpected || 0);
               return <span className={`font-bold ${diff === 0 ? 'text-secondary' : 'text-error'}`}>{diff >= 0 ? '+' : ''}{diff.toLocaleString('vi-VN')}</span>;
@@ -185,6 +207,8 @@ export default function ShiftSection({
           ]}
         />
       </PageCard>
+
+      {stocktakeKind && <StocktakeFlow stock={stock} kind={stocktakeKind} shiftItemsFirst onClose={() => setStocktakeKind(null)} />}
     </div>
   );
 }

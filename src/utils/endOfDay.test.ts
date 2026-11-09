@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { computeEndOfDay, eodRange } from './endOfDay';
-import { DiningTable, Order, PaymentMethod, Product, TableStatus, CashVoucher } from '../types';
+import { DiningTable, InventoryTransactionType, Order, PaymentMethod, Product, TableStatus, CashVoucher } from '../types';
 
 const T0 = new Date('2026-10-10T10:00:00').getTime();
 const range = { from: new Date('2026-10-10T00:00:00').getTime(), to: new Date('2026-10-10T23:59:59').getTime() };
@@ -98,6 +98,29 @@ describe('wallet in the end-of-day report', () => {
       vouchers: [], accounts: [], carts: {}, products: [], tables: [], zones: [], ...range,
     } as Parameters<typeof computeEndOfDay>[0]);
     expect(report.salesByMethod).toMatchObject({ wallet: 60000, cash: 20000, total: 80000 });
+  });
+});
+
+describe('profit in the end-of-day report', () => {
+  it('uses the cost recorded on the orders of the period and the shrinkage of the same period', () => {
+    const inside = new Date(T0).toISOString();
+    const outside = new Date('2026-10-09T10:00:00').toISOString();
+    const report = computeEndOfDay({
+      orders: [
+        order('P1', { totalAmount: 110000, taxAmount: 10000, totalCost: 40000, costRecorded: true }),
+        order('P2', { totalAmount: 20000 }),
+        order('P3', { totalAmount: 99000, totalCost: 1000, costRecorded: true, createdAt: outside }),
+      ],
+      vouchers: [], accounts: [], carts: {}, products: [], tables: [], zones: [],
+      transactions: [
+        { id: 'k1', transactionNumber: 'KK0001', type: InventoryTransactionType.STOCKTAKE, staffId: 's', createdAt: inside, items: [{ productId: 'm', batchCode: 'L', quantity: -1, price: 5000 }] },
+        { id: 'k2', transactionNumber: 'KK0002', type: InventoryTransactionType.STOCKTAKE, staffId: 's', createdAt: outside, items: [{ productId: 'm', batchCode: 'L', quantity: -9, price: 5000 }] },
+      ],
+      ...range,
+    } as Parameters<typeof computeEndOfDay>[0]);
+    expect(report.profit).toMatchObject({ revenueExTax: 100000, cost: 40000, grossProfit: 60000, ordersWithoutCost: 1 });
+    expect(report.profit.shrinkage.total).toBe(5000);
+    expect(report.profit.profitAfterShrinkage).toBe(55000);
   });
 });
 

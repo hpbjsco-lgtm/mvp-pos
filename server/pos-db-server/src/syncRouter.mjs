@@ -14,7 +14,7 @@ import { SyncError } from './syncService.mjs';
  *  - POST /push  body `{ storeId, deviceId, groups }` (see `SyncService.push`)
  *  - GET  /stores  stores a device can choose from (id and name)
  *  - GET  /summary?storeId=...&after=...  tables changed after a log position (omit `after` for the current position)
- *  - POST /next-number  body `{ storeId, kind }`: next official number (`order`, `import`, `export`, `receipt`, `payment`)
+ *  - POST /next-number  body `{ storeId, kind }`: next official number (`order`, `import`, `export`, `receipt`, `payment`, `stocktake`)
  *  - GET  /conflicts?storeId=...&status=pending|resolved  conflicts of a store, without payloads
  *  - GET  /conflicts/:id  one conflict with the device's and the server's version
  *  - POST /conflicts/:id/resolve  body `{ choice: 'server' | 'device', resolvedBy }`

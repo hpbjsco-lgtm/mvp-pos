@@ -62,6 +62,7 @@ export interface Product {
   dishKind?: 'prepared' | 'regular'; // Món chế biến (theo công thức, trừ nguyên liệu) hay món thường (trừ tồn trực tiếp)
   recipe?: RecipeItem[]; // Thành phần nguyên liệu của món chế biến
   // --- Quản lý kho hàng (nguyên vật liệu / công cụ dụng cụ) ---
+  checkEachShift?: boolean; // Hàng được kiểm kho ở mỗi ca
   itemGroup?: 'ingredient' | 'tool'; // Nhóm quản lý: nguyên vật liệu hay công cụ dụng cụ
   brand?: string; // Thương hiệu
   trackStock?: boolean; // Có quản lý tồn kho hay không
@@ -106,6 +107,8 @@ export interface OrderItem {
   name: string;
   quantity: number;
   price: number;
+  /** Cost of one portion (dish plus its toppings) as set up when the order was paid; 0 for orders without recorded cost. */
+  cost?: number;
   batchId?: string;
   batchCode?: string;
   note?: string;
@@ -176,6 +179,8 @@ export interface Order {
   taxAmount?: number;
   totalAmount: number;
   totalCost?: number;
+  /** True when the cost of the dishes was recorded when the order was paid (`totalCost` and the `cost` of each line). Older orders have no cost and are left out of profit. */
+  costRecorded?: boolean;
   paymentMethod: PaymentMethod;
   payments?: PaymentPart[]; // Chi tiết các khoản thanh toán (có khi thanh toán kết hợp)
   paidAmount: number;
@@ -232,6 +237,20 @@ export enum KitchenStatus {
   CANCELLED = 'cancelled' // Đã hủy (đơn bị hủy / món bị xóa sau khi đã báo bếp)
 }
 
+/** A quantity taken from one batch for a sold dish; kept on the kitchen ticket so it can be put back when the dish is cancelled. */
+/** Which set of batches a stock quantity belongs to: ingredients (recipes) or products with their own batches. */
+export type StockKind = 'ingredient' | 'product';
+
+export interface StockPick {
+  kind: StockKind;
+  batchId: string;
+  productId: string;
+  batchCode: string;
+  /** Quantity taken, in the base unit. */
+  take: number;
+  price?: number;
+}
+
 export interface KitchenItem {
   id: string;
   orderId: string; // ID của hóa đơn order tương ứng
@@ -248,6 +267,10 @@ export interface KitchenItem {
   staffName?: string; // Người bấm báo bếp
   cancelledAt?: string; // Thời điểm hủy món (khi status = cancelled)
   cancelledBy?: string;
+  /** Portions of this ticket already taken out of stock when it was sent; 0 or absent for tickets that were not (see kitchenStock.ts). */
+  stockPortions?: number;
+  /** The batches those portions were taken from. */
+  stockPicks?: StockPick[];
   createdAt: string;
 }
 
@@ -274,15 +297,22 @@ export interface Supplier {
   createdAt: string;
 }
 
+/** When a stocktake was done: at the start of a shift, at its end, or on its own. */
+export type StocktakeKind = 'open' | 'close' | 'periodic';
+
 export enum InventoryTransactionType {
   IMPORT = 'import', // Nhập kho từ NCC
   EXPORT = 'export', // Xuất kho
-  ADJUSTMENT = 'adjustment' // Điều chỉnh hao hụt / hư hỏng
+  ADJUSTMENT = 'adjustment', // Điều chỉnh hao hụt / hư hỏng
+  STOCKTAKE = 'stocktake' // Kiểm kho: số lượng trên từng dòng có dấu (+ thừa, - thiếu so với hệ thống)
 }
 
 export interface InventoryTransactionItem {
   productId: string;
   batchCode: string;
+  /** Stocktake lines only: stock the system had before the count, and the quantity counted (the line `quantity` is counted - system). */
+  systemQuantity?: number;
+  countedQuantity?: number;
   batchId?: string; // Exact batch the quantity was taken from or added to
   quantity: number;
   price?: number; // Cost price for imports
@@ -294,10 +324,15 @@ export interface InventoryTransaction {
   tempCode?: string; // Temporary code given while offline; transactionNumber becomes the official number after upload
   type: InventoryTransactionType;
   orderId?: string; // Order that caused this voucher (stock taken when it was paid, or put back when it was cancelled)
+  /** Stocktake only: the shift the count belongs to and whether it was at the start or end of the shift, or periodic. */
+  shiftId?: string;
+  stocktakeKind?: StocktakeKind;
+  kitchenBatchId?: string; // Send-to-kitchen action that caused this voucher, until the order exists and `orderId` is set
   supplierId?: string; // Only applicable for import type
   items: InventoryTransactionItem[];
   totalAmount?: number;
   staffId: string;
+  staffName?: string;
   note?: string;
   createdAt: string;
 }

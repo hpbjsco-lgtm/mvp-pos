@@ -28,13 +28,13 @@ const COLUMN_LABELS: Record<string, Record<string, string>> = {
     name: 'Tên', sku: 'Mã', price: 'Giá bán', cost: 'Giá vốn', unit: 'Đơn vị', category: 'Nhóm', is_available: 'Cho phép bán',
     track_stock: 'Quản lý tồn kho', min_stock: 'Tồn tối thiểu', max_stock: 'Tồn tối đa', note: 'Ghi chú', is_topping: 'Là topping',
     topping_kind: 'Loại topping', sizes: 'Các size', item_group: 'Nhóm quản lý', brand: 'Thương hiệu', location: 'Vị trí',
-    weight: 'Trọng lượng', unit_conversions: 'Quy đổi đơn vị', is_active: 'Hiện trên màn thu ngân', menu_type: 'Loại thực đơn',
+    weight: 'Trọng lượng', unit_conversions: 'Quy đổi đơn vị', check_each_shift: 'Kiểm kho mỗi ca', is_active: 'Hiện trên màn thu ngân', menu_type: 'Loại thực đơn',
     dish_kind: 'Loại món', recipe: 'Công thức', deleted_at: 'Thời điểm xóa',
   },
   orders: {
     order_number: 'Số hóa đơn', temp_order_number: 'Mã tạm', store_type: 'Loại cửa hàng', order_type: 'Hình thức', status: 'Trạng thái',
     table_number: 'Bàn', customer_name: 'Khách hàng', staff_name: 'Nhân viên', subtotal: 'Tạm tính', discount_amount: 'Giảm giá',
-    tax_amount: 'Thuế', total_amount: 'Tổng tiền', total_cost: 'Giá vốn', payment_method: 'Thanh toán', payments: 'Chi tiết thanh toán',
+    tax_amount: 'Thuế', total_amount: 'Tổng tiền', total_cost: 'Giá vốn', cost_recorded: 'Đã lưu giá vốn', payment_method: 'Thanh toán', payments: 'Chi tiết thanh toán',
     paid_amount: 'Khách đưa', change_amount: 'Tiền thừa', points_earned: 'Điểm cộng', points_used: 'Điểm dùng', note: 'Ghi chú',
     deleted_at: 'Thời điểm xóa',
   },
@@ -49,7 +49,7 @@ const COLUMN_LABELS: Record<string, Record<string, string>> = {
   },
   stores: {
     name: 'Tên cửa hàng', address: 'Địa chỉ', phone: 'Điện thoại', store_type: 'Loại cửa hàng', status: 'Trạng thái', tax_code: 'Mã số thuế',
-    currency: 'Tiền tệ', receipt_footer: 'Chân hóa đơn', logo_url: 'Logo', deleted_at: 'Thời điểm xóa',
+    currency: 'Tiền tệ', receipt_footer: 'Chân hóa đơn', logo_url: 'Logo', auto_stock_deduction: 'Tự động trừ kho khi bán', deleted_at: 'Thời điểm xóa',
   },
   suppliers: {
     name: 'Tên', phone: 'Điện thoại', email: 'Email', address: 'Địa chỉ', tax_code: 'Mã số thuế', note: 'Ghi chú', deleted_at: 'Thời điểm xóa',
@@ -64,7 +64,7 @@ const COLUMN_LABELS: Record<string, Record<string, string>> = {
     quantity: 'Tồn hiện tại', original_quantity: 'Số lượng nhập', deleted_at: 'Thời điểm xóa',
   },
   inventory_transactions: {
-    transaction_number: 'Số phiếu', temp_code: 'Mã tạm', type: 'Loại phiếu', kind: 'Loại hàng', supplier_name: 'Nhà cung cấp',
+    transaction_number: 'Số phiếu', temp_code: 'Mã tạm', type: 'Loại phiếu', kind: 'Loại hàng', stocktake_kind: 'Loại kiểm kho', supplier_name: 'Nhà cung cấp',
     total_amount: 'Tổng tiền', staff_name: 'Nhân viên', note: 'Ghi chú', deleted_at: 'Thời điểm xóa',
   },
   cash_vouchers: {
@@ -88,7 +88,7 @@ const COLUMN_LABELS: Record<string, Record<string, string>> = {
     product_name: 'Món', quantity: 'Số lượng', price: 'Đơn giá', cost: 'Giá vốn', batch_code: 'Mã lô', note: 'Ghi chú', size: 'Size',
     sugar_level: 'Mức đường', ice_level: 'Mức đá', toppings: 'Topping',
   },
-  inventory_transaction_items: { product_name: 'Hàng', batch_code: 'Mã lô', quantity: 'Số lượng', price: 'Đơn giá' },
+  inventory_transaction_items: { product_name: 'Hàng', batch_code: 'Mã lô', quantity: 'Số lượng', price: 'Đơn giá', system_quantity: 'Tồn hệ thống', counted_quantity: 'Đếm thực tế' },
   cart_items: { quantity: 'Số lượng', note: 'Ghi chú', size: 'Size', sugar_level: 'Mức đường', ice_level: 'Mức đá', toppings: 'Topping' },
 };
 
@@ -99,7 +99,7 @@ const COLUMN_LABELS: Record<string, Record<string, string>> = {
 const HIDDEN_COLUMNS = new Set([
   'id', 'uid', 'store_id', 'rev', 'created_at', 'updated_at', 'line_no', 'table_id', 'customer_id', 'staff_id', 'zone_id', 'supplier_id',
   'product_id', 'order_id', 'transaction_id', 'cart_id', 'batch_id', 'bank_account_id', 'user_id', 'merged_into_id', 'cart_key', 'kind',
-  'image_url', 'topping_for', 'order_seq', 'import_seq', 'export_seq', 'sent_quantity',
+  'image_url', 'topping_for', 'order_seq', 'import_seq', 'export_seq', 'sent_quantity', 'kitchen_batch_id', 'shift_id',
 ]);
 
 /** Columns whose value must never appear on screen; a difference is shown without the values. */
@@ -112,7 +112,7 @@ const MONEY_COLUMNS = new Set([
 ]);
 
 /** Columns that hold yes or no as 1 or 0. */
-const YES_NO_COLUMNS = new Set(['is_available', 'track_stock', 'is_topping', 'is_active', 'is_default']);
+const YES_NO_COLUMNS = new Set(['is_available', 'track_stock', 'is_topping', 'is_active', 'is_default', 'auto_stock_deduction', 'cost_recorded', 'check_each_shift']);
 
 /** Longest text shown for a value before it is cut. */
 const MAX_VALUE_LENGTH = 80;

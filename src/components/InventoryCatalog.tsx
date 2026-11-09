@@ -132,7 +132,7 @@ export default function InventoryCatalog({ items, dishes, batches, onEdit, onDel
                   <td className={`text-right font-bold ${st === 'out' ? 'text-error' : st === 'low' ? 'text-tertiary' : ''}`}>
                     {tracked ? <>{money(stock)} {p.unit ? <span className="text-sm font-normal text-on-surface-variant">{p.unit}</span> : null}</> : '—'}
                     {tracked && st === 'low' && <span className="block text-xs font-bold">Dưới định mức</span>}
-                    {tracked && st === 'out' && <span className="block text-xs font-bold">Hết hàng</span>}
+                    {tracked && st === 'out' && <span className="block text-xs font-bold">{stock < 0 ? 'Tồn âm' : 'Hết hàng'}</span>}
                   </td>
                   <td className="text-right text-on-surface-variant">{tracked ? `${money(p.minStock || 0)} < ${p.maxStock ? money(p.maxStock) : '∞'}` : '—'}</td>
                   <td className="text-right">

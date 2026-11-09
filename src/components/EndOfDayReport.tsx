@@ -4,7 +4,7 @@
  */
 
 import React, { useMemo, useState } from 'react';
-import { BankAccount, CashVoucher, DiningTable, Order, Product, Zone } from '../types';
+import { BankAccount, CashVoucher, DiningTable, InventoryTransaction, Order, Product, Zone } from '../types';
 import { computeEndOfDay, eodRange, type EodPreset } from '../utils/endOfDay';
 import PageCard from './ui/PageCard';
 import PageTabs from './ui/PageTabs';
@@ -12,6 +12,8 @@ import FilterPills from './ui/FilterPills';
 import type { CartLine } from './POSScreen';
 
 interface EndOfDayReportProps {
+  /** Stock vouchers of every kind, for the shrinkage in the profit. */
+  transactions: InventoryTransaction[];
   orders: Order[];
   vouchers: CashVoucher[];
   accounts: BankAccount[];
@@ -49,7 +51,7 @@ const Row: React.FC<{ label: string; value: string; sub?: string; bold?: boolean
 };
 
 /** Báo cáo cuối ngày (theo kỳ): Tổng hợp · Thu chi · Hàng hóa · Phòng bàn, kèm tình hình đang phục vụ. */
-export default function EndOfDayReport({ orders, vouchers, accounts, carts, products, tables, zones, storeType }: EndOfDayReportProps) {
+export default function EndOfDayReport({ transactions, orders, vouchers, accounts, carts, products, tables, zones, storeType }: EndOfDayReportProps) {
   const isFnb = storeType === 'fnb';
   const [preset, setPreset] = useState<EodPreset>('today');
   const [customFrom, setCustomFrom] = useState(toDateInput(Date.now()));
@@ -65,8 +67,8 @@ export default function EndOfDayReport({ orders, vouchers, accounts, carts, prod
     [preset, customFrom, customTo],
   );
   const r = useMemo(
-    () => computeEndOfDay({ orders, vouchers, accounts, carts, products, tables, zones, ...range }),
-    [orders, vouchers, accounts, carts, products, tables, zones, range],
+    () => computeEndOfDay({ orders, vouchers, accounts, carts, products, tables, zones, transactions, ...range }),
+    [orders, vouchers, accounts, carts, products, tables, zones, transactions, range],
   );
 
   const presets: { id: EodPreset; label: string }[] = [
@@ -133,6 +135,14 @@ export default function EndOfDayReport({ orders, vouchers, accounts, carts, prod
             <Row label="Hủy / trả hàng" value={money(r.voidValue)} sub={`${r.voidCount} hóa đơn`} tone={r.voidValue > 0 ? 'out' : undefined} />
             <Row label="Doanh thu thuần" value={money(r.netIncludingOther)} sub="Bao gồm thu khác" bold />
             <Row label="Doanh thu thuần" value={money(r.netExcludingOther)} sub="Không bao gồm thu khác" bold />
+          </Section>
+          <Section title="Lợi nhuận">
+            <Row label="Doanh thu (chưa thuế)" value={money(r.profit.revenueExTax)} sub={`${r.profit.ordersWithCost} hóa đơn có giá vốn`} />
+            <Row label="Giá vốn hàng bán" value={money(r.profit.cost)} tone={r.profit.cost > 0 ? 'out' : undefined} />
+            <Row label="Lợi nhuận gộp" value={money(r.profit.grossProfit)} bold />
+            <Row label="Hao hụt" value={money(r.profit.shrinkage.total)} sub={`Hư hỏng ${money(r.profit.shrinkage.adjustments)} · Kiểm kho thiếu ${money(r.profit.shrinkage.stocktakeShort)} · Kiểm kho thừa ${money(r.profit.shrinkage.stocktakeSurplus)}`} tone={r.profit.shrinkage.total > 0 ? 'out' : undefined} />
+            <Row label="Lợi nhuận sau hao hụt" value={money(r.profit.profitAfterShrinkage)} bold />
+            {r.profit.ordersWithoutCost > 0 && <Row label="Chưa có giá vốn" value={String(r.profit.ordersWithoutCost)} sub="Hóa đơn thanh toán trước khi lưu giá vốn, không tính vào giá vốn và lợi nhuận" />}
           </Section>
           {isFnb && (
             <Section title="Đang phục vụ">

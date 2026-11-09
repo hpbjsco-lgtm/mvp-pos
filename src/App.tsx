@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Banknote, FileText, ShoppingBag, Layers, TrendingUp, LogOut, Store, ChevronRight, ChevronDown, Coffee, Check, X,
-  MapPin, Phone, Clock, UserCircle, ChefHat, ClipboardList, Users, Briefcase, Truck, History, Wallet, Menu, AlertTriangle
+  MapPin, Phone, Clock, UserCircle, ChefHat, ClipboardList, ClipboardCheck, Users, Briefcase, Truck, History, Wallet, Menu, AlertTriangle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import KitchenDisplay from './components/KitchenDisplay';
@@ -29,6 +29,8 @@ import MyAccountDialog from './components/MyAccountDialog';
 import TopNavBar from './components/TopNavBar';
 import SyncStatusBadge from './components/SyncStatusBadge';
 import ConflictsSection from './components/ConflictsSection';
+import ShiftStockCheck from './components/ShiftStockCheck';
+import type { StockCheckDeps } from './components/StocktakeFlow';
 import ConflictBanner from './components/ConflictBanner';
 import { getAppSyncClient } from './sync/appSyncClient';
 import { useConflictCount } from './sync/useConflictCount';
@@ -57,7 +59,10 @@ export default function App() {
     setters,
     setCarts: setSimCarts,
     setStoreLogo,
+    setAutoStockDeduction,
   } = app;
+  // Selling takes stock automatically unless the store turned it off (F&B)
+  const autoStockDeduction = fbStoreProfile?.autoStockDeduction ?? true;
 
   const simCustomers = data.customers;
   const setSimCustomers = setters.customers;
@@ -141,6 +146,19 @@ export default function App() {
       setSimErrorBeep(true);
       setTimeout(() => setSimErrorBeep(false), 250);
     }
+  };
+
+  // What a stocktake needs: the goods counted are the ingredients in F&B and the products in retail
+  const stockCheck: StockCheckDeps = {
+    products: simStoreType === 'fnb' ? simIngredients : simProducts,
+    batches: simStoreType === 'fnb' ? simIngredientBatches : simBatches,
+    setBatches: simStoreType === 'fnb' ? setSimIngredientBatches : setSimBatches,
+    transactions: simStoreType === 'fnb' ? simIngredientTransactions : simTransactions,
+    setTransactions: simStoreType === 'fnb' ? setSimIngredientTransactions : setSimTransactions,
+    shifts: simShifts,
+    storeId,
+    user: { uid: fbUserProfile?.uid || '', name: fbUserProfile?.name || '' },
+    triggerBeep,
   };
 
   // --- LOG CONTEXT SYNC EFFECT ---
@@ -341,14 +359,14 @@ export default function App() {
   const NAV_ICONS: Record<ScreenId, React.ComponentType<{ className?: string }>> = {
     stores: Store, accounts: Users, reports: TrendingUp, pos: ShoppingBag, kitchen: ChefHat, menu: Coffee,
     tables: ClipboardList, orders: History, shifts: Wallet, cashbook: Banknote, eod: FileText, inventory: Layers, customers: Users,
-    employees: Briefcase, suppliers: Truck, account: UserCircle, conflicts: AlertTriangle
+    employees: Briefcase, suppliers: Truck, account: UserCircle, conflicts: AlertTriangle, stockcheck: ClipboardCheck
   };
 
   // Màu ô menu (thanh menu trên cùng)
   const NAV_COLORS: Record<string, string> = {
     stores: '#4c7bd9', accounts: '#7a5bc7', reports: '#4c7bd9', pos: '#c15f3c', kitchen: '#8a5a3c', menu: '#2f8f7b',
     tables: '#6b5bc7', orders: '#d9568f', shifts: '#3e8fb0', cashbook: '#2e7d5b', eod: '#4c7bd9', inventory: '#1f3a66', customers: '#4ca39b',
-    employees: '#8a6a00', suppliers: '#5b7d3a', conflicts: '#d9534f'
+    employees: '#8a6a00', suppliers: '#5b7d3a', conflicts: '#d9534f', stockcheck: '#1f3a66'
   };
 
   // Define Navigation Items dynamically based on active Store Type
@@ -372,6 +390,7 @@ export default function App() {
     { id: 'customers', name: 'Quản lý khách hàng' },
     { id: 'employees', name: 'Quản lý nhân viên' },
     { id: 'suppliers', name: 'Quản lý nhà cung cấp' },
+    { id: 'stockcheck', name: 'Kiểm kho ca' },
     // Only where a server holds the data; only the owner and managers can reach it (see permissions.ts)
     ...(syncClient ? [{ id: 'conflicts' as ScreenId, name: 'Xung đột đồng bộ' }] : []),
   ];
@@ -384,6 +403,7 @@ export default function App() {
     { id: 'accounts' as ScreenId, name: 'Tài khoản' },
     { id: 'pos' as ScreenId, name: 'Bán hàng' },
     ...(simStoreType === 'fnb' ? [{ id: 'kitchen' as ScreenId, name: 'Bếp' }] : []),
+    { id: 'stockcheck' as ScreenId, name: 'Kiểm kho' },
     { id: 'orders' as ScreenId, name: 'Hóa đơn' },
     { id: 'reports' as ScreenId, name: 'Báo cáo' },
   ].filter(item => canAccess(userRole, item.id));
@@ -617,6 +637,7 @@ export default function App() {
               {activeScreen === 'stores' && 'Quản lý cửa hàng'}
               {activeScreen === 'accounts' && 'Quản lý tài khoản'}
               {activeScreen === 'conflicts' && 'Xung đột đồng bộ'}
+              {activeScreen === 'stockcheck' && 'Kiểm kho ca'}
             </h2>
 
             <div className="md:hidden flex items-center space-x-2 min-w-0">
@@ -669,6 +690,7 @@ export default function App() {
               >
                 <POSScreen
                   storeId={storeId}
+                  autoStockDeduction={autoStockDeduction}
                   simStoreType={simStoreType}
                   setSimStoreType={setSimStoreType}
                   simProducts={simProducts}
@@ -713,6 +735,9 @@ export default function App() {
                 transition={{ duration: 0.2 }}
               >
                 <InventoryScreen
+                  shifts={simShifts}
+                  autoStockDeduction={autoStockDeduction}
+                  onChangeAutoStockDeduction={setAutoStockDeduction}
                   simProducts={simStoreType === 'fnb' ? simIngredients : simProducts}
                   setSimProducts={simStoreType === 'fnb' ? setSimIngredients : setSimProducts}
                   simBatches={simStoreType === 'fnb' ? simIngredientBatches : simBatches}
@@ -740,6 +765,7 @@ export default function App() {
                 transition={{ duration: 0.2 }}
               >
                 <OrderHistorySection
+                  autoStockDeduction={autoStockDeduction}
                   simOrders={simOrders}
                   setSimOrders={setSimOrders}
                   simBatches={simBatches}
@@ -766,6 +792,7 @@ export default function App() {
             {activeScreen === 'eod' && (
               <motion.div key="eod" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
                 <EndOfDayReport
+                  transactions={[...simTransactions, ...simIngredientTransactions]}
                   orders={simOrders}
                   vouchers={simCashVouchers}
                   accounts={simBankAccounts}
@@ -775,6 +802,18 @@ export default function App() {
                   zones={simZones}
                   storeType={simStoreType}
                 />
+              </motion.div>
+            )}
+
+            {activeScreen === 'stockcheck' && (
+              <motion.div
+                key="stockcheck"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+              >
+                <ShiftStockCheck stock={stockCheck} />
               </motion.div>
             )}
 
@@ -827,6 +866,7 @@ export default function App() {
                 transition={{ duration: 0.2 }}
               >
                 <ShiftSection
+                  stock={stockCheck}
                   simShifts={simShifts}
                   setSimShifts={setSimShifts}
                   simOrders={simOrders}
@@ -848,6 +888,7 @@ export default function App() {
                 transition={{ duration: 0.2 }}
               >
                 <ReportsSection
+                  inventoryTransactions={[...simTransactions, ...simIngredientTransactions]}
                   simOrders={simOrders}
                   simProducts={simProducts}
                   triggerBeep={triggerBeep}

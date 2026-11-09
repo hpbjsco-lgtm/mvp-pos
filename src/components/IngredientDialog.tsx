@@ -37,6 +37,7 @@ export default function IngredientDialog({ item, group, allItems, currentStock =
   const [imageUrl, setImageUrl] = useState(item?.imageUrl || '');
   const [cost, setCost] = useState<number>(item?.cost ?? 0);
   const [track, setTrack] = useState(item?.trackStock ?? true);
+  const [checkEachShift, setCheckEachShift] = useState(item?.checkEachShift ?? false);
   const [openStock, setOpenStock] = useState<number>(0);
   const [minStock, setMinStock] = useState<number>(item?.minStock ?? 0);
   const [maxStock, setMaxStock] = useState<number>(item?.maxStock ?? 0);
@@ -66,6 +67,7 @@ export default function IngredientDialog({ item, group, allItems, currentStock =
       unitConversions: conversions.length > 0 ? conversions : undefined,
       itemGroup: group,
       trackStock: track,
+      checkEachShift: track ? checkEachShift : false,
       minStock: track ? minStock || undefined : undefined,
       maxStock: track ? maxStock || undefined : undefined,
       location: location.trim() || undefined,
@@ -142,6 +144,13 @@ export default function IngredientDialog({ item, group, allItems, currentStock =
                 <div className={field}><label className={lab}>Định mức tồn cao nhất</label>
                   <input type="number" min={0} step="any" value={maxStock || ''} placeholder="Không giới hạn" onChange={e => setMaxStock(parseFloat(e.target.value) || 0)} className="m3-input text-right" /></div>
               </div>
+            )}
+            {track && (
+              <label className="flex items-start justify-between gap-4 cursor-pointer pt-1">
+                <span><span className="block text-base font-bold text-on-surface">Kiểm kho mỗi ca</span>
+                  <span className="block text-sm text-on-surface-variant">Hàng này nằm trong danh sách nhân viên đếm lúc đầu ca và cuối ca</span></span>
+                <input type="checkbox" checked={checkEachShift} onChange={e => setCheckEachShift(e.target.checked)} className="w-6 h-6 accent-primary mt-1" />
+              </label>
             )}
           </div>
 

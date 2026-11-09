@@ -150,6 +150,7 @@ describe('synchronisation rounds against a real server', () => {
     expect(await client.nextNumber('S1', 'export')).toBe('PXK0001');
     expect(await client.nextNumber('S1', 'receipt')).toBe('PT0001');
     expect(await client.nextNumber('S1', 'payment')).toBe('PC0001');
+    expect(await client.nextNumber('S1', 'stocktake')).toBe('KK0001');
     await expect(client.nextNumber('S1', 'nonsense')).rejects.toThrow(/kind must be one of/);
   });
 

@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { BankAccount, CashVoucher, DiningTable, Order, Product, Zone } from '../types';
+import { BankAccount, CashVoucher, DiningTable, InventoryTransaction, Order, Product, Zone } from '../types';
+import { summarizeProfit, type ProfitSummary } from './profit';
 import { buildLedger, SALES_CATEGORY } from './cashbook';
 import { getOrderPayments } from './payments';
 import { lineUnitPrice } from './toppings';
@@ -18,6 +19,8 @@ export interface EodInput {
   products: Product[];
   tables: DiningTable[];
   zones: Zone[];
+  /** Stock vouchers (ingredients and goods), for the shrinkage in the profit; leave out when not at hand. */
+  transactions?: InventoryTransaction[];
   from: number;
   to: number;
 }
@@ -36,6 +39,8 @@ export interface EodReport {
   voidValue: number;
   netExcludingOther: number; // Doanh thu thuần (không gồm thu khác) = doanh thu - thuế
   netIncludingOther: number;
+  /** Gross profit and shrinkage of the period (only orders that recorded their cost). */
+  profit: ProfitSummary;
   // Thu chi
   salesByMethod: { total: number; cash: number; transfer: number; card: number; wallet: number };
   pointsEarned: number;
@@ -70,7 +75,7 @@ const RETAIL_CART_ID = 'retail';
 
 /** Báo cáo cuối ngày / theo kỳ: tổng hợp bán hàng, thu chi, hàng hóa, phòng bàn + trạng thái đang phục vụ. */
 export function computeEndOfDay(input: EodInput): EodReport {
-  const { orders, vouchers, accounts, carts, products, tables, zones, from, to } = input;
+  const { orders, vouchers, accounts, carts, products, tables, zones, transactions = [], from, to } = input;
   const inRange = (iso: string) => { const t = new Date(iso).getTime(); return t >= from && t <= to; };
 
   const periodOrders = orders.filter(o => inRange(o.createdAt));
@@ -153,6 +158,7 @@ export function computeEndOfDay(input: EodInput): EodReport {
     voidValue: sum(voided.map(o => o.totalAmount)),
     netExcludingOther,
     netIncludingOther: netExcludingOther + otherIncome,
+    profit: summarizeProfit(done, transactions.filter(t => inRange(t.createdAt))),
     salesByMethod,
     pointsEarned: sum(done.map(o => o.customerPointsEarned || 0)),
     receipts: byFund('receipt'),

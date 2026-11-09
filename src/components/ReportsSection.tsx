@@ -5,15 +5,19 @@
 
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, Shield, ShoppingBag, TrendingUp, Wallet } from 'lucide-react';
-import { Order, Product } from '../types';
+import { InventoryTransaction, Order, Product } from '../types';
 import { listStores, listAllUsers } from '../db/auth';
 import { loadCollection } from '../db/collections';
 import PageCard from './ui/PageCard';
 import FilterPills from './ui/FilterPills';
 import DataTable from './ui/DataTable';
 import { buildRevenueSeries, filterOrdersInPeriod, ReportPeriod } from '../utils/revenueReport';
+import { presetRange } from '../utils/cashbook';
+import { summarizeProfit } from '../utils/profit';
 
 interface ReportsSectionProps {
+  /** Stock vouchers of every kind, for the shrinkage in the profit. */
+  inventoryTransactions: InventoryTransaction[];
   simOrders: Order[];
   simProducts: Product[];
   triggerBeep: (success: boolean) => void;
@@ -22,6 +26,7 @@ interface ReportsSectionProps {
 }
 
 export default function ReportsSection({
+  inventoryTransactions,
   simOrders,
   simProducts,
   triggerBeep,
@@ -83,13 +88,13 @@ export default function ReportsSection({
   const totalRevenue = ordersToUse.reduce((sum, o) => sum + o.totalAmount, 0);
   const totalOrdersCount = ordersToUse.length;
 
-  // Lợi nhuận ước tính = tổng (giá bán - giá vốn) x số lượng, dựa trên dữ liệu sản phẩm hiện có
-  const estimatedProfit = ordersToUse.reduce((sum, o) => {
-    return sum + o.items.reduce((itemSum, it) => {
-      const prod = productsToUse.find(p => p.id === it.productId || p.name === it.name);
-      return itemSum + (it.price - (prod?.cost || 0)) * it.quantity;
-    }, 0);
-  }, 0);
+  // Lợi nhuận: giá vốn lấy từ giá vốn đã lưu trên từng hóa đơn lúc thanh toán; hao hụt từ phiếu kho trong cùng kỳ.
+  // Hóa đơn cũ chưa lưu giá vốn bị bỏ qua. Dữ liệu toàn hệ thống (sysadmin) không có phiếu kho nên không có hao hụt.
+  const { from: periodFrom, to: periodTo } = presetRange(timeframe === 'daily' ? 'today' : timeframe === 'monthly' ? 'month' : 'year');
+  const profit = summarizeProfit(
+    ordersToUse,
+    isSysAdmin ? [] : inventoryTransactions.filter(t => { const time = new Date(t.createdAt).getTime(); return time >= periodFrom && time <= periodTo; }),
+  );
 
   // Calculate product quantities sold
   const productQuantityMap: Record<string, number> = {};
@@ -211,10 +216,30 @@ export default function ReportsSection({
           <div className="rounded-xl bg-primary-container text-on-primary-container p-4 flex items-center gap-4">
             <TrendingUp className="w-9 h-9 shrink-0" />
             <div>
-              <p className="text-2xl font-bold">{Math.round(estimatedProfit).toLocaleString('vi-VN')}</p>
-              <p className="text-sm">Lợi nhuận ước tính</p>
+              <p className="text-2xl font-bold">{Math.round(profit.profitAfterShrinkage).toLocaleString('vi-VN')}</p>
+              <p className="text-sm">Lợi nhuận sau hao hụt</p>
             </div>
           </div>
+        </div>
+
+        {/* Lợi nhuận: doanh thu, giá vốn đã lưu, hao hụt */}
+        <div className="border border-outline-variant rounded-2xl p-4 space-y-2">
+          <h3 className="text-lg font-bold text-on-surface">Lợi nhuận {timeframeLabel.toLowerCase()}</h3>
+          {[
+            ['Doanh thu (chưa thuế)', profit.revenueExTax, false],
+            ['Giá vốn hàng bán', -profit.cost, false],
+            ['Lợi nhuận gộp', profit.grossProfit, true],
+            ['Hao hụt (hư hỏng, chênh lệch kiểm kho)', -profit.shrinkage.total, false],
+            ['Lợi nhuận sau hao hụt', profit.profitAfterShrinkage, true],
+          ].map(([label, value, bold]) => (
+            <p key={label as string} className={`flex justify-between gap-3 text-base ${bold ? 'font-bold' : ''}`}>
+              <span>{label as string}</span>
+              <span className={(value as number) < 0 ? 'text-error' : ''}>{Math.round(value as number).toLocaleString('vi-VN')} đ</span>
+            </p>
+          ))}
+          {profit.ordersWithoutCost > 0 && (
+            <p className="text-sm text-on-surface-variant">{profit.ordersWithoutCost} hóa đơn thanh toán trước khi lưu giá vốn nên không tính vào giá vốn và lợi nhuận. Doanh thu ở trên vẫn tính đủ.</p>
+          )}
         </div>
 
         {/* Revenue chart */}

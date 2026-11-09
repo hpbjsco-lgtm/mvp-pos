@@ -32,6 +32,8 @@ interface OrderHistorySectionProps {
   setSimIngredientTransactions: React.Dispatch<React.SetStateAction<InventoryTransaction[]>>;
   /** Store the vouchers belong to; voucher numbers are issued per store. */
   storeId: string;
+  /** False when the store left stock to imports, exports and counts: a cancelled order then has no stock vouchers to explain. */
+  autoStockDeduction: boolean;
   simCustomers: Customer[];
   setSimCustomers: React.Dispatch<React.SetStateAction<Customer[]>>;
   simStoreType: 'fnb' | 'retail';
@@ -55,6 +57,7 @@ export default function OrderHistorySection({
   simIngredientTransactions,
   setSimIngredientTransactions,
   storeId,
+  autoStockDeduction,
   simCustomers,
   setSimCustomers,
   simStoreType,
@@ -125,6 +128,8 @@ export default function OrderHistorySection({
       }
     }
     if (!foundVoucher) {
+      // Nothing to restore and nothing expected: the store does not take stock when selling
+      if (!autoStockDeduction) return '';
       return 'Không có phiếu xuất kho nào liên kết với hóa đơn này nên chưa hoàn kho. Nếu hóa đơn có món trừ kho (công thức nguyên liệu hoặc hàng có lô), hãy kiểm tra kho thủ công.';
     }
     return lines.join('\n');

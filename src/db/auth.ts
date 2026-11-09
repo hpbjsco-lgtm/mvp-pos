@@ -41,6 +41,8 @@ export interface AuthStore {
   status: 'pending' | 'active' | 'rejected';
   /** Logo printed on receipts, as a data URL; empty when the store has none. */
   logoUrl: string;
+  /** True when selling dishes takes stock automatically (on sending to the kitchen, or at payment); false when stock only changes by importing, exporting and counting. */
+  autoStockDeduction: boolean;
   createdAt: string;
 }
 
@@ -70,6 +72,7 @@ function mapStore(r: Record<string, any>): AuthStore {
     storeType: (r.store_type ?? 'fnb') as 'fnb' | 'retail',
     status: (r.status ?? 'active') as AuthStore['status'],
     logoUrl: String(r.logo_url ?? ''),
+    autoStockDeduction: Number(r.auto_stock_deduction ?? 1) !== 0,
     createdAt: String(r.created_at ?? ''),
   };
 }
@@ -380,3 +383,14 @@ export { mapUser, mapStore };
 export async function updateStoreLogo(storeId: string, logoUrl: string): Promise<void> {
   await run('UPDATE stores SET logo_url = ?, updated_at = ?, rev = rev + 1 WHERE id = ?', [logoUrl, nowIso(), storeId]);
 }
+
+/**
+ * Turns the automatic stock deduction of a store on or off.
+ *
+ * @param storeId Store to change.
+ * @param enabled True to take stock when dishes are sent to the kitchen or paid, false to leave stock to imports, exports and counts.
+ */
+export async function updateAutoStockDeduction(storeId: string, enabled: boolean): Promise<void> {
+  await run('UPDATE stores SET auto_stock_deduction = ?, updated_at = ?, rev = rev + 1 WHERE id = ?', [enabled ? 1 : 0, nowIso(), storeId]);
+}
+

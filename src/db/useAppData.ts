@@ -31,10 +31,12 @@ import {
   changePassword,
   createEmployee as authCreateEmployee,
   ensureDemoStore,
+  getStore,
   registerOwner,
   restoreSession,
   signIn as authSignIn,
   signOut as authSignOut,
+  updateAutoStockDeduction,
   updateStoreLogo,
   type AuthStore,
   type AuthUser,
@@ -82,6 +84,8 @@ export interface AppDataApi {
   setStoreType: (type: 'fnb' | 'retail') => void;
   /** Lưu logo in trên hóa đơn của cửa hàng hiện tại (chuỗi rỗng = bỏ logo). */
   setStoreLogo: (logoUrl: string) => Promise<void>;
+  /** Bật / tắt việc tự trừ kho khi báo bếp và thanh toán (F&B) cho cửa hàng hiện tại. */
+  setAutoStockDeduction: (enabled: boolean) => Promise<void>;
 }
 
 /** How often a device asks the server whether other devices changed something. */
@@ -326,6 +330,7 @@ export function useAppData(): AppDataApi {
     const version = mutationVersion.current;
     const loaded = await Promise.all(plan.keys.map(async (key) => [key, await loadCollection(key, storeId)] as const));
     const loadedCarts = plan.carts ? await loadCarts(storeId) : null;
+    const loadedStore = plan.store ? await getStore(storeId) : null;
     // A change made here while loading (or a write still running) means the loaded copy may be older than
     // the screen: drop it, the caller loads again later.
     if (isStopped() || storeIdRef.current !== storeId || version !== mutationVersion.current || pendingWrites.current > 0) return false;
@@ -341,6 +346,8 @@ export function useAppData(): AppDataApi {
       cartsRef.current = loadedCarts;
       setCartsState(loadedCarts);
     }
+    // Settings changed on another device (for example the automatic stock deduction)
+    if (loadedStore) setStore(prev => (prev && JSON.stringify(prev) !== JSON.stringify(loadedStore) ? loadedStore : prev));
     return true;
   }, []);
 
@@ -367,6 +374,15 @@ export function useAppData(): AppDataApi {
     };
   }, [store?.id, reloadParts]);
 
+  const setAutoStockDeduction = useCallback(async (enabled: boolean) => {
+    const sid = storeIdRef.current;
+    if (!sid) throw new Error('Chưa chọn cửa hàng.');
+    // Wait for queued writes so this update does not run in the middle of them.
+    await writeChain.current;
+    await updateAutoStockDeduction(sid, enabled);
+    setStore((prev) => (prev ? { ...prev, autoStockDeduction: enabled } : prev));
+  }, []);
+
   /* Cập nhật trực tiếp: thiết bị khác cùng dùng máy chủ thay đổi dữ liệu (bếp, bàn, giỏ hàng...) thì tải lại phần đã đổi. */
   useEffect(() => {
     const route = getServerRoute();
@@ -383,7 +399,7 @@ export function useAppData(): AppDataApi {
         if (position === null) {
           position = summary.seq;
         } else if (summary.reset) {
-          if (await reloadParts(storeId, { keys: COLLECTION_KEYS, carts: true }, () => stopped)) position = summary.seq;
+          if (await reloadParts(storeId, { keys: COLLECTION_KEYS, carts: true, store: true }, () => stopped)) position = summary.seq;
         } else if (summary.tables.length === 0) {
           position = summary.seq;
         } else if (pendingWrites.current === 0 && (await reloadParts(storeId, planReload(summary.tables), () => stopped))) {
@@ -448,5 +464,6 @@ export function useAppData(): AppDataApi {
     reload,
     setStoreType,
     setStoreLogo,
+    setAutoStockDeduction,
   };
 }

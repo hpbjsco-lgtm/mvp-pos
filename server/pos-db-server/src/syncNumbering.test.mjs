@@ -75,6 +75,8 @@ describe('document numbering', () => {
       expect(sync.nextNumber({ storeId: 'A', kind: 'receipt' }).number).toBe('PT0001');
       expect(sync.nextNumber({ storeId: 'A', kind: 'payment' }).number).toBe('PC0001');
       expect(sync.nextNumber({ storeId: 'A', kind: 'payment' }).number).toBe('PC0002');
+      expect(sync.nextNumber({ storeId: 'A', kind: 'stocktake' }).number).toBe('KK0001');
+      expect(sync.nextNumber({ storeId: 'A', kind: 'stocktake' }).number).toBe('KK0002');
     });
 
     it('continues after numbers already used by stored documents and ignores other formats', () => {
@@ -153,6 +155,11 @@ describe('document numbering', () => {
       const result = push([stockGroup('t1', 'import', 'TAM-A3-0001'), stockGroup('t2', 'export', 'TAM-A3-0002'), stockGroup('t3', 'adjustment', 'TAM-A3-0003')]);
       const numbers = result.applied.map((entry) => entry.number);
       expect(numbers).toEqual(['PNK0001', 'PXK0001', 'TAM-A3-0003']);
+    });
+
+    it('numbers a stocktake in its own sequence', () => {
+      const result = push([stockGroup('k1', 'stocktake', 'TAM-A3-0001'), stockGroup('t1', 'export', 'TAM-A3-0002'), stockGroup('k2', 'stocktake', 'TAM-A3-0003')]);
+      expect(result.applied.map((entry) => entry.number)).toEqual(['KK0001', 'PXK0001', 'KK0002']);
     });
 
     it('numbers receipts and payments separately', () => {

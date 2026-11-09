@@ -18,7 +18,7 @@
  *     không mất order đang gọi (lỗi "không lưu được" của bản cũ).
  */
 
-export const SCHEMA_VERSION = 16;
+export const SCHEMA_VERSION = 20;
 
 /** Các câu lệnh DDL, chạy tuần tự khi khởi tạo / nâng cấp DB. */
 export const MIGRATIONS: { version: number; statements: string[] }[] = [
@@ -611,6 +611,43 @@ export const MIGRATIONS: { version: number; statements: string[] }[] = [
             AND (inventory_transactions.note = 'Bán hàng ' || o.order_number OR inventory_transactions.note LIKE 'Bán hàng ' || o.order_number || ' (%')
           LIMIT 1), '')
         WHERE type = 'export' AND note LIKE 'Bán hàng %';`,
+    ],
+  },
+  {
+    version: 17,
+    statements: [
+      /* Kho trừ ngay khi báo bếp: phiếu bếp ghi số phần đã trừ kho và các lô đã trừ (JSON) để hoàn lại khi món bị hủy. */
+      `ALTER TABLE kitchen_items ADD COLUMN stock_portions REAL NOT NULL DEFAULT 0;`,
+      `ALTER TABLE kitchen_items ADD COLUMN stock_picks TEXT NOT NULL DEFAULT '';`,
+      /* Phiếu kho của một lần báo bếp nối với lần báo đó (mã lần báo = kitchen_items.order_id) cho đến khi hóa đơn được tạo. */
+      `ALTER TABLE inventory_transactions ADD COLUMN kitchen_batch_id TEXT NOT NULL DEFAULT '';`,
+    ],
+  },
+  {
+    version: 18,
+    statements: [
+      /* Thiết lập của cửa hàng: kho có tự trừ khi báo bếp / thanh toán không (1 = có). Tắt thì kho chỉ đổi qua nhập, xuất, kiểm kho. */
+      `ALTER TABLE stores ADD COLUMN auto_stock_deduction INTEGER NOT NULL DEFAULT 1;`,
+    ],
+  },
+  {
+    version: 19,
+    statements: [
+      /* 1 = hóa đơn đã lưu giá vốn lúc bán (order_items.cost là giá vốn 1 phần, orders.total_cost là tổng).
+         Hóa đơn cũ là 0: chưa có giá vốn, báo cáo bỏ qua khi tính lợi nhuận. */
+      `ALTER TABLE orders ADD COLUMN cost_recorded INTEGER NOT NULL DEFAULT 0;`,
+    ],
+  },
+  {
+    version: 20,
+    statements: [
+      /* Kiểm kho: mỗi dòng phiếu kiểm ghi tồn hệ thống trước khi kiểm và số đếm thực tế; phiếu ghi ca làm việc và loại kiểm (open | close | periodic). */
+      `ALTER TABLE inventory_transaction_items ADD COLUMN system_quantity REAL NOT NULL DEFAULT 0;`,
+      `ALTER TABLE inventory_transaction_items ADD COLUMN counted_quantity REAL NOT NULL DEFAULT 0;`,
+      `ALTER TABLE inventory_transactions ADD COLUMN shift_id TEXT NOT NULL DEFAULT '';`,
+      `ALTER TABLE inventory_transactions ADD COLUMN stocktake_kind TEXT NOT NULL DEFAULT '';`,
+      /* Hàng được kiểm ở mỗi ca (1 = có). */
+      `ALTER TABLE products ADD COLUMN check_each_shift INTEGER NOT NULL DEFAULT 0;`,
     ],
   },
 ];

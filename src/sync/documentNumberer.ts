@@ -4,7 +4,7 @@
  */
 
 /** Kinds of numbered documents; the same names the server uses. */
-export type DocumentKind = 'order' | 'import' | 'export' | 'receipt' | 'payment';
+export type DocumentKind = 'order' | 'import' | 'export' | 'receipt' | 'payment' | 'stocktake';
 
 /** The number to show and, when it is only a temporary code, that code. */
 export interface DocumentNumber {

@@ -50,7 +50,7 @@ export const NUMBERED_TABLES = Object.freeze({
   inventory_transactions: {
     numberColumn: 'transaction_number',
     tempColumn: 'temp_code',
-    kindOf: (row) => (row.type === 'import' ? 'import' : row.type === 'export' ? 'export' : null),
+    kindOf: (row) => (row.type === 'import' ? 'import' : row.type === 'export' ? 'export' : row.type === 'stocktake' ? 'stocktake' : null),
   },
   cash_vouchers: {
     numberColumn: 'code',

@@ -96,9 +96,10 @@ export function planDirectDeduction(lines: SoldLine[], products: Product[], batc
     }
   }
   for (const [productId, qty] of perDish) {
+    // A dish with no batch at all does not manage its own stock; one whose batches are used up does, and is short.
+    if (!batches.some(b => b.productId === productId)) continue;
     const lots = batches.filter(b => b.productId === productId && b.quantity > 0)
       .sort((a, b) => new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime());
-    if (lots.length === 0) continue;
     let remaining = qty;
     for (const lot of lots) {
       if (remaining <= 1e-9) break;

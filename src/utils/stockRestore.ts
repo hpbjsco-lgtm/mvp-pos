@@ -30,8 +30,9 @@ export interface StockRestorePlan {
 }
 
 /**
- * Works out which stock to put back when an order is cancelled: every line of the export vouchers written for the
- * order goes back into the batch it was taken from. A line is matched to its batch by batch id, or by hand-written
+ * Works out which stock to put back when an order is cancelled: what the export vouchers of the order took from each
+ * batch, minus what was already put back for the order (restore vouchers: the kitchen puts stock back when it cancels
+ * a dish, and cancelling the order must not return it twice). A line is matched to its batch by batch id, or by
  * batch code and product for vouchers written before batch ids were stored. Quantities are added, never replaced.
  *
  * @param orderId Id of the cancelled order.
@@ -41,28 +42,39 @@ export interface StockRestorePlan {
  */
 export function planStockRestore(orderId: string, transactions: InventoryTransaction[], batches: InventoryBatch[]): StockRestorePlan {
   const sourceTransactions = transactions.filter(t => t.orderId === orderId && t.type === InventoryTransactionType.EXPORT);
-  const alreadyRestored = transactions.some(t => t.orderId === orderId && t.type === InventoryTransactionType.ADJUSTMENT && (t.note || '').startsWith(STOCK_RESTORE_NOTE_PREFIX));
+  const restoreVouchers = transactions.filter(t => t.orderId === orderId && t.type === InventoryTransactionType.ADJUSTMENT && (t.note || '').startsWith(STOCK_RESTORE_NOTE_PREFIX));
+  const findBatch = (item: InventoryTransactionItem) => batches.find(b => (item.batchId ? b.id === item.batchId : b.productId === item.productId && b.batchCode === item.batchCode));
 
-  const batchQuantities = new Map<string, number>();
-  const adjustmentByBatch = new Map<string, InventoryTransactionItem>();
+  const took = new Map<string, InventoryTransactionItem>();
   const skipped: UnrestorableLine[] = [];
   for (const transaction of sourceTransactions) {
     for (const item of transaction.items) {
-      const batch = batches.find(b => (item.batchId ? b.id === item.batchId : b.productId === item.productId && b.batchCode === item.batchCode));
+      const batch = findBatch(item);
       if (!batch) {
         skipped.push({ productId: item.productId, batchCode: item.batchCode, quantity: item.quantity });
         continue;
       }
-      batchQuantities.set(batch.id, +((batchQuantities.get(batch.id) || 0) + item.quantity).toFixed(6));
-      const line = adjustmentByBatch.get(batch.id);
-      adjustmentByBatch.set(batch.id, {
-        productId: batch.productId,
-        batchCode: batch.batchCode,
-        batchId: batch.id,
-        quantity: +((line?.quantity || 0) + item.quantity).toFixed(6),
-        price: item.price,
-      });
+      const line = took.get(batch.id);
+      took.set(batch.id, { productId: batch.productId, batchCode: batch.batchCode, batchId: batch.id, quantity: +((line?.quantity || 0) + item.quantity).toFixed(6), price: item.price });
     }
   }
-  return { sourceTransactions, alreadyRestored, batchQuantities, adjustmentItems: [...adjustmentByBatch.values()], skipped };
+  const putBack = new Map<string, number>();
+  for (const voucher of restoreVouchers) {
+    for (const item of voucher.items) {
+      const batch = findBatch(item);
+      if (batch) putBack.set(batch.id, +((putBack.get(batch.id) || 0) + item.quantity).toFixed(6));
+    }
+  }
+
+  const batchQuantities = new Map<string, number>();
+  const adjustmentItems: InventoryTransactionItem[] = [];
+  for (const [batchId, line] of took) {
+    const remaining = +(line.quantity - (putBack.get(batchId) || 0)).toFixed(6);
+    if (remaining > 1e-9) {
+      batchQuantities.set(batchId, remaining);
+      adjustmentItems.push({ ...line, quantity: remaining });
+    }
+  }
+  const alreadyRestored = took.size > 0 && adjustmentItems.length === 0 && restoreVouchers.length > 0;
+  return { sourceTransactions, alreadyRestored, batchQuantities, adjustmentItems, skipped };
 }

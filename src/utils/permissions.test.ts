@@ -10,14 +10,16 @@ describe('permissions', () => {
     expect(canAccess('manager', 'reports')).toBe(true);
     expect(canAccess('manager', 'employees')).toBe(true);
   });
-  it('staff (waiter / cashier) only reaches the POS screen', () => {
+  it('staff (waiter / cashier) only reaches the POS screen and the shift stock check', () => {
     expect(canAccess('staff', 'pos')).toBe(true);
+    expect(canAccess('staff', 'stockcheck')).toBe(true);
     for (const s of ['reports', 'kitchen', 'menu', 'tables', 'orders', 'shifts', 'inventory', 'customers', 'employees', 'suppliers', 'account']) {
       expect(canAccess('staff', s)).toBe(false);
     }
   });
-  it('kitchen staff only reaches the kitchen screen', () => {
+  it('kitchen staff only reaches the kitchen screen and the shift stock check', () => {
     expect(canAccess('kitchen', 'kitchen')).toBe(true);
+    expect(canAccess('kitchen', 'stockcheck')).toBe(true);
     expect(canAccess('kitchen', 'pos')).toBe(false);
     expect(canAccess('kitchen', 'reports')).toBe(false);
   });
