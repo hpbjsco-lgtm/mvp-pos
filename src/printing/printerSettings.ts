@@ -25,6 +25,36 @@ export interface PrinterSettings {
   printKitchenTicket: boolean;
   /** The chosen printer; absent until one is chosen. */
   usb?: SavedUsbPrinter;
+  /**
+   * A second printer used only for kitchen tickets (for example one standing in the kitchen); absent means kitchen
+   * tickets use the receipt printer. It uses the same paper width and shift as the receipt printer.
+   */
+  kitchenUsb?: SavedUsbPrinter;
+}
+
+/** What is printed: the customer's receipt, or the kitchen ticket. */
+export type PrintTarget = 'receipt' | 'kitchen';
+
+/**
+ * Picks the printer for a kind of print.
+ *
+ * @param settings Printer settings of this device.
+ * @param target Receipt or kitchen ticket.
+ * @returns The kitchen printer for a kitchen ticket when one is chosen, otherwise the receipt printer; undefined when none is chosen.
+ */
+export function printerFor(settings: PrinterSettings, target: PrintTarget): SavedUsbPrinter | undefined {
+  return target === 'kitchen' ? settings.kitchenUsb ?? settings.usb : settings.usb;
+}
+
+/**
+ * @param usb Saved printer entry read from storage.
+ * @param name Name of the entry for the error message.
+ * @throws Error when the entry is present but damaged.
+ */
+function assertValidUsbEntry(usb: any, name: string): void {
+  if (usb !== undefined && (!Number.isInteger(usb.vendorId) || !Number.isInteger(usb.productId) || typeof usb.label !== 'string')) {
+    throw new Error(`damaged ${name} entry`);
+  }
 }
 
 /** localStorage key. It is per browser on purpose: each cash desk has its own printer. */
@@ -53,11 +83,9 @@ export function getPrinterSettings(): PrinterSettings {
     if (typeof shiftRightMm !== 'number' || !(shiftRightMm >= 0 && shiftRightMm <= MAX_SHIFT_RIGHT_MM)) throw new Error('invalid shift');
     const printKitchenTicket = parsed.printKitchenTicket ?? DEFAULT_PRINTER_SETTINGS.printKitchenTicket;
     if (typeof printKitchenTicket !== 'boolean') throw new Error('invalid kitchen ticket flag');
-    const usb = parsed.usb;
-    if (usb !== undefined && (!Number.isInteger(usb.vendorId) || !Number.isInteger(usb.productId) || typeof usb.label !== 'string')) {
-      throw new Error('damaged printer entry');
-    }
-    return { paperWidth: parsed.paperWidth, shiftRightMm, printKitchenTicket, usb };
+    assertValidUsbEntry(parsed.usb, 'printer');
+    assertValidUsbEntry(parsed.kitchenUsb, 'kitchen printer');
+    return { paperWidth: parsed.paperWidth, shiftRightMm, printKitchenTicket, usb: parsed.usb, kitchenUsb: parsed.kitchenUsb };
   } catch (error) {
     throw new Error(`Cấu hình máy in bị hỏng (${(error as Error).message}). Hãy chọn lại máy in.`);
   }

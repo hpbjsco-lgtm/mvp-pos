@@ -80,4 +80,11 @@ describe('printer settings storage', () => {
     values['smartpos.printer'] = '{"paperWidth":80}';
     expect(getPrinterSettings()).toEqual({ paperWidth: 80, shiftRightMm: 1.5, printKitchenTicket: false, usb: undefined });
   });
+
+  it('saves and reads a separate kitchen printer, and refuses a damaged kitchen entry', () => {
+    savePrinterSettings({ paperWidth: 58, shiftRightMm: 1.5, printKitchenTicket: true, usb: { vendorId: 1, productId: 2, label: 'S31' }, kitchenUsb: { vendorId: 3, productId: 4, label: 'Bep' } });
+    expect(getPrinterSettings().kitchenUsb).toEqual({ vendorId: 3, productId: 4, label: 'Bep' });
+    values['smartpos.printer'] = '{"paperWidth":58,"kitchenUsb":{"vendorId":"x"}}';
+    expect(() => getPrinterSettings()).toThrow('Cấu hình máy in bị hỏng');
+  });
 });

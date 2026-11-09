@@ -10,7 +10,8 @@ import { clearPrinterSettings, DEFAULT_PRINTER_SETTINGS, getPrinterSettings, MAX
 import { buildReceiptDocument } from '../printing/receiptDocument';
 import { printReceipt } from '../printing/receiptPrinting';
 import { isWebUsbSupported, requestUsbPrinter, toSavedUsbPrinter } from '../printing/usbTransport';
-import { PaymentMethod } from '../types';
+import { buildKitchenTicketDocument } from '../printing/kitchenTicketDocument';
+import { KitchenStatus, PaymentMethod } from '../types';
 
 interface PrinterSettingsDialogProps {
   onClose: () => void;
@@ -47,6 +48,15 @@ const TEST_RECEIPT = buildReceiptDocument({
   variant: 'final',
 });
 
+/** Sample kitchen ticket for the test print of the kitchen printer. */
+const TEST_KITCHEN_TICKET = buildKitchenTicketDocument({
+  tableName: 'In thử', staffName: 'Hệ thống', sentAt: new Date(),
+  items: [{
+    id: 'test', orderId: 'test', productId: 'test', productName: 'Cà phê sữa đá (in thử tiếng Việt có dấu)', quantity: 2,
+    status: KitchenStatus.PENDING, size: 'Lớn', note: 'Ít đá', createdAt: new Date().toISOString(),
+  }],
+});
+
 /**
  * Dialog to choose the receipt printer of this device (USB), set the paper width and print a test receipt.
  * The choice is stored in this browser only.
@@ -56,6 +66,8 @@ export default function PrinterSettingsDialog({ onClose }: PrinterSettingsDialog
   const [settings, setSettings] = useState<PrinterSettings>(initial.settings);
   const [message, setMessage] = useState<StatusMessage | null>(initial.error ? { ok: false, text: initial.error } : null);
   const [busy, setBusy] = useState(false);
+  /** Whether kitchen tickets use a printer of their own (true as soon as one is chosen, and while choosing). */
+  const [separateKitchenPrinter, setSeparateKitchenPrinter] = useState(initial.settings.kitchenUsb !== undefined);
 
   /**
    * Runs an action while the buttons are disabled and shows a failure as a message.
@@ -97,9 +109,35 @@ export default function PrinterSettingsDialog({ onClose }: PrinterSettingsDialog
     setMessage({ ok: true, text: `Đã chọn máy in: ${usb.label}. Bấm "In thử" để kiểm tra.` });
   });
 
-  /** Forgets the chosen printer and the paper width. */
+  /** Opens the browser's USB picker and keeps the chosen printer for kitchen tickets. */
+  const chooseKitchenPrinter = () => withBusy(async () => {
+    const device = await requestUsbPrinter(false);
+    if (!device) return;
+    const kitchenUsb = toSavedUsbPrinter(device);
+    update({ ...settings, kitchenUsb });
+    setMessage({ ok: true, text: `Đã chọn máy in phiếu bếp: ${kitchenUsb.label}. Bấm "In thử phiếu bếp" để kiểm tra.` });
+  });
+
+  /**
+   * Switches kitchen tickets between the receipt printer and a printer of their own.
+   *
+   * @param separate True for a printer of their own.
+   */
+  const useSeparateKitchenPrinter = (separate: boolean) => {
+    setSeparateKitchenPrinter(separate);
+    if (!separate && settings.kitchenUsb) update({ ...settings, kitchenUsb: undefined });
+  };
+
+  /** Prints a sample kitchen ticket on the printer kitchen tickets use. */
+  const printKitchenTest = () => withBusy(async () => {
+    await printReceipt(TEST_KITCHEN_TICKET, 'kitchen');
+    setMessage({ ok: true, text: 'Đã gửi phiếu bếp in thử.' });
+  });
+
+  /** Forgets the chosen printers and the paper width. */
   const forget = () => {
     clearPrinterSettings();
+    setSeparateKitchenPrinter(false);
     setSettings({ ...DEFAULT_PRINTER_SETTINGS });
     setMessage({ ok: true, text: 'Đã bỏ chọn máy in trên thiết bị này.' });
   };
@@ -176,18 +214,42 @@ export default function PrinterSettingsDialog({ onClose }: PrinterSettingsDialog
                 <p className="text-sm text-on-surface-variant">Tăng số này nếu chữ bị lệch về bên trái giấy. In thử lại để xem.</p>
               </section>
 
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={settings.printKitchenTicket}
-                  onChange={e => update({ ...settings, printKitchenTicket: e.target.checked })}
-                  className="mt-1 w-5 h-5 accent-primary"
-                />
-                <span className="text-sm text-on-surface">
-                  <strong className="block text-base">In phiếu bếp khi báo bếp</strong>
-                  Mỗi lần báo bếp ở máy này, máy in sẽ in một phiếu gồm bàn, món, số lượng và ghi chú.
-                </span>
-              </label>
+              <section className="space-y-3 border-t border-outline-variant pt-4">
+                <h4 className="text-base font-bold text-on-surface">Phiếu bếp</h4>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.printKitchenTicket}
+                    onChange={e => update({ ...settings, printKitchenTicket: e.target.checked })}
+                    className="mt-1 w-5 h-5 accent-primary"
+                  />
+                  <span className="text-sm text-on-surface">
+                    <strong className="block text-base">In phiếu bếp khi báo bếp</strong>
+                    Mỗi lần báo bếp ở máy này, in một phiếu gồm bàn, món, số lượng và ghi chú.
+                  </span>
+                </label>
+                <div className="space-y-2">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input type="radio" name="kitchen-printer" checked={!separateKitchenPrinter} onChange={() => useSeparateKitchenPrinter(false)} className="mt-1 w-5 h-5 accent-primary" />
+                    <span className="text-sm text-on-surface">Dùng chung máy in hóa đơn</span>
+                  </label>
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input type="radio" name="kitchen-printer" checked={separateKitchenPrinter} onChange={() => useSeparateKitchenPrinter(true)} className="mt-1 w-5 h-5 accent-primary" />
+                    <span className="text-sm text-on-surface">Máy in riêng cho phiếu bếp (dùng cùng khổ giấy)</span>
+                  </label>
+                </div>
+                {separateKitchenPrinter && (
+                  <div className="space-y-2 pl-8">
+                    <p className="text-sm text-on-surface-variant">
+                      {settings.kitchenUsb ? <strong className="text-on-surface">{settings.kitchenUsb.label}</strong> : 'Chưa chọn máy in bếp. Cắm dây USB, bật máy in rồi bấm "Chọn máy in bếp".'}
+                    </p>
+                    <button type="button" disabled={busy} onClick={chooseKitchenPrinter} className="m3-btn-outlined !min-h-11 text-sm">Chọn máy in bếp</button>
+                  </div>
+                )}
+                <button type="button" disabled={busy || !(settings.kitchenUsb ?? settings.usb)} onClick={printKitchenTest} className="m3-btn-tonal w-full !min-h-12 disabled:opacity-50">
+                  In thử phiếu bếp
+                </button>
+              </section>
 
               <button type="button" disabled={busy || !settings.usb} onClick={printTest} className="m3-btn-tonal w-full !min-h-12 disabled:opacity-50">
                 {busy ? 'Đang gửi...' : 'In thử'}
