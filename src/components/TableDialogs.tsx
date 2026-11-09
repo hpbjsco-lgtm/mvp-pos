@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { DiningTable, KitchenItem, Product, Zone } from '../types';
 import { buildKitchenHistory } from '../utils/kitchenHistory';
+import { lineUnitPrice } from '../utils/toppings';
 import type { CartLine } from './POSScreen';
 import {
   CartMap, DELIVERY_ID, MoveSelection, TAKEAWAY_ID, canTransferTo, formatElapsed, getChildTables, getGroupLabel,
@@ -322,7 +323,7 @@ export function SplitMergeOrderDialog({ currentId, initialMode, tables, zones, c
 
   const effective = (l: CartLine) => (mode === 'combine' ? l.quantity : selection[lineKey(l)] || 0);
   const totalMoving = lines.reduce((s, l) => s + effective(l), 0);
-  const moneyMoving = lines.reduce((s, l) => s + effective(l) * (products.find(p => p.id === l.productId)?.price || 0), 0);
+  const moneyMoving = lines.reduce((s, l) => s + effective(l) * lineUnitPrice(l, products), 0);
 
   const setQty = (l: CartLine, q: number) =>
     setSelection(prev => ({ ...prev, [lineKey(l)]: Math.max(0, Math.min(l.quantity, q)) }));

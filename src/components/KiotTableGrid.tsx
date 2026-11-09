@@ -11,6 +11,7 @@ import tableOutlineSvg from '../assets/icons/table-outline.svg?raw';
 import {
   CartMap, DELIVERY_ID, TAKEAWAY_ID, formatElapsed, getTableStats, isVirtualCartId, resolvePrimaryId,
 } from '../utils/tableOps';
+import { lineUnitPrice } from '../utils/toppings';
 
 type StatusFilter = 'all' | 'busy' | 'free';
 
@@ -67,7 +68,7 @@ export default function KiotTableGrid({ tables, zones, carts, products, selected
     const lines = carts[id] || [];
     if (filter === 'busy' && lines.length === 0) return null;
     const selected = selectedId === id;
-    const total = lines.reduce((s, l) => s + (products.find(p => p.id === l.productId)?.price || 0) * l.quantity, 0);
+    const total = lines.reduce((s, l) => s + lineUnitPrice(l, products) * l.quantity, 0);
     return (
       <button
         key={id}

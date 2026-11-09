@@ -5,9 +5,12 @@
 
 import { createDocumentNumber } from '../sync/documentNumbers';
 import React, { useState } from 'react';
-import { Plus, X, ArrowUpFromLine } from 'lucide-react';
+import { Plus, X, ArrowUpFromLine, FileSpreadsheet } from 'lucide-react';
 import { Product, InventoryBatch, InventoryTransaction, InventoryTransactionType } from '../types';
-import { stockOf, toBaseQuantity, unitChoices } from '../utils/inventoryItems';
+import { exportUnitNote, stockOf, toBaseQuantity, unitChoices } from '../utils/inventoryItems';
+import { batchesToCsv, batchTemplateCsv, parseBatchImport, parseProductImport, productsToCsv, productTemplateCsv, transactionsToCsv, type BatchImportItem } from '../utils/inventoryCsv';
+import { datedFileName, saveTextFile } from '../utils/downloadFile';
+import CsvImportDialog from './CsvImportDialog';
 import InventoryCatalog from './InventoryCatalog';
 import IngredientDialog from './IngredientDialog';
 import PageCard from './ui/PageCard';
@@ -70,6 +73,9 @@ export default function InventoryScreen({
   // F&B có 2 chế độ xem: Hàng hóa (danh mục) và Lô hàng & lịch sử; bán lẻ chỉ có lô hàng
   const [view, setView] = useState<'catalog' | 'batches'>(simStoreType === 'fnb' ? 'catalog' : 'batches');
   const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const [csvMenuOpen, setCsvMenuOpen] = useState(false);
+  /** Which import dialog is open. */
+  const [csvImport, setCsvImport] = useState<'products' | 'batches' | null>(null);
   const [itemDialog, setItemDialog] = useState<{ group: 'ingredient' | 'tool'; item?: Product } | null>(null);
   const [importUnit, setImportUnit] = useState('');
 
@@ -88,6 +94,8 @@ export default function InventoryScreen({
   const [exportOpen, setExportOpen] = useState(false);
   const [exportProductId, setExportProductId] = useState('');
   const [exportQty, setExportQty] = useState(0);
+  /** Đơn vị của số lượng xuất; rỗng = đơn vị cơ bản của hàng. */
+  const [exportUnit, setExportUnit] = useState('');
   const [exportReason, setExportReason] = useState('use');
   const [exportNote, setExportNote] = useState('');
   const [showHistory, setShowHistory] = useState(false);
@@ -194,6 +202,50 @@ export default function InventoryScreen({
     triggerBeep(true);
   };
 
+  // ---- Tệp CSV: xuất danh sách, tải file mẫu, nhập từ file ----
+  /**
+   * Saves a CSV file for the person and reports a failure.
+   *
+   * @param prefix Start of the file name.
+   * @param content CSV text.
+   */
+  const downloadCsv = async (prefix: string, content: string) => {
+    try {
+      await saveTextFile(datedFileName(prefix), content);
+    } catch (error) {
+      alert(`Không lưu được file: ${(error as Error).message}`);
+    }
+  };
+
+  /** Adds the goods of a file to the list. */
+  const importProducts = async (items: Product[]) => {
+    logOperation('Quản lý kho', 'Nhập hàng hóa từ file CSV', { count: items.length });
+    setSimProducts(prev => [...items, ...prev]);
+    triggerBeep(true);
+  };
+
+  /** Adds the batches of a file to stock and writes one import voucher for all of them. */
+  const importBatches = async (items: BatchImportItem[]) => {
+    const stamp = Date.now();
+    const number = await createDocumentNumber('import', storeId, () => `PNK-${stamp.toString().slice(-5)}`);
+    const transactionId = `TX-${stamp}-CSV`;
+    const batches = items.map(item => ({ ...item.batch, transactionId }));
+    logOperation('Quản lý kho', 'Nhập lô hàng từ file CSV', { count: batches.length, transactionId });
+    setSimBatches(prev => [...batches, ...prev]);
+    setSimTransactions(prev => [{
+      id: transactionId,
+      transactionNumber: number.number,
+      tempCode: number.tempNumber || undefined,
+      type: InventoryTransactionType.IMPORT,
+      items: batches.map(batch => ({ productId: batch.productId, batchId: batch.id, batchCode: batch.batchCode, quantity: batch.originalQuantity, price: batch.importPrice })),
+      totalAmount: batches.reduce((sum, batch) => sum + (batch.importPrice || 0) * batch.originalQuantity, 0),
+      staffId: fbUserProfile?.uid || 'staff-01',
+      note: `Nhập từ file CSV (${batches.length} lô)`,
+      createdAt: new Date().toISOString(),
+    }, ...prev]);
+    triggerBeep(true);
+  };
+
   // ---- Danh mục hàng: tạo / sửa / xóa nguyên vật liệu, công cụ dụng cụ ----
   const handleSaveItem = async (product: Product, openingStock: number) => {
     const exists = simProducts.some(p => p.id === product.id);
@@ -247,7 +299,11 @@ export default function InventoryScreen({
     return { picks, shortfall: Math.max(0, remaining), available };
   };
 
-  const exportPlan = exportProductId ? fefoPlan(exportProductId, exportQty) : { picks: [], shortfall: 0, available: 0 };
+  const exportProduct = simProducts.find(p => p.id === exportProductId);
+  // Quantity in the base unit: what the FEFO plan and the voucher use, whatever unit the person typed
+  const exportBaseQty = exportProduct ? toBaseQuantity(exportProduct, exportUnit, exportQty) : exportQty;
+  const exportBaseUnit = exportProduct?.unit || '';
+  const exportPlan = exportProductId ? fefoPlan(exportProductId, exportBaseQty) : { picks: [], shortfall: 0, available: 0 };
 
   const handleExport = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -256,7 +312,8 @@ export default function InventoryScreen({
       return;
     }
     if (exportPlan.shortfall > 0) {
-      alert(`Tồn kho không đủ: chỉ còn ${exportPlan.available}, cần xuất ${exportQty}.`);
+      const unitSuffix = exportBaseUnit ? ` ${exportBaseUnit}` : '';
+      alert(`Tồn kho không đủ: chỉ còn ${exportPlan.available}${unitSuffix}, cần xuất ${exportBaseQty}${unitSuffix}.`);
       return;
     }
     const reason = EXPORT_REASONS.find(r => r.id === exportReason) || EXPORT_REASONS[0];
@@ -276,7 +333,7 @@ export default function InventoryScreen({
       })),
       totalAmount: exportPlan.picks.reduce((sum, p) => sum + (p.batch.importPrice || 0) * p.take, 0),
       staffId: fbUserProfile?.uid || 'staff-01',
-      note: `${reason.label}${exportNote.trim() ? ` - ${exportNote.trim()}` : ''}`,
+      note: [reason.label, exportNote.trim(), exportProduct ? exportUnitNote(exportProduct, exportUnit, exportQty) : ''].filter(Boolean).join(' - '),
       createdAt: new Date().toISOString()
     };
     logOperation('Quản lý kho', 'Xuất kho', tx);
@@ -284,6 +341,7 @@ export default function InventoryScreen({
     setSimTransactions(prev => [tx, ...prev]);
     setExportOpen(false);
     setExportQty(0);
+    setExportUnit('');
     setExportNote('');
     triggerBeep(true);
   };
@@ -349,11 +407,38 @@ export default function InventoryScreen({
           </div>
         )}
 
+        <div className="relative">
+          <button onClick={() => setCsvMenuOpen(v => !v)} className="m3-btn-outlined !min-h-11 text-sm"><FileSpreadsheet className="w-4 h-4" /> Tệp CSV ▾</button>
+          {csvMenuOpen && (
+            <>
+              <div className="fixed inset-0 z-30" onClick={() => setCsvMenuOpen(false)} />
+              <div className="absolute right-0 top-full mt-1 z-40 w-64 bg-surface-container-lowest border border-outline-variant rounded-xl shadow-lg overflow-hidden">
+                {([
+                  ['Xuất', null],
+                  ...(isFnB ? [['Danh mục hàng', () => downloadCsv('kho-hang-hoa', productsToCsv(simProducts, simBatches))]] : []),
+                  ['Tồn kho theo lô', () => downloadCsv('kho-ton-theo-lo', batchesToCsv(simBatches, simProducts))],
+                  ['Lịch sử phiếu kho', () => downloadCsv('kho-lich-su-phieu', transactionsToCsv(simTransactions, simProducts))],
+                  ['Tải file mẫu', null],
+                  ...(isFnB ? [['Mẫu nhập hàng hóa', () => downloadCsv('mau-nhap-hang-hoa', productTemplateCsv())]] : []),
+                  ['Mẫu nhập lô hàng', () => downloadCsv('mau-nhap-lo-hang', batchTemplateCsv())],
+                  ['Nhập từ file', null],
+                  ...(isFnB ? [['Nhập hàng hóa từ file', () => setCsvImport('products')]] : []),
+                  ['Nhập lô hàng từ file', () => setCsvImport('batches')],
+                ] as Array<[string, (() => void) | null]>).map(([label, action]) => (
+                  action === null
+                    ? <p key={label} className="px-4 pt-3 pb-1 text-xs font-bold uppercase text-on-surface-variant">{label}</p>
+                    : <button key={label} onClick={() => { setCsvMenuOpen(false); action(); }} className="w-full text-left px-4 py-2.5 text-base font-semibold hover:bg-surface-container cursor-pointer">{label}</button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
         <button onClick={() => { setAddModalOpen(true); triggerBeep(true); }} className="m3-btn-outlined !min-h-11 text-sm">
           <Plus className="w-4 h-4" /> Nhập kho
         </button>
         <button
-          onClick={() => { setExportProductId(simProducts.find(p => simBatches.some(b => b.productId === p.id && b.quantity > 0))?.id || ''); setExportQty(0); setExportReason('use'); setExportNote(''); setExportOpen(true); triggerBeep(true); }}
+          onClick={() => { setExportProductId(simProducts.find(p => simBatches.some(b => b.productId === p.id && b.quantity > 0))?.id || ''); setExportQty(0); setExportUnit(''); setExportReason('use'); setExportNote(''); setExportOpen(true); triggerBeep(true); }}
           className="m3-btn-tonal !min-h-11 text-sm"
         >
           <ArrowUpFromLine className="w-4 h-4" /> Xuất kho
@@ -614,6 +699,35 @@ export default function InventoryScreen({
         />
       )}
 
+      {csvImport === 'products' && (
+        <CsvImportDialog<Product>
+          title="Nhập hàng hóa từ file CSV"
+          instructions="Chỉ thêm hàng mới. Mã hàng đã có sẽ báo lỗi. Tải file mẫu, điền từ dòng dưới tiêu đề, lưu dạng CSV UTF-8 rồi chọn file."
+          onDownloadTemplate={() => void downloadCsv('mau-nhap-hang-hoa', productTemplateCsv())}
+          parse={text => parseProductImport(text, simProducts)}
+          previewHeaders={['Mã hàng', 'Tên hàng', 'Nhóm quản lý', 'Đơn vị', 'Giá vốn']}
+          previewRow={p => [p.sku, p.name, p.itemGroup === 'tool' ? 'Công cụ dụng cụ' : 'Nguyên vật liệu', p.unit ?? '', p.cost.toLocaleString('vi-VN')]}
+          onConfirm={importProducts}
+          onClose={() => setCsvImport(null)}
+        />
+      )}
+
+      {csvImport === 'batches' && (
+        <CsvImportDialog<BatchImportItem>
+          title="Nhập lô hàng từ file CSV"
+          instructions="Mỗi dòng là một lô nhập kho; mã hàng phải đã có trong danh mục. Cả file được ghi thành một phiếu nhập. Tải file mẫu, điền từ dòng dưới tiêu đề, lưu dạng CSV UTF-8 rồi chọn file."
+          onDownloadTemplate={() => void downloadCsv('mau-nhap-lo-hang', batchTemplateCsv())}
+          parse={text => parseBatchImport(text, simProducts, simBatches)}
+          previewHeaders={['Mã hàng', 'Mã lô', 'Hạn sử dụng', 'Số lượng nhập', 'Giá nhập']}
+          previewRow={item => [
+            simProducts.find(p => p.id === item.batch.productId)?.sku ?? '', item.batch.batchCode, item.batch.expiryDate,
+            `${item.typedQuantity.toLocaleString('vi-VN')} ${item.typedUnit}`.trim(), (item.batch.importPrice ?? 0).toLocaleString('vi-VN'),
+          ]}
+          onConfirm={importBatches}
+          onClose={() => setCsvImport(null)}
+        />
+      )}
+
       {/* Modal xuất kho */}
       {exportOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
@@ -626,7 +740,7 @@ export default function InventoryScreen({
             <form onSubmit={handleExport} className="space-y-3">
               <div className="space-y-1">
                 <label className="text-sm font-semibold text-on-surface-variant">{isFnB ? 'Nguyên vật liệu cần xuất' : 'Sản phẩm cần xuất'}</label>
-                <select value={exportProductId} onChange={(e) => setExportProductId(e.target.value)} className="m3-input" required>
+                <select value={exportProductId} onChange={(e) => { setExportProductId(e.target.value); setExportUnit(''); }} className="m3-input" required>
                   <option value="" disabled>Chọn...</option>
                   {simProducts.filter(p => simBatches.some(b => b.productId === p.id && b.quantity > 0)).map(p => (
                     <option key={p.id} value={p.id}>{p.name} (tồn {simBatches.filter(b => b.productId === p.id).reduce((s, b) => s + b.quantity, 0)})</option>
@@ -638,6 +752,14 @@ export default function InventoryScreen({
                 <div className="space-y-1">
                   <label className="text-sm font-semibold text-on-surface-variant">Số lượng xuất</label>
                   <input type="number" min="1" value={exportQty || ''} onChange={(e) => setExportQty(parseInt(e.target.value) || 0)} className="m3-input font-mono" required />
+                  {exportProduct && unitChoices(exportProduct).length > 1 && (
+                    <select value={exportUnit || exportProduct.unit || ''} onChange={(e) => setExportUnit(e.target.value)} className="m3-input !min-h-10 text-sm" aria-label="Đơn vị xuất">
+                      {unitChoices(exportProduct).map(u => <option key={u.name} value={u.name}>{u.name}{u.ratio !== 1 ? ` (= ${u.ratio} ${exportProduct.unit || ''})` : ''}</option>)}
+                    </select>
+                  )}
+                  {exportProduct && exportQty > 0 && exportBaseQty !== exportQty && (
+                    <p className="text-sm text-on-surface-variant">= {exportBaseQty.toLocaleString('vi-VN')} {exportBaseUnit}</p>
+                  )}
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm font-semibold text-on-surface-variant">Lý do</label>
@@ -655,12 +777,12 @@ export default function InventoryScreen({
               {exportProductId && exportQty > 0 && (
                 <div className={`p-3 rounded-2xl text-sm space-y-1 ${exportPlan.shortfall > 0 ? 'bg-error-container text-on-error-container' : 'bg-surface-container text-on-surface'}`}>
                   {exportPlan.shortfall > 0 ? (
-                    <p className="font-bold">Tồn kho không đủ: còn {exportPlan.available}, thiếu {exportPlan.shortfall}.</p>
+                    <p className="font-bold">Tồn kho không đủ: còn {exportPlan.available} {exportBaseUnit}, thiếu {exportPlan.shortfall} {exportBaseUnit}.</p>
                   ) : (
                     <>
                       <p className="font-bold">Hệ thống tự trừ theo FEFO (hết hạn trước xuất trước):</p>
                       {exportPlan.picks.map(p => (
-                        <p key={p.batch.id}>Lô {p.batch.batchCode} (HSD {p.batch.expiryDate}): trừ {p.take}</p>
+                        <p key={p.batch.id}>Lô {p.batch.batchCode} (HSD {p.batch.expiryDate}): trừ {p.take} {exportBaseUnit}</p>
                       ))}
                     </>
                   )}

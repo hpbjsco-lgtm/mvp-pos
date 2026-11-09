@@ -28,6 +28,19 @@ export function toBaseQuantity(p: Pick<Product, 'unit' | 'unitConversions'>, uni
   return conv ? quantity * conv.ratio : quantity;
 }
 
+/**
+ * Câu ghi chú cho phiếu xuất khi người dùng nhập số lượng theo đơn vị quy đổi, ví dụ "xuất 2 Thùng".
+ * Số lượng trên phiếu luôn là đơn vị cơ bản, nên ghi chú giữ lại con số người dùng đã nhập.
+ *
+ * @param p Hàng được xuất.
+ * @param unitName Đơn vị người dùng chọn (rỗng hoặc đơn vị cơ bản thì không cần ghi chú).
+ * @param quantity Số lượng người dùng nhập theo đơn vị đó.
+ * @returns Chuỗi ghi chú, hoặc chuỗi rỗng khi nhập theo đơn vị cơ bản.
+ */
+export function exportUnitNote(p: Pick<Product, 'unit' | 'unitConversions'>, unitName: string, quantity: number): string {
+  return !unitName || unitName === p.unit ? '' : `xuất ${quantity} ${unitName}`;
+}
+
 /** Danh sách đơn vị chọn được của mặt hàng: đơn vị cơ bản rồi các đơn vị quy đổi. */
 export function unitChoices(p: Pick<Product, 'unit' | 'unitConversions'>): { name: string; ratio: number }[] {
   const base = p.unit ? [{ name: p.unit, ratio: 1 }] : [];

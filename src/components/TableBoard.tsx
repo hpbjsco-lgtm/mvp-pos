@@ -11,6 +11,7 @@ import tableIconSvg from '../assets/icons/table.svg?raw';
 import {
   CartMap, DELIVERY_ID, TAKEAWAY_ID, formatElapsed, getGroupTables, getTableStats, isVirtualCartId, resolvePrimaryId,
 } from '../utils/tableOps';
+import { lineUnitPrice } from '../utils/toppings';
 
 type StatusFilter = 'all' | 'busy' | 'free';
 
@@ -137,7 +138,7 @@ export default function TableBoard({ tables, zones, carts, products, selectedId,
         ].map(({ id, label, Icon }) => {
           const lines = carts[id] || [];
           if (filter === 'busy' && lines.length === 0) return null;
-          const total = lines.reduce((s, l) => s + (products.find(p => p.id === l.productId)?.price || 0) * l.quantity, 0);
+          const total = lines.reduce((s, l) => s + lineUnitPrice(l, products) * l.quantity, 0);
           const qty = lines.reduce((s, l) => s + l.quantity, 0);
           const selected = selectedId === id;
           return (

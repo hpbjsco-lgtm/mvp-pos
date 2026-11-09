@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { nextItemCode, stockOf, stockStatus, toBaseQuantity, unitChoices } from './inventoryItems';
+import { exportUnitNote, nextItemCode, stockOf, stockStatus, toBaseQuantity, unitChoices } from './inventoryItems';
 import { InventoryBatch } from '../types';
 
 const batch = (productId: string, quantity: number): InventoryBatch => ({ id: `${productId}${quantity}`, productId, batchCode: 'L', expiryDate: '2099-01-01', quantity, originalQuantity: quantity, createdAt: '' });
@@ -29,3 +29,16 @@ describe('inventory items', () => {
     expect(nextItemCode([{ sku: 'NL0007' }, { sku: 'CC0002' }, { sku: 'RAW-001' }], 'NL')).toBe('NL0008');
   });
 });
+
+describe('exportUnitNote', () => {
+  const p = { unit: 'Chai', unitConversions: [{ name: 'Thùng', ratio: 24 }] };
+  it('keeps what the person typed when the unit is not the base unit', () => {
+    expect(exportUnitNote(p, 'Thùng', 2)).toBe('xuất 2 Thùng');
+    expect(toBaseQuantity(p, 'Thùng', 2)).toBe(48);
+  });
+  it('has no note for the base unit or an empty unit', () => {
+    expect(exportUnitNote(p, 'Chai', 5)).toBe('');
+    expect(exportUnitNote(p, '', 5)).toBe('');
+  });
+});
+
