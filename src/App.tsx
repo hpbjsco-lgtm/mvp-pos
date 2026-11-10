@@ -31,6 +31,10 @@ import SyncStatusBadge from './components/SyncStatusBadge';
 import ConflictsSection from './components/ConflictsSection';
 import ShiftStockCheck from './components/ShiftStockCheck';
 import type { StockCheckDeps } from './components/StocktakeFlow';
+import type { KitchenItem } from './types';
+import { applyKitchenRestores } from './utils/kitchenRestore';
+import { settleKitchenStock } from './utils/kitchenStock';
+import { cancelKitchenTicket, canCancelFromKitchen, cartIdForTicketLabel, removeCancelledTicketFromCart } from './utils/kitchenSync';
 import ConflictBanner from './components/ConflictBanner';
 import { getAppSyncClient } from './sync/appSyncClient';
 import { useConflictCount } from './sync/useConflictCount';
@@ -159,6 +163,31 @@ export default function App() {
     storeId,
     user: { uid: fbUserProfile?.uid || '', name: fbUserProfile?.name || '' },
     triggerBeep,
+  };
+
+  /**
+   * The kitchen cancels a dish that has not been made yet: the ticket is cancelled, the stock taken for it goes back, and
+   * its portions leave the order of the table, so the customer is neither charged nor counted in stock again.
+   *
+   * @param item The kitchen ticket to cancel.
+   */
+  const cancelDishInKitchen = (item: KitchenItem) => {
+    if (!canCancelFromKitchen(item.status)) return;
+    const cancelled = settleKitchenStock(cancelKitchenTicket(simKitchenItems, item.id, fbUserProfile?.name || '', new Date().toISOString()));
+    setSimKitchenItems(() => cancelled.items);
+    if (cancelled.restores.length > 0) {
+      applyKitchenRestores(cancelled.restores, {
+        storeId,
+        staffId: fbUserProfile?.uid || 'staff-01',
+        setIngredientBatches: setSimIngredientBatches,
+        setBatches: setSimBatches,
+        setIngredientTransactions: setSimIngredientTransactions,
+        setTransactions: setSimTransactions,
+      }).catch(error => alert(`Đã hủy món nhưng không hoàn được kho: ${(error as Error).message}`));
+    }
+    const cartId = cartIdForTicketLabel(simTables, item.tableNumber || '');
+    if (cartId) setSimCarts(prev => ({ ...prev, [cartId]: removeCancelledTicketFromCart(prev[cartId] || [], item, simProducts) }));
+    triggerBeep(true);
   };
 
   // --- LOG CONTEXT SYNC EFFECT ---
@@ -960,6 +989,7 @@ export default function App() {
                 transition={{ duration: 0.2 }}
               >
                 <KitchenDisplay
+                  onCancelDish={cancelDishInKitchen}
                   simKitchenItems={simKitchenItems}
                   setSimKitchenItems={setSimKitchenItems}
                   triggerBeep={triggerBeep}

@@ -6,12 +6,15 @@
 import React, { useState, useEffect } from 'react';
 import { Trash2 } from 'lucide-react';
 import { KitchenItem, KitchenStatus } from '../types';
+import { canCancelFromKitchen } from '../utils/kitchenSync';
 import PageCard from './ui/PageCard';
 import PageTabs from './ui/PageTabs';
 import FilterPills from './ui/FilterPills';
 import DataTable, { DataTableColumn } from './ui/DataTable';
 
 interface KitchenDisplayProps {
+  /** Cancels a dish that has not been made yet (see `cancelDishInKitchen` in App). */
+  onCancelDish: (item: KitchenItem) => void;
   simKitchenItems: KitchenItem[];
   setSimKitchenItems: React.Dispatch<React.SetStateAction<KitchenItem[]>>;
   triggerBeep: (success: boolean) => void;
@@ -38,6 +41,7 @@ const NEXT_ACTION_LABEL: Partial<Record<KitchenStatus, string>> = {
 type KitchenView = 'byDish' | 'byTable';
 
 export default function KitchenDisplay({
+  onCancelDish,
   simKitchenItems,
   setSimKitchenItems,
   triggerBeep
@@ -79,6 +83,17 @@ export default function KitchenDisplay({
   };
 
   const isClosed = (s: KitchenStatus) => s === KitchenStatus.SERVED || s === KitchenStatus.CANCELLED;
+
+  /**
+   * Asks for confirmation, then cancels a dish that is waiting or being cooked.
+   *
+   * @param item The kitchen ticket.
+   */
+  const handleCancelDish = (item: KitchenItem) => {
+    const where = item.tableNumber || 'Mang đi';
+    if (!confirm(`Hủy món?\n\n"${item.productName}" x${item.quantity} (${where})\n\nMón sẽ bị bỏ khỏi đơn của bàn và hoàn lại kho nếu đã trừ. Không thể hoàn tác.`)) return;
+    onCancelDish(item);
+  };
 
   const handleClearServed = () => {
     if (confirm('Bạn có muốn xóa các món đã phục vụ xong và các món đã hủy ra khỏi hàng đợi bếp?')) {
@@ -165,11 +180,18 @@ export default function KitchenDisplay({
       {
         key: 'action',
         header: '',
-        className: 'text-right w-32',
+        className: 'text-right w-48',
         render: item => NEXT_ACTION_LABEL[item.status] ? (
-          <button type="button" onClick={() => handleUpdateStatus(item.id, item.status)} className="m3-btn-filled !min-h-9 !px-4 text-sm">
-            {NEXT_ACTION_LABEL[item.status]}
-          </button>
+          <div className="flex justify-end gap-2">
+            {canCancelFromKitchen(item.status) && (
+              <button type="button" onClick={() => handleCancelDish(item)} className="m3-btn-outlined !min-h-9 !px-3 text-sm !text-error !border-error">
+                Hủy món
+              </button>
+            )}
+            <button type="button" onClick={() => handleUpdateStatus(item.id, item.status)} className="m3-btn-filled !min-h-9 !px-4 text-sm">
+              {NEXT_ACTION_LABEL[item.status]}
+            </button>
+          </div>
         ) : null,
       },
     );

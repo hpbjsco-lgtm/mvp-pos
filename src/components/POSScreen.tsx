@@ -19,11 +19,12 @@ import BankAccountsDialog from './BankAccountsDialog';
 import { buildTransferInfo } from '../utils/transferInfo';
 import { printKitchenTicketIfEnabled } from '../printing/kitchenPrinting';
 import { createDocumentNumber } from '../sync/documentNumbers';
+import { applyKitchenRestores } from '../utils/kitchenRestore';
 import {
   applyRestore, buildStockVoucher, deductForLines, describeShortages, KITCHEN_RESTORE_NOTE_PREFIX, settleKitchenStock, unstockedLines, type KitchenRestore,
 } from '../utils/kitchenStock';
 import { PAYMENT_METHOD_OF, type SimpleMethod } from '../utils/payments';
-import { applyLineEditToKitchen, isKitchenTicketOpen, moveKitchenPortions, relabelKitchenTickets, removePortionsFromKitchen, type KitchenEditableField } from '../utils/kitchenSync';
+import { applyLineEditToKitchen, isKitchenTicketOpen, moveKitchenPortions, relabelKitchenTickets, removePortionsFromKitchen, ticketMatchesLine as sharedTicketMatchesLine, type KitchenEditableField } from '../utils/kitchenSync';
 import {
   OrderOptionsMenu, OptionIcons, MergeTablesDialog, TransferTableDialog, SplitMergeOrderDialog,
   ReservationDialog, KitchenHistoryDialog, OrderInfoDialog, type OptionItem
@@ -338,10 +339,7 @@ export default function POSScreen({
   const isKitchenActive = isKitchenTicketOpen;
 
   /** True for a kitchen ticket whose dish and options equal those of a cart line. */
-  const ticketMatchesLine = (k: KitchenItem, line: CartLine) =>
-    k.productId === line.productId && (k.note || '') === (line.note || '')
-    && (k.size || '') === (line.size || '') && (k.sugarLevel || '') === (line.sugarLevel || '')
-    && (k.iceLevel || '') === (line.iceLevel || '') && (k.toppings || '') === toppingsText(line, simProducts);
+  const ticketMatchesLine = (k: KitchenItem, line: CartLine) => sharedTicketMatchesLine(k, line, simProducts);
 
   /** True for a kitchen ticket of the current order that was sent for exactly this cart line. */
   const kitchenTicketBelongsToLine = (line: CartLine) => (k: KitchenItem) =>
@@ -371,26 +369,14 @@ export default function POSScreen({
    *
    * @param restores Stock to put back, per send action.
    */
-  const restoreKitchenStock = async (restores: KitchenRestore[]) => {
-    for (const restore of restores) {
-      for (const kind of ['ingredient', 'product'] as const) {
-        const picks = restore.picks.filter(pick => pick.kind === kind);
-        if (picks.length === 0) continue;
-        (kind === 'ingredient' ? setSimIngredientBatches : setSimBatches)(prev => applyRestore(prev, picks));
-        const stamp = Date.now();
-        const number = await createDocumentNumber('export', storeId, () => `PXK-${stamp.toString().slice(-5)}`);
-        (kind === 'ingredient' ? setSimIngredientTransactions : setSimTransactions)(prev => [buildStockVoucher({
-          id: `TX-${stamp}-${kind === 'ingredient' ? 'RI' : 'RP'}-${restore.sendId}`,
-          transactionNumber: number.number,
-          tempCode: number.tempNumber || undefined,
-          staffId: fbUserProfile?.uid || 'staff-01',
-          note: `${KITCHEN_RESTORE_NOTE_PREFIX}${restore.tableNumber}`.trim(),
-          createdAt: new Date().toISOString(),
-          kitchenBatchId: restore.sendId,
-        }, InventoryTransactionType.ADJUSTMENT, picks), ...prev]);
-      }
-    }
-  };
+  const restoreKitchenStock = (restores: KitchenRestore[]) => applyKitchenRestores(restores, {
+    storeId,
+    staffId: fbUserProfile?.uid || 'staff-01',
+    setIngredientBatches: setSimIngredientBatches,
+    setBatches: setSimBatches,
+    setIngredientTransactions: setSimIngredientTransactions,
+    setTransactions: setSimTransactions,
+  });
 
   /**
    * Changes the kitchen tickets and keeps stock in line: dishes that were cancelled or reduced give their stock back.
