@@ -94,7 +94,7 @@ export async function requestUsbPrinter(showAllDevices: boolean): Promise<USBDev
  * @returns Saved identity.
  */
 export function toSavedUsbPrinter(device: USBDevice): SavedUsbPrinter {
-  return { vendorId: device.vendorId, productId: device.productId, serialNumber: device.serialNumber ?? undefined, label: describeUsbDevice(device) };
+  return { type: 'usb', vendorId: device.vendorId, productId: device.productId, serialNumber: device.serialNumber ?? undefined, label: describeUsbDevice(device) };
 }
 
 /**

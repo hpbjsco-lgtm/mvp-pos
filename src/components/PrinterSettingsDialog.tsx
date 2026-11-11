@@ -67,7 +67,7 @@ export default function PrinterSettingsDialog({ onClose }: PrinterSettingsDialog
   const [message, setMessage] = useState<StatusMessage | null>(initial.error ? { ok: false, text: initial.error } : null);
   const [busy, setBusy] = useState(false);
   /** Whether kitchen tickets use a printer of their own (true as soon as one is chosen, and while choosing). */
-  const [separateKitchenPrinter, setSeparateKitchenPrinter] = useState(initial.settings.kitchenUsb !== undefined);
+  const [separateKitchenPrinter, setSeparateKitchenPrinter] = useState(initial.settings.kitchenPrinter !== undefined);
 
   /**
    * Runs an action while the buttons are disabled and shows a failure as a message.
@@ -104,18 +104,18 @@ export default function PrinterSettingsDialog({ onClose }: PrinterSettingsDialog
   const choosePrinter = (showAllDevices: boolean) => withBusy(async () => {
     const device = await requestUsbPrinter(showAllDevices);
     if (!device) return;
-    const usb = toSavedUsbPrinter(device);
-    update({ ...settings, usb });
-    setMessage({ ok: true, text: `Đã chọn máy in: ${usb.label}. Bấm "In thử" để kiểm tra.` });
+    const printer = toSavedUsbPrinter(device);
+    update({ ...settings, printer });
+    setMessage({ ok: true, text: `Đã chọn máy in: ${printer.label}. Bấm "In thử" để kiểm tra.` });
   });
 
   /** Opens the browser's USB picker and keeps the chosen printer for kitchen tickets. */
   const chooseKitchenPrinter = () => withBusy(async () => {
     const device = await requestUsbPrinter(false);
     if (!device) return;
-    const kitchenUsb = toSavedUsbPrinter(device);
-    update({ ...settings, kitchenUsb });
-    setMessage({ ok: true, text: `Đã chọn máy in phiếu bếp: ${kitchenUsb.label}. Bấm "In thử phiếu bếp" để kiểm tra.` });
+    const kitchenPrinter = toSavedUsbPrinter(device);
+    update({ ...settings, kitchenPrinter });
+    setMessage({ ok: true, text: `Đã chọn máy in phiếu bếp: ${kitchenPrinter.label}. Bấm "In thử phiếu bếp" để kiểm tra.` });
   });
 
   /**
@@ -125,7 +125,7 @@ export default function PrinterSettingsDialog({ onClose }: PrinterSettingsDialog
    */
   const useSeparateKitchenPrinter = (separate: boolean) => {
     setSeparateKitchenPrinter(separate);
-    if (!separate && settings.kitchenUsb) update({ ...settings, kitchenUsb: undefined });
+    if (!separate && settings.kitchenPrinter) update({ ...settings, kitchenPrinter: undefined });
   };
 
   /** Prints a sample kitchen ticket on the printer kitchen tickets use. */
@@ -169,11 +169,11 @@ export default function PrinterSettingsDialog({ onClose }: PrinterSettingsDialog
               <section className="space-y-2">
                 <h4 className="text-base font-bold text-on-surface">Máy in đang dùng</h4>
                 <p className="text-sm text-on-surface-variant">
-                  {settings.usb ? <strong className="text-on-surface">{settings.usb.label}</strong> : 'Chưa chọn máy in. Cắm dây USB, bật máy in rồi bấm "Chọn máy in".'}
+                  {settings.printer ? <strong className="text-on-surface">{settings.printer.label}</strong> : 'Chưa chọn máy in. Cắm dây USB, bật máy in rồi bấm "Chọn máy in".'}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <button type="button" disabled={busy} onClick={() => choosePrinter(false)} className="m3-btn-filled !min-h-11 text-sm">Chọn máy in</button>
-                  {settings.usb && (
+                  {settings.printer && (
                     <button type="button" disabled={busy} onClick={forget} className="m3-btn-outlined !min-h-11 text-sm">Bỏ chọn</button>
                   )}
                 </div>
@@ -241,17 +241,17 @@ export default function PrinterSettingsDialog({ onClose }: PrinterSettingsDialog
                 {separateKitchenPrinter && (
                   <div className="space-y-2 pl-8">
                     <p className="text-sm text-on-surface-variant">
-                      {settings.kitchenUsb ? <strong className="text-on-surface">{settings.kitchenUsb.label}</strong> : 'Chưa chọn máy in bếp. Cắm dây USB, bật máy in rồi bấm "Chọn máy in bếp".'}
+                      {settings.kitchenPrinter ? <strong className="text-on-surface">{settings.kitchenPrinter.label}</strong> : 'Chưa chọn máy in bếp. Cắm dây USB, bật máy in rồi bấm "Chọn máy in bếp".'}
                     </p>
                     <button type="button" disabled={busy} onClick={chooseKitchenPrinter} className="m3-btn-outlined !min-h-11 text-sm">Chọn máy in bếp</button>
                   </div>
                 )}
-                <button type="button" disabled={busy || !(settings.kitchenUsb ?? settings.usb)} onClick={printKitchenTest} className="m3-btn-tonal w-full !min-h-12 disabled:opacity-50">
+                <button type="button" disabled={busy || !(settings.kitchenPrinter ?? settings.printer)} onClick={printKitchenTest} className="m3-btn-tonal w-full !min-h-12 disabled:opacity-50">
                   In thử phiếu bếp
                 </button>
               </section>
 
-              <button type="button" disabled={busy || !settings.usb} onClick={printTest} className="m3-btn-tonal w-full !min-h-12 disabled:opacity-50">
+              <button type="button" disabled={busy || !settings.printer} onClick={printTest} className="m3-btn-tonal w-full !min-h-12 disabled:opacity-50">
                 {busy ? 'Đang gửi...' : 'In thử'}
               </button>
             </>

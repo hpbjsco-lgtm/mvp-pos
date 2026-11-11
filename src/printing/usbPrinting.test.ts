@@ -61,8 +61,8 @@ describe('printer settings storage', () => {
 
   it('defaults to 58 mm without a printer', () => expect(getPrinterSettings()).toEqual({ paperWidth: 58, shiftRightMm: 1.5, printKitchenTicket: false }));
   it('saves and reads the chosen printer and paper width', () => {
-    savePrinterSettings({ paperWidth: 80, shiftRightMm: 3, printKitchenTicket: true, usb: { vendorId: 1, productId: 2, label: 'S31' } });
-    expect(getPrinterSettings()).toEqual({ paperWidth: 80, shiftRightMm: 3, printKitchenTicket: true, usb: { vendorId: 1, productId: 2, label: 'S31' } });
+    savePrinterSettings({ paperWidth: 80, shiftRightMm: 3, printKitchenTicket: true, printer: { type: 'usb', vendorId: 1, productId: 2, label: 'S31' } });
+    expect(getPrinterSettings()).toEqual({ paperWidth: 80, shiftRightMm: 3, printKitchenTicket: true, printer: { type: 'usb', vendorId: 1, productId: 2, label: 'S31' }, kitchenPrinter: undefined });
     clearPrinterSettings();
     expect(getPrinterSettings()).toEqual({ paperWidth: 58, shiftRightMm: 1.5, printKitchenTicket: false });
   });
@@ -78,13 +78,31 @@ describe('printer settings storage', () => {
   });
   it('uses the default shift for settings saved before the shift existed', () => {
     values['smartpos.printer'] = '{"paperWidth":80}';
-    expect(getPrinterSettings()).toEqual({ paperWidth: 80, shiftRightMm: 1.5, printKitchenTicket: false, usb: undefined });
+    expect(getPrinterSettings()).toEqual({ paperWidth: 80, shiftRightMm: 1.5, printKitchenTicket: false, printer: undefined, kitchenPrinter: undefined });
   });
 
   it('saves and reads a separate kitchen printer, and refuses a damaged kitchen entry', () => {
-    savePrinterSettings({ paperWidth: 58, shiftRightMm: 1.5, printKitchenTicket: true, usb: { vendorId: 1, productId: 2, label: 'S31' }, kitchenUsb: { vendorId: 3, productId: 4, label: 'Bep' } });
-    expect(getPrinterSettings().kitchenUsb).toEqual({ vendorId: 3, productId: 4, label: 'Bep' });
+    savePrinterSettings({ paperWidth: 58, shiftRightMm: 1.5, printKitchenTicket: true, printer: { type: 'usb', vendorId: 1, productId: 2, label: 'S31' }, kitchenPrinter: { type: 'usb', vendorId: 3, productId: 4, label: 'Bep' } });
+    expect(getPrinterSettings().kitchenPrinter).toEqual({ type: 'usb', vendorId: 3, productId: 4, label: 'Bep' });
     values['smartpos.printer'] = '{"paperWidth":58,"kitchenUsb":{"vendorId":"x"}}';
     expect(() => getPrinterSettings()).toThrow('Cấu hình máy in bị hỏng');
+    values['smartpos.printer'] = '{"paperWidth":58,"printer":{"type":"bluetooth","label":"x"}}';
+    expect(() => getPrinterSettings()).toThrow('Cấu hình máy in bị hỏng');
+  });
+
+  it('reads settings saved before the kind of connection existed as USB printers, and saves them in the new form', () => {
+    values['smartpos.printer'] = JSON.stringify({
+      paperWidth: 80, shiftRightMm: 2, printKitchenTicket: true,
+      usb: { vendorId: 1, productId: 2, serialNumber: 'A1', label: 'S31' },
+      kitchenUsb: { vendorId: 3, productId: 4, label: 'Bep' },
+    });
+    const settings = getPrinterSettings();
+    expect(settings.printer).toEqual({ type: 'usb', vendorId: 1, productId: 2, serialNumber: 'A1', label: 'S31' });
+    expect(settings.kitchenPrinter).toEqual({ type: 'usb', vendorId: 3, productId: 4, label: 'Bep' });
+    savePrinterSettings(settings);
+    const stored = JSON.parse(values['smartpos.printer']);
+    expect(stored.usb).toBeUndefined();
+    expect(stored.kitchenUsb).toBeUndefined();
+    expect(stored.printer.type).toBe('usb');
   });
 });

@@ -4,24 +4,16 @@
  */
 
 import { buildReceiptJob, DOTS_PER_MM, PAPER_WIDTH_DOTS } from './escpos';
-import { getPrinterSettings, printerFor, PrintTarget, SavedUsbPrinter } from './printerSettings';
+import { getPrinterSettings, printerFor, PrintTarget, SavedPrinter } from './printerSettings';
+import { isDirectPrintingSupported, openTransport, printerKey } from './printerTransport';
 import { ReceiptDocument } from './receiptDocument';
 import { renderReceiptToBitmap } from './receiptRenderer';
-import { findAllowedUsbPrinter, isWebUsbSupported, writeToUsbPrinter } from './usbTransport';
 
 /**
  * Tail of the print queue of each printer, by printer identity. Jobs for one printer run one after another because
- * two jobs cannot hold its USB interface at once; two different printers print at the same time.
+ * two jobs cannot hold its connection at once; two different printers print at the same time.
  */
 const printQueues = new Map<string, Promise<unknown>>();
-
-/**
- * @param printer A saved printer.
- * @returns A text that is the same for the same physical printer.
- */
-function printerKey(printer: SavedUsbPrinter): string {
-  return `${printer.vendorId}:${printer.productId}:${printer.serialNumber ?? ''}`;
-}
 
 /**
  * Prints a document on the printer chosen in this browser's settings for that kind of print. Jobs for the same
@@ -30,11 +22,11 @@ function printerKey(printer: SavedUsbPrinter): string {
  * @param receipt Document to print.
  * @param target `receipt` (default) for the customer's receipt, `kitchen` for a kitchen ticket, which goes to the
  *   kitchen printer when one is chosen and to the receipt printer otherwise.
- * @throws Error with a readable message when the browser has no WebUSB, no printer is chosen, the
+ * @throws Error with a readable message when the browser cannot reach the printer, no printer is chosen, the
  *   printer is not connected, or the print fails.
  */
 export function printReceipt(receipt: ReceiptDocument, target: PrintTarget = 'receipt'): Promise<void> {
-  let printer: SavedUsbPrinter | undefined;
+  let printer: SavedPrinter | undefined;
   try {
     printer = printerFor(getPrinterSettings(), target);
   } catch (error) {
@@ -52,16 +44,14 @@ export function printReceipt(receipt: ReceiptDocument, target: PrintTarget = 're
  *
  * @param receipt Document to print.
  * @param saved The printer to use.
- * @throws Error with a readable message when the browser has no WebUSB, the
- *   printer is not connected, or the print fails.
+ * @throws Error with a readable message when the browser cannot reach the
+ *   printer, the printer is not connected, or the print fails.
  */
-async function printNow(receipt: ReceiptDocument, saved: SavedUsbPrinter): Promise<void> {
-  if (!isWebUsbSupported()) throw new Error('Trình duyệt này không in trực tiếp được. Hãy dùng Chrome hoặc Edge.');
+async function printNow(receipt: ReceiptDocument, saved: SavedPrinter): Promise<void> {
   const settings = getPrinterSettings();
-  const device = await findAllowedUsbPrinter(saved);
-  if (!device) throw new Error(`Không thấy máy in "${saved.label}". Cắm dây USB, bật máy in hoặc chọn lại máy in.`);
+  const transport = await openTransport(saved);
   const bitmap = await renderReceiptToBitmap(receipt, PAPER_WIDTH_DOTS[settings.paperWidth], Math.round(settings.shiftRightMm * DOTS_PER_MM));
-  await writeToUsbPrinter(device, buildReceiptJob(bitmap));
+  await transport.write(buildReceiptJob(bitmap));
 }
 
 /**
@@ -69,9 +59,10 @@ async function printNow(receipt: ReceiptDocument, saved: SavedUsbPrinter): Promi
  * browser's print dialog (receipts) or prints nothing (kitchen tickets).
  *
  * @param target `receipt` (default) or `kitchen`.
- * @returns True when the browser supports WebUSB and a printer has been chosen for that kind of print.
+ * @returns True when a printer has been chosen for that kind of print and the browser supports its connection.
  * @throws Error when the saved printer settings are damaged.
  */
 export function canPrintDirectly(target: PrintTarget = 'receipt'): boolean {
-  return isWebUsbSupported() && printerFor(getPrinterSettings(), target) !== undefined;
+  const printer = printerFor(getPrinterSettings(), target);
+  return printer !== undefined && isDirectPrintingSupported(printer);
 }

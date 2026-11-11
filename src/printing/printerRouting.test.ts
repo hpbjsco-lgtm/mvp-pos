@@ -6,7 +6,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { KitchenStatus } from '../types';
 import { printKitchenTicketIfEnabled } from './kitchenPrinting';
-import { savePrinterSettings, type SavedUsbPrinter } from './printerSettings';
+import { savePrinterSettings, type SavedPrinter } from './printerSettings';
 import { canPrintDirectly, printReceipt } from './receiptPrinting';
 import type { ReceiptDocument } from './receiptDocument';
 
@@ -17,7 +17,7 @@ let holdFirstJobOf: string | null = null;
 
 vi.mock('./usbTransport', () => ({
   isWebUsbSupported: () => true,
-  findAllowedUsbPrinter: async (saved: SavedUsbPrinter) => (saved.label === 'missing' ? null : { label: saved.label }),
+  findAllowedUsbPrinter: async (saved: SavedPrinter) => (saved.label === 'missing' ? null : { label: saved.label }),
   writeToUsbPrinter: async (device: { label: string }, bytes: Uint8Array) => {
     if (holdFirstJobOf === device.label) {
       holdFirstJobOf = null;
@@ -34,9 +34,9 @@ vi.mock('./escpos', async importOriginal => ({
 
 /** A saved printer; each label is a different physical printer (own product id). */
 const productIds = new Map<string, number>();
-const printer = (label: string): SavedUsbPrinter => {
+const printer = (label: string): SavedPrinter => {
   if (!productIds.has(label)) productIds.set(label, productIds.size + 1);
-  return { vendorId: 1, productId: productIds.get(label)!, label };
+  return { type: 'usb', vendorId: 1, productId: productIds.get(label)!, label };
 };
 const document = (blocks: number): ReceiptDocument => ({ blocks: Array.from({ length: blocks }, () => ({ kind: 'text', text: 'x' })) } as unknown as ReceiptDocument);
 
@@ -58,20 +58,20 @@ describe('which printer a print goes to', () => {
   const settings = (extra: object) => savePrinterSettings({ paperWidth: 58, shiftRightMm: 0, printKitchenTicket: true, ...extra });
 
   it('sends a kitchen ticket to the kitchen printer and a receipt to the receipt printer', async () => {
-    settings({ usb: printer('counter'), kitchenUsb: printer('kitchen') });
+    settings({ printer: printer('counter'), kitchenPrinter: printer('kitchen') });
     await printReceipt(document(1), 'kitchen');
     await printReceipt(document(2));
     expect(written.map(entry => entry.device)).toEqual(['kitchen', 'counter']);
   });
 
   it('prints kitchen tickets on the receipt printer when no kitchen printer is chosen', async () => {
-    settings({ usb: printer('counter') });
+    settings({ printer: printer('counter') });
     await printReceipt(document(1), 'kitchen');
     expect(written.map(entry => entry.device)).toEqual(['counter']);
   });
 
   it('prints kitchen tickets even when only the kitchen printer is chosen', async () => {
-    settings({ kitchenUsb: printer('kitchen') });
+    settings({ kitchenPrinter: printer('kitchen') });
     expect(canPrintDirectly('kitchen')).toBe(true);
     expect(canPrintDirectly('receipt')).toBe(false);
     await printReceipt(document(1), 'kitchen');
@@ -80,7 +80,7 @@ describe('which printer a print goes to', () => {
   });
 
   it('keeps jobs of one printer in order, while another printer is not held up', async () => {
-    settings({ usb: printer('counter'), kitchenUsb: printer('kitchen') });
+    settings({ printer: printer('counter'), kitchenPrinter: printer('kitchen') });
     holdFirstJobOf = 'kitchen';
     const firstKitchen = printReceipt(document(1), 'kitchen');
     const secondKitchen = printReceipt(document(2), 'kitchen');
@@ -94,16 +94,16 @@ describe('which printer a print goes to', () => {
   });
 
   it('reports a kitchen printer that is not connected by its name', async () => {
-    settings({ usb: printer('counter'), kitchenUsb: printer('missing') });
+    settings({ printer: printer('counter'), kitchenPrinter: printer('missing') });
     await expect(printReceipt(document(1), 'kitchen')).rejects.toThrow('Không thấy máy in "missing"');
   });
 
   it('prints the kitchen ticket through the kitchen printer only when "print kitchen tickets" is on', async () => {
     const items = [{ id: 'k', orderId: 'NB', productId: 'p', productName: 'Phở', quantity: 1, status: KitchenStatus.PENDING, createdAt: '2026-11-01T10:00:00Z' }];
     const input = { tableName: 'Bàn 1', staffName: 'An', items, sentAt: new Date() };
-    settings({ usb: printer('counter'), kitchenUsb: printer('kitchen'), printKitchenTicket: false });
+    settings({ printer: printer('counter'), kitchenPrinter: printer('kitchen'), printKitchenTicket: false });
     expect(await printKitchenTicketIfEnabled(input)).toBe(false);
-    settings({ usb: printer('counter'), kitchenUsb: printer('kitchen'), printKitchenTicket: true });
+    settings({ printer: printer('counter'), kitchenPrinter: printer('kitchen'), printKitchenTicket: true });
     expect(await printKitchenTicketIfEnabled(input)).toBe(true);
     expect(written.map(entry => entry.device)).toEqual(['kitchen']);
   });
