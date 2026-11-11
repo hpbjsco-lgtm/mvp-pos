@@ -5,15 +5,17 @@
 | Trường | Nội dung |
 |---|---|
 | Tên hệ thống | SmartPOS — Phần mềm quản lý bán hàng cho quán cà phê / nhà hàng / bán lẻ |
-| Phiên bản tài liệu | 4.0 |
-| Ngày cập nhật | 2026-10-30 |
+| Phiên bản tài liệu | 5.0 |
+| Ngày cập nhật | 2026-11-11 |
 | Loại tài liệu | Functional Specification Document (Đặc tả chức năng) |
 | Trạng thái | Đang phát triển — các mục có cột "Trạng thái" bên dưới phản ánh mức độ hoàn thiện thực tế trong source code |
+| Đặc tả chi tiết từng chức năng | Thư mục [features/](features/INDEX.md): mỗi chức năng một file (use case, dữ liệu, logic if/else). Mục 5 dưới đây chỉ là tóm tắt và trỏ tới file chi tiết |
 
 **Lịch sử thay đổi**
 
 | Phiên bản | Ngày | Nội dung thay đổi |
 |---|---|---|
+| 5.0 | 2026-11-11 | Cập nhật theo mã nguồn (SCHEMA_VERSION 21): máy chủ dữ liệu + đồng bộ offline-first + xung đột + cấp số chứng từ; in ESC/POS; trừ kho khi báo bếp, hoàn kho, kho âm, công tắc; kiểm kho + lịch sử + theo ca; CSV kho; ví điện tử; giá vốn, lợi nhuận, hao hụt; giảm giá theo món, kênh bán, công nợ; quên mật khẩu qua email. Tách đặc tả từng chức năng vào `features/` (F001–F029) |
 | 1.0 | 2026-07-02 | Bản đặc tả đầu tiên, mô tả hệ thống trên nền Firebase/Firestore (đã lỗi thời) |
 | 2.0 | 2026-08-13 | Viết lại toàn bộ theo cấu trúc BA chuẩn; cập nhật kiến trúc thực tế (SQLite local-first); bổ sung 6 chức năng mới: Đặt bàn trước, Tùy chọn món (size/đường/đá), Giảm giá & Thuế VAT, Lịch sử hóa đơn (hủy/in lại), Sổ quỹ ca làm việc, Dữ liệu mẫu demo |
 | 4.0 | 2026-10-30 | Làm lại bố cục các màn hình PC (trừ Bán hàng) theo Figma; ẩn món khỏi màn thu ngân; xếp món bán chạy lên đầu (5.5, 11) |
@@ -47,31 +49,36 @@ SmartPOS là phần mềm quản lý bán hàng phục vụ đồng thời hai m
 **Trong phạm vi (đã triển khai hoặc đang triển khai):** các module liệt kê tại mục 5.
 
 **Ngoài phạm vi ở phiên bản hiện tại (dự kiến các giai đoạn sau):**
-- Đồng bộ dữ liệu lên Cloud / Firebase (**đã ngắt khỏi ứng dụng**, sẽ làm lại ở giai đoạn sau — xem mục 5.15 và mục 8).
-- Đóng gói phát hành lên Google Play / Apple App Store.
-- Quét mã vạch bằng camera thật (hiện dùng ô nhập tay mô phỏng).
-- Tùy chọn/topping cho món ăn (hiện chỉ áp dụng size/đường/đá cho đồ uống).
+- Firebase / dịch vụ Cloud của bên thứ ba: **không dùng**. Đồng bộ nay chạy qua máy chủ riêng của dự án (mục 3, 5.15).
+- Đóng gói phát hành lên Google Play / Apple App Store (Android đã build được bản debug; iOS chưa tạo project).
+- Quét mã vạch bằng camera thật (hiện dùng ô nhập tay).
+- Báo cáo theo chi nhánh, đổi điểm thành tiền, ghi nợ/thu nợ tự động, in trực tiếp từ app điện thoại.
 
 ## 3. Kiến trúc & Nền tảng dữ liệu
 
-> Đây là phần **quan trọng nhất cần hiểu trước khi đọc các mục chức năng bên dưới**, vì nó thay đổi hoàn toàn cách hệ thống hoạt động so với bản đặc tả cũ.
+> Đây là phần **quan trọng nhất cần hiểu trước khi đọc các mục chức năng bên dưới**. Chi tiết: [F018](features/F018-data-architecture.md), [F019](features/F019-sync.md).
 
-- **Local-first:** Toàn bộ dữ liệu nghiệp vụ được lưu trong **1 file SQLite duy nhất trên thiết bị** (trình duyệt dùng sql.js + IndexedDB; ứng dụng cài đặt native dùng SQLite thật qua Capacitor). Ứng dụng hoạt động đầy đủ **không cần Internet**.
-- **Đa cửa hàng trên cùng 1 thiết bị (multi-tenant cục bộ):** mọi bảng dữ liệu đều gắn cột `store_id` để phân tách dữ liệu giữa các cửa hàng.
-- **Đăng nhập ngoại tuyến:** tài khoản và mật khẩu (băm PBKDF2-SHA256) lưu ngay trong SQLite, không phụ thuộc dịch vụ xác thực bên ngoài.
-- **Chỉ dùng SQLite:** ứng dụng hiện **không kết nối Firebase hay bất kỳ dịch vụ Cloud nào**. Các cột `rev`, `updated_at`, `deleted_at` và bảng nhật ký thay đổi vẫn được giữ trong CSDL để phục vụ đồng bộ sau này.
+- **Một CSDL SQLite dùng chung trên máy chủ (VPS)** (Express + better-sqlite3, `server/pos-db-server`, chạy bằng Docker). Web đọc/ghi thẳng máy chủ qua `/api/sql`, `/api/batch`.
+- **Hai đường kết nối, tự chọn**: tên miền trước, mạng nội bộ (LAN) sau; mất đường này thì chuyển sang đường kia và quay lại domain khi sống lại.
+- **Ứng dụng điện thoại (Android/iOS, Capacitor) làm việc offline**: SQLite thật trên máy, đồng bộ nền với máy chủ (đẩy nhóm bản ghi lên, tải thay đổi xuống), phát hiện **xung đột** để Chủ/Quản lý quyết định ([F020](features/F020-sync-conflicts.md)); số chứng từ do máy chủ cấp, offline dùng mã tạm ([F021](features/F021-document-numbering.md)).
+- **Chế độ không máy chủ** vẫn còn: web không cấu hình máy chủ dùng sql.js + IndexedDB trong trình duyệt; app native chọn "Không dùng máy chủ".
+- **Đa cửa hàng**: mọi bảng nghiệp vụ có `store_id`.
+- **Đăng nhập**: tài khoản và mật khẩu (băm PBKDF2-SHA256) lưu trong SQLite (máy chủ hoặc máy); quên mật khẩu qua email khi máy chủ có SMTP ([F029](features/F029-forgot-password.md)).
+- **Sao lưu**: máy chủ sao lưu định kỳ (mặc định 24 giờ, giữ 14 bản); khôi phục tạo "epoch" mới để các máy tải lại.
+- **Lược đồ**: `SCHEMA_VERSION = 21`; bảng đồng bộ riêng của thiết bị (`sync_state`, `sync_outbox`, `sync_row_base`) chỉ có trên app native.
+- **Bảo mật (chưa xử lý, hoãn)**: API token nằm trong gói web, tài khoản sysadmin cứng, dữ liệu/bí mật trong git — xem [features/INDEX.md](features/INDEX.md) mục 4.
 
 ## 4. Đối tượng người dùng (Actors)
 
 | Vai trò (mã) | Mô tả | Màn hình được vào |
 |---|---|---|
-| **Quản trị hệ thống** (`sysadmin`) | Tài khoản **cứng** trong cấu hình (`src/authConfig.ts`), không lưu SQLite; quản lý toàn bộ cửa hàng và tài khoản có trên máy | **Chỉ** Cửa hàng + Tài khoản (mục 5.14) |
-| **Chủ cửa hàng** (`owner`) | Người tạo và sở hữu cửa hàng | Toàn bộ, gồm Báo cáo doanh thu |
+| **Quản trị hệ thống** (`sysadmin`) | Tài khoản **cứng** trong cấu hình (`src/authConfig.ts`), không lưu SQLite; quản lý toàn bộ cửa hàng và tài khoản của CSDL đang dùng | **Chỉ** Cửa hàng + Tài khoản (mục 5.14) |
+| **Chủ cửa hàng** (`owner`) | Người tạo và sở hữu cửa hàng | Toàn bộ, gồm Báo cáo, Báo cáo cuối ngày, Sổ quỹ, Xung đột đồng bộ (khi dùng máy chủ) |
 | **Quản lý cửa hàng** (`manager`) | Quản lý vận hành hằng ngày | Hiện tương đương Chủ cửa hàng; về sau có thể giới hạn một số tính năng (chỉnh tại `ROLE_SCREENS` trong `src/utils/permissions.ts`) |
-| **Phục vụ / Thu ngân** (`staff`) | Người bán hàng trực tiếp | **Chỉ màn hình Bán hàng** |
-| **Nhân viên bếp** (`kitchen`) | Pha chế / bếp (chỉ cửa hàng F&B) | **Chỉ màn hình Bếp (KDS)** |
+| **Phục vụ / Thu ngân** (`staff`) | Người bán hàng trực tiếp | Màn hình **Bán hàng** và **Kiểm kho ca** (chỉ ghi, không xem lịch sử) |
+| **Nhân viên bếp** (`kitchen`) | Pha chế / bếp (chỉ cửa hàng F&B) | Màn hình **Bếp (KDS)** và **Kiểm kho ca** |
 
-Sau khi đăng nhập, mỗi vai trò được đưa tới màn hình mặc định của mình (Sysadmin: Cửa hàng; Chủ/Quản lý: Báo cáo; Phục vụ: Bán hàng; Bếp: Màn hình bếp); thanh điều hướng chỉ hiện các mục được phép và việc cố mở màn hình khác sẽ bị chuyển về màn hình mặc định.
+Sau khi đăng nhập, mỗi vai trò được đưa tới màn hình mặc định của mình (Sysadmin: Cửa hàng; Chủ/Quản lý: Báo cáo; Phục vụ: Bán hàng; Bếp: Màn hình bếp). Bảng quyền đầy đủ: [F001](features/F001-auth-store.md); thanh điều hướng chỉ hiện các mục được phép và việc cố mở màn hình khác sẽ bị chuyển về màn hình mặc định.
 
 Quy tắc phân quyền chi tiết được nêu theo từng chức năng ở mục 5.
 
@@ -94,11 +101,11 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
 - Mỗi cửa hàng đăng ký mới được cấp dữ liệu mẫu tự động (xem mục 5.11).
 - Phiên đăng nhập được lưu cục bộ — mở lại ứng dụng không cần đăng nhập lại.
 - **Đăng nhập bằng tên tài khoản (username)**, không dùng email. Tên tài khoản: 3-32 ký tự gồm chữ thường không dấu, số, `.`, `_`, `-`; duy nhất trên thiết bị. Email vẫn bắt buộc khi tạo tài khoản nhưng chỉ là email liên hệ / nhận thư khôi phục mật khẩu. Tài khoản tạo từ bản trước được gán username = email (migration v5) nên vẫn đăng nhập được như cũ.
-- **Quên mật khẩu (tạm thời — phương án C):** chưa gửi email. Chủ cửa hàng đặt lại mật khẩu cho nhân viên / quản lý (mục 5.8); Quản lý đặt lại được mọi tài khoản trừ chủ; Sysadmin đặt lại được mọi tài khoản. Gửi thư reset qua email sẽ làm cùng giai đoạn kết nối Firebase (cần dịch vụ gửi mail).
+- **Quên mật khẩu:** (1) tự đặt lại bằng **mã 6 số gửi qua email** khi máy chủ có SMTP (mục 5.29); (2) hoặc nhờ người có quyền: Chủ đặt lại cho nhân viên/quản lý (mục 5.8), Quản lý đặt lại mọi tài khoản trừ chủ, Sysadmin đặt lại mọi tài khoản.
 - Cửa hàng bị **tạm khóa** (do Sysadmin) thì mọi tài khoản của cửa hàng không đăng nhập được.
 - Cửa hàng tạo mới dùng được ngay, không cần phê duyệt. Hàng SysAdmin cũ trong CSDL (nếu còn) không đăng nhập được; sysadmin chỉ là tài khoản cứng (mục 5.14).
 
-**Trạng thái:** ✅
+**Trạng thái:** ✅. Đặc tả chi tiết: [F001](features/F001-auth-store.md), [F029](features/F029-forgot-password.md).
 
 ---
 
@@ -116,14 +123,15 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
 - **Giảm giá & Thuế VAT (mới):** công thức tính hóa đơn là `Tạm tính − Giảm giá = Số tiền chịu thuế`, `Số tiền chịu thuế × VAT% = Tiền thuế`, `Tổng cần thanh toán = Số tiền chịu thuế + Tiền thuế`. Giảm giá không được vượt quá Tạm tính. Điểm tích lũy được tính trên Tổng cần thanh toán sau cùng.
 - Bán lẻ: hệ thống tự chọn lô hàng theo nguyên tắc FIFO/FEFO (lô hết hạn sớm nhất được xuất trước); chặn bán nếu sản phẩm hết lô tồn kho.
 - F&B: chọn khách hàng và tích điểm loyalty ngay tại quầy; hỗ trợ thêm nhanh khách hàng mới.
-- Hỗ trợ 3 phương thức thanh toán: Tiền mặt (có bàn phím chạm số nhanh + gợi ý mệnh giá), Chuyển khoản QR, Thẻ POS.
-- Sau khi thanh toán: in hóa đơn nhiệt 80mm, trừ tồn kho (bán lẻ), cộng điểm khách hàng, trả bàn về trống — kể cả toàn bộ nhóm bàn gộp (F&B). Đơn Mang về / Giao đi ghi nhận loại đơn `takeaway`.
-- **In hóa đơn:** dùng `window.print()` với CSS in riêng (`@media print` trong `src/index.css`, vùng in `#print-area`, font Arial 12px, rộng 76mm, không ép `@page size`). Máy in nhiệt SUPERISC S31 trên macOS từng báo lỗi do driver — cần cài đúng driver hãng; nếu in trình duyệt vẫn không ổn định, hướng dự kiến là gửi lệnh ESC/POS trực tiếp (chưa làm).
+- Hỗ trợ 5 cách thanh toán: Tiền mặt (bàn phím chạm số + gợi ý mệnh giá), Chuyển khoản QR, Thẻ POS, **Ví điện tử** (mục 5.26) và **Kết hợp** nhiều phương thức.
+- **Giảm giá theo từng món** lúc thanh toán, **kênh bán** (Grab, Shopee...) có chiết khấu đối tác (mục 5.28).
+- Sau khi thanh toán: in hóa đơn nhiệt, trừ tồn kho (bán lẻ: theo lô; F&B: phần chưa báo bếp, mục 5.23), cộng điểm khách hàng, **lưu giá vốn** (mục 5.27), trả bàn về trống — kể cả toàn bộ nhóm bàn gộp (F&B). Đơn Mang về / Giao đi ghi nhận loại đơn `takeaway`.
+- **In hóa đơn:** in thẳng ra máy in nhiệt bằng lệnh **ESC/POS qua WebUSB** (Chrome/Edge), hỗ trợ máy in bếp riêng (mục 5.22). Không có máy in được chọn hoặc trình duyệt không hỗ trợ thì quay lại `window.print()` với CSS in riêng (`@media print`, vùng `#print-area`).
 
 - **Tiền mặt (cập nhật 2026-10-24):** ô "Khách đưa" cho gõ trực tiếp bằng bàn phím máy tính / điện thoại (tự tính tiền thừa), ngoài bàn phím số trên màn hình.
 - **Xóa món:** nút thùng rác xóa hẳn cả dòng món; nút − chỉ giảm 1 (giảm dưới 1 thì xóa dòng).
 
-**Trạng thái:** ✅ (Tùy chọn món và Giảm giá/VAT: ✅ mới bổ sung)
+**Trạng thái:** ✅. Đặc tả chi tiết: [F002](features/F002-pos-core.md).
 
 ---
 
@@ -163,7 +171,7 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
 - **Thanh toán trên PC (hộp thoại 2 khung, `KiotCheckoutDialog.tsx`):** trái là chi tiết đơn nhóm theo danh mục (SL, đơn giá, thành tiền, tùy chọn/ghi chú) + chọn khách; phải là *Chi tiết giao dịch*: tổng tiền hàng, giảm giá, VAT, khách cần trả, **Khách thanh toán (F8)** (gõ trực tiếp được; mặc định bằng số cần trả), chọn *Tiền mặt / Chuyển khoản / Thẻ*, gợi ý mệnh giá (đúng số tiền rồi các mức làm tròn), **bàn phím ảo** (0-9, 000, xóa số cuối, C, Vừa đủ), tiền thừa trả khách, nút *In tạm tính* / *Thanh toán* (Enter trong ô tiền cũng thanh toán; nút bị khóa nếu tiền mặt chưa đủ).
 - **Thanh toán kết hợp (2026-10-27):** nút *Kết hợp* cạnh các phương thức mở hộp thoại **Kết hợp phương thức**: mỗi phương thức (Tiền mặt / Chuyển khoản / Thẻ) một ô tích + ô số tiền, có nút điền phần còn thiếu, báo thiếu / vượt. Quy tắc: chuyển khoản + thẻ không được vượt số cần trả; phần còn lại phải do tiền mặt đáp ứng, tiền mặt dư thì trả lại khách. Đơn lưu `paymentMethod = 'mixed'` kèm chi tiết `payments` (cột `orders.payments`, migration v7); hóa đơn in liệt kê từng khoản; **Sổ quỹ ca** tách doanh thu theo từng khoản (`utils/payments.ts`, có test).
 - Không có: nhiều tab đơn trên cùng một bàn, đơn gọi qua QR, chọn thu ngân — do mô hình hiện tại mỗi bàn một đơn.
-**Trạng thái:** ✅ (làm lại giao diện: ✅ mới; **chưa kiểm thử trên thiết bị thật** — cần rà lại màu, cỡ chữ, vị trí nút theo bản layout chính thức do chủ dự án cung cấp)
+**Trạng thái:** ✅ (**chưa kiểm thử trên thiết bị thật** — cần rà lại màu, cỡ chữ, vị trí nút theo bản layout chính thức). Đặc tả chi tiết: [F003](features/F003-fnb-tables.md).
 
 ---
 
@@ -181,11 +189,13 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
 - Cho phép dọn hàng loạt các món đã "Đã phục vụ" để màn hình luôn gọn.
 
 - **Báo bếp không trùng (cập nhật 2026-10-24):** mỗi dòng trong đơn lưu `sentQuantity` (số lượng đã báo bếp, cột `cart_items.sent_quantity`, migration v6). Bấm *Gửi bếp* lần sau chỉ gửi phần chênh lệch (món mới / số lượng tăng thêm); nếu không có gì mới thì báo "đã báo bếp hết". Dòng hiển thị nhãn "Đã báo bếp x/y".
-- **Hủy:** xóa một dòng đã báo bếp, *Xóa hết* hoặc *Hủy đơn hàng* sẽ đánh dấu các phiếu bếp chưa phục vụ tương ứng là **Đã hủy** (trạng thái mới `cancelled`). Màn hình bếp: món đã hủy ẩn khỏi tab "Đang hoạt động", xem ở tab "Đã hủy"; nút dọn xóa cả món đã phục vụ và đã hủy.
+- **Hủy:** xóa một dòng đã báo bếp, *Xóa hết* hoặc *Hủy đơn hàng* sẽ đánh dấu các phiếu bếp chưa phục vụ tương ứng là **Đã hủy** (`cancelled`). Màn hình bếp: món đã hủy ẩn khỏi tab "Đang hoạt động", xem ở tab "Đã hủy"; nút dọn xóa cả món đã phục vụ và đã hủy.
+- **Bếp tự hủy món (nút *Hủy món*, có hộp xác nhận)** khi món còn *Chờ làm* hoặc *Đang nấu*: món bị bỏ khỏi đơn của bàn và nguyên liệu đã trừ được **hoàn lại đúng lô** (mục 5.23).
+- **Báo bếp trừ kho ngay** và in phiếu bếp (mục 5.22, 5.23).
 
 - **Lịch sử báo bếp (kiểu KiotViet, 2026-10-28):** nút 🕘 ở chân khung đơn (hoặc menu ⋯ → Lịch sử báo bếp) mở **ngăn bên phải** "LỊCH SỬ BÁO BẾP": mỗi lần bấm *Thông báo* là một mục gồm ngày giờ, *"<tên người> thông báo bếp"* và các món `+ 1 Tên món` kèm dòng phụ (size, `+ 1 topping`, `50% đường, 70% đá`, ghi chú trong ngoặc kép); món bị hủy sau đó hiện thành mục riêng `− 1 Tên món` (màu đỏ, ghi giờ + người hủy). Mới nhất ở trên; chỉ gồm phiếu bếp của đơn hiện tại (từ lúc mở bàn; Mang về / Giao đi: trong ngày). Mã: `utils/kitchenHistory.ts` (có test), `KitchenHistoryDialog` trong `TableDialogs.tsx`. Phiếu bếp lưu thêm `staffName`, `cancelledAt`, `cancelledBy` (migration v11); các món của cùng một lần báo bếp dùng chung mã lô.
 
-**Trạng thái:** ✅
+**Trạng thái:** ✅. Đặc tả chi tiết: [F004](features/F004-kitchen-display.md).
 
 ---
 
@@ -207,15 +217,15 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
   - *Món chế biến* — có **Thành phần nguyên liệu**: tìm và thêm nguyên vật liệu trong kho, nhập số lượng cho 1 phần món theo đơn vị cơ bản hoặc đơn vị quy đổi; hệ thống **tự tính giá vốn** (Σ giá vốn nguyên liệu × số lượng) và **tự trừ kho** khi thanh toán.
   - *Món thường* — hàng nhập sẵn, trừ tồn trực tiếp trên chính món nếu món có quản lý lô.
   - **Topping (Món thêm):** bật để tích chọn các topping gắn cho món (cập nhật ngược lại danh sách món của topping); *Cho phép bán*.
-  - **Trừ kho khi bán:** mỗi hóa đơn F&B gộp các món chế biến, tính lượng nguyên liệu cần dùng, trừ theo **FEFO** (lô hết hạn sớm nhất trước, không bao giờ âm) và sinh **một phiếu xuất kho** `PXK-…` ghi "Bán hàng HD-…" (có chú thích nếu thiếu tồn; vẫn cho bán). Mã: `utils/recipes.ts` (có test). Dữ liệu: `products.menu_type / dish_kind / recipe` (migration v13); cửa hàng mới có sẵn công thức mẫu cho các món demo.
-  - **Chưa làm:** hoàn lại kho khi hủy hóa đơn, trừ kho theo công thức của topping, tag món, chi nhánh kinh doanh.
+  - **Trừ kho:** nay trừ **lúc báo bếp** (và phần chưa báo lúc thanh toán), theo FEFO, **cho phép âm** (cảnh báo, không chặn), hoàn lại khi hủy món/hủy hóa đơn, có công tắc bật/tắt cho cả cửa hàng — xem mục 5.23. Topping chế biến cũng trừ theo công thức của topping. Dữ liệu: `products.menu_type / dish_kind / recipe` (migration v13).
+  - **Chưa làm:** tag món, chi nhánh kinh doanh.
 - **Ẩn món khỏi màn thu ngân (mới 2026-10-30):** trong hộp **Tạo món**, ô *Hiện trên màn hình thu ngân* (lưu vào `Product.isActive`) tắt thì món không xuất hiện trên lưới Bán hàng nhưng vẫn còn trong Thực đơn. Khác với *Cho phép bán* (`isAvailable`, món hết hàng vẫn hiện nhưng không bán được).
 - **Món bán chạy xếp đầu (mới 2026-10-30):** lưới món ở màn Bán hàng xếp theo số lượng bán trong 30 ngày gần nhất, nhiều nhất trước; đơn đã hủy không tính, món bằng nhau giữ thứ tự cũ. Mã: `utils/salesRanking.ts` (có test).
 - **Topping món (F&B, mới 2026-10-27):** *Thực đơn → nút + → Topping* mở hộp **Tạo topping** (mã: `ToppingDialog.tsx`): tên, nhóm, giá, ảnh, loại (*chế biến / thường / sản xuất*), *Cho phép bán*, và **Gắn món** — tìm từng món hoặc **Chọn theo nhóm** rồi xóa bớt trong danh sách. Topping là một `Product` có cờ `isTopping`, `toppingKind`, `toppingFor` (id các món được gắn; migration v9). Topping hiện trong Thực đơn kèm nhãn *Topping · n món* và nút *Sửa topping*, **không** hiện trên lưới món ở màn Bán hàng.
   - **Bán hàng:** dòng món có topping được gắn sẽ hiện các nút `+ Trân châu đen 5.000`; bấm để thêm, hiện `− Trân châu đen x2 +` để tăng/giảm. Giá dòng = giá món + tiền topping (cộng vào tạm tính, tổng bàn, thanh toán, hóa đơn, báo cáo). Hai dòng cùng món khác topping là hai dòng riêng. Topping chỉ áp dụng cho các phần **chưa báo bếp** của dòng; nếu đã báo hết thì tách 1 phần mới.
   - Phiếu bếp, hộp thoại thanh toán (`+ 1 Trân châu đen`), hóa đơn / phiếu tạm tính đều hiển thị topping.
-  - **Chưa làm:** trừ tồn kho nguyên liệu theo loại topping (cần công thức / định mức), chi nhánh kinh doanh, giá theo bảng giá.
-**Trạng thái:** ✅
+  - **Chưa làm:** chi nhánh kinh doanh, giá theo bảng giá.
+**Trạng thái:** ✅. Đặc tả chi tiết: [F005](features/F005-menu-management.md).
 
 ---
 
@@ -234,16 +244,16 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
 
 - **Nhập lô với nguyên liệu / sản phẩm mới (2026-10-24):** ô "liên kết" có lựa chọn *+ Thêm … mới* để tạo nguyên liệu (tên, đơn vị) ngay khi nhập lô.
 - **Phiếu xuất kho (mới):** nút *Xuất kho* ở đầu màn hình Kho. Chọn hàng, số lượng, lý do (dùng chế biến / hư hỏng / hết hạn hủy / khác); hệ thống tự trừ tồn theo **FEFO** (lô hết hạn sớm nhất trước), báo thiếu nếu không đủ, sinh phiếu `PXK-…` (lý do hao hụt ghi là phiếu *điều chỉnh*). Có mục *Lịch sử nhập / xuất kho*.
-- Lưu ý: F&B hiện **chưa** tự trừ nguyên liệu khi bán món (cần khai báo công thức/định mức — chưa làm).
+- F&B tự trừ nguyên liệu theo công thức: xem mục 5.23. Kiểm kho và lịch sử: mục 5.24. Xuất/nhập CSV: mục 5.25.
 
 - **Quản lý hàng hóa trong kho (F&B, mới 2026-10-28):** màn Kho hàng có 2 chế độ: **Hàng hóa** (danh mục) và **Lô hàng & Lịch sử** (lô, hạn dùng, phiếu nhập / xuất như trước). Mã: `InventoryCatalog.tsx`, `IngredientDialog.tsx`, `UnitPickerDialog.tsx`, `utils/inventoryItems.ts` (có test).
   - **Danh mục hàng:** bảng Mã hàng · Tên hàng · Nhóm quản lý (*Nguyên vật liệu / Công cụ dụng cụ / Món bán*, kèm Topping) · Giá vốn · Tồn kho (tổng các lô, cảnh báo *Dưới định mức / Hết hàng*) · Định mức tồn (`thấp < cao`); hàng *Tổng tồn* ở đầu bảng; tìm theo mã / tên; bộ lọc Nhóm quản lý, Nhóm hàng, Thương hiệu, Tồn kho (còn / dưới định mức / hết), Vị trí, Trạng thái (đang / ngừng kinh doanh). Món bán chỉ xem (sửa ở Thực đơn).
   - **Thêm mới ▾:** *Nguyên vật liệu*, *Công cụ dụng cụ* (hộp thoại ngay tại Kho), *Món* và *Topping* (chuyển sang Thực đơn và mở sẵn form).
   - **Tạo / sửa nguyên vật liệu & công cụ dụng cụ:** mã hàng (tự sinh `NL0001` / `CC0001` nếu để trống), tên, nhóm hàng và thương hiệu (chọn hoặc nhập mới), ảnh, giá vốn, **Quản lý tồn kho** (bật/tắt; tồn kho ban đầu — tạo sẵn lô tồn đầu kỳ; định mức tồn thấp nhất / cao nhất), **đơn vị tính** và **quy đổi đơn vị** (hộp thoại *Chọn đơn vị tính* theo nhóm Đồ ăn / Đồ uống / Dịch vụ & Khác, tạo đơn vị mới, đơn vị cơ bản + tỉ lệ vd 1 Thùng = 24 Chai), vị trí, trọng lượng, mô tả, *Đang kinh doanh*. Xóa hàng còn tồn bị chặn (dùng *Ngừng kinh doanh*).
   - **Nhập kho theo đơn vị quy đổi:** chọn đơn vị (vd Thùng) khi nhập lô, hệ thống tự đổi về đơn vị cơ bản để cộng tồn. Dữ liệu: các cột mới trên `products` (migration v12).
-  - **Chưa làm:** trừ tồn nguyên liệu tự động khi bán món (công thức / định mức), thuộc tính (size, màu), chi nhánh, xuất kho theo đơn vị quy đổi, nhập / xuất file.
+  - **Chưa làm:** thuộc tính (size, màu), chi nhánh, xuất kho theo đơn vị quy đổi trong file CSV.
 
-**Trạng thái:** ✅
+**Trạng thái:** ✅. Đặc tả chi tiết: [F006](features/F006-inventory.md).
 
 ---
 
@@ -259,8 +269,9 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
 - Khách hàng thêm nhanh ngay tại quầy POS được ghi vào cùng danh sách khách hàng chung của cửa hàng (không còn là danh sách tách biệt như bản lỗi trước đây).
 - Khách vãng lai mặc định (`khach-vang-lai`) không thể sửa/xóa.
 - Khi hủy hóa đơn có tích điểm, điểm đã cộng được **trừ lại tự động** (xem mục 5.9).
+- Có trường **Công nợ** nhập tay, hiển thị trong danh sách và báo cáo cuối ngày (mục 5.28).
 
-**Trạng thái:** ✅
+**Trạng thái:** ✅. Đặc tả chi tiết: [F007](features/F007-customers.md).
 
 ---
 
@@ -279,7 +290,7 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
 
 - **Tài khoản của tôi (2026-10-24):** bấm vào tên người dùng ở thanh bên mở hộp thoại dùng được cho **mọi vai trò** (kể cả Phục vụ / Bếp): **Chấm công vào/ra ca** và **tự đổi mật khẩu** (phải nhập đúng mật khẩu hiện tại, tối thiểu 6 ký tự). Sysadmin không chấm công và đổi mật khẩu trong `authConfig.ts`.
 
-**Trạng thái:** ✅
+**Trạng thái:** ✅. Đặc tả chi tiết: [F008](features/F008-employees-attendance.md).
 
 ---
 
@@ -296,8 +307,9 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
 - **Quyền hủy hóa đơn chỉ dành cho Owner/Manager**, không cấp cho Staff.
 - Khi hủy: (1) đơn chuyển trạng thái *Đã hủy*, (2) nếu là đơn bán lẻ có lô hàng liên kết → hoàn số lượng vào đúng lô, (3) nếu khách hàng đã được cộng điểm → trừ lại đúng số điểm đó (không âm).
 - Hóa đơn đã hủy vẫn hiển thị trong danh sách (làm mờ) để phục vụ đối soát, không bị xóa khỏi hệ thống.
+- Hoàn kho F&B theo các phiếu xuất gắn với hóa đơn, trừ phần bếp đã hoàn (không hoàn hai lần) — mục 5.23.
 
-**Trạng thái:** ✅ mới bổ sung
+**Trạng thái:** ✅. Đặc tả chi tiết: [F009](features/F009-order-history.md).
 
 ---
 
@@ -315,8 +327,9 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
 - Công thức đối soát: `Tiền mặt kỳ vọng = Tiền quỹ đầu ca + Doanh thu tiền mặt trong ca`.
 - Khi đóng ca: nhân viên nhập số tiền mặt đếm được thực tế; hệ thống hiển thị chênh lệch (dương/âm) trước khi xác nhận.
 - Lịch sử tối đa 20 ca gần nhất được hiển thị để đối chiếu nhanh.
+- Doanh thu theo 4 phương thức (tiền mặt, chuyển khoản/QR, thẻ, ví điện tử); ví điện tử không nằm trong tiền mặt két. Kiểm kho đầu/cuối ca: mục 5.24.
 
-**Trạng thái:** ✅ mới bổ sung
+**Trạng thái:** ✅. Đặc tả chi tiết: [F010](features/F010-shifts.md).
 
 ---
 
@@ -330,9 +343,10 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
 - Lô hàng tồn kho ban đầu.
 - 2 nhà cung cấp mẫu.
 - **4 khách hàng thành viên mẫu** kèm điểm tích lũy (mới bổ sung).
-- **3 tài khoản nhân viên mẫu** — 1 Quản lý + 2 Nhân viên, mật khẩu mặc định `123456`; tên tài khoản dạng `quanly.<mã cửa hàng>`, `nhanvien1.<mã cửa hàng>`, `nhanvien2.<mã cửa hàng>` (mới bổ sung).
+- **3 tài khoản nhân viên mẫu** — 1 Quản lý + 2 Nhân viên, mật khẩu mặc định `123456`; tên tài khoản dạng `quanly.<mã cửa hàng>`, `nhanvien1.<mã cửa hàng>`, `nhanvien2.<mã cửa hàng>`.
+- Công thức nguyên liệu mẫu cho các món chế biến.
 
-**Trạng thái:** ✅ mới bổ sung
+**Trạng thái:** ✅. Đặc tả chi tiết: [F011](features/F011-sample-data.md).
 
 ---
 
@@ -340,7 +354,7 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
 
 **Mô tả:** Danh bạ nhà cung cấp phục vụ nghiệp vụ nhập kho.
 
-**Trạng thái:** ✅
+**Trạng thái:** ✅. Đặc tả chi tiết: [F012](features/F012-suppliers.md).
 
 ---
 
@@ -353,7 +367,9 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
 
 - **Đơn đã hủy không tính vào báo cáo** (doanh thu, số đơn, lợi nhuận, sản phẩm bán chạy) — cập nhật 2026-10-24.
 
-**Trạng thái:** 🟡 — số liệu KPI chính xác theo dữ liệu thật; biểu đồ xu hướng theo ngày/tháng hiện đang dùng hệ số minh họa, chưa tổng hợp 100% từ dữ liệu lịch sử thật.
+- Biểu đồ doanh thu **tính từ đơn thật** (7 ngày / 6 tháng / 4 năm). Có khối **Lợi nhuận** (doanh thu chưa thuế − giá vốn − chiết khấu đối tác − hao hụt), mục 5.27.
+
+**Trạng thái:** ✅. Đặc tả chi tiết: [F013](features/F013-revenue-report.md).
 
 ---
 
@@ -367,13 +383,15 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
 - **Tài khoản:** xem theo cửa hàng, tìm kiếm; thêm / sửa (cửa hàng, họ tên, tên tài khoản, email, vai trò, lương giờ, khóa-mở) / đặt mật khẩu / xóa (xóa mềm; tên tài khoản và email được giải phóng để dùng lại).
 - **Vùng nguy hiểm:** nút *Xóa toàn bộ dữ liệu* (phải gõ `XOA HET`) xóa vĩnh viễn mọi cửa hàng, tài khoản, đơn hàng, kho... trên máy rồi đăng xuất và nạp lại ứng dụng. Cách để "làm lại từ đầu" vì dữ liệu nằm trong IndexedDB của trình duyệt (hoặc kho SQLite của app native).
 
-**Trạng thái:** ✅ mới bổ sung (chưa kiểm thử trên thiết bị thật)
+**Trạng thái:** ✅ (chưa kiểm thử trên thiết bị thật). Đặc tả chi tiết: [F014](features/F014-sysadmin.md).
 
 ---
 
-### 5.15. Đồng bộ Cloud (Backup/Khôi phục)
+### 5.15. Đồng bộ Cloud (đã thay bằng máy chủ riêng)
 
-**Trạng thái:** ⚪ **Đã ngắt khỏi ứng dụng**; hiện chỉ lưu dữ liệu trong SQLite trên thiết bị. Mã nền tảng (`src/cloud/*`, `CloudSyncSection.tsx`, `server/cloud-sync-server.mjs`, `src/firebase.ts`) được giữ lại trong source nhưng **không được import/hiển thị ở đâu**. Sẽ làm lại cùng việc kết nối Firebase ở giai đoạn sau.
+Cơ chế Cloud/Firebase cũ **không còn dùng**. Chức năng tương ứng nay là: kiến trúc máy chủ (mục 5.19), đồng bộ offline-first và xung đột (5.20), cấp số chứng từ (5.21). Mã Firebase cũ (`src/cloud/*`, `CloudSyncSection.tsx`, `server/cloud-sync-server.mjs`, `src/firebase.ts`) còn nằm trong source nhưng không được import (xem mục 8).
+
+---
 
 ### 5.16. Sổ quỹ & Dòng tiền (mới 2026-10-27)
 
@@ -384,10 +402,10 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
 - **Tổng hợp theo kỳ** (Hôm nay / Tuần này / Tháng này / Năm nay / Tùy chọn): *Quỹ đầu kỳ* (tích lũy mọi khoản trước kỳ), *Tổng thu*, *Tổng chi*, *Tồn quỹ*; lọc theo quỹ và theo tài khoản ngân hàng; tìm kiếm; lọc chỉ thu / chỉ chi.
 - **Dòng tiền theo loại thu chi:** biểu đồ thanh theo từng loại (vd Thu tiền bán hàng, Chi nhập hàng, Chi lương…). Loại gợi ý có sẵn, nhập loại mới tự do.
 - Số dư ban đầu của một quỹ: lập *phiếu thu* loại "Vốn góp / Số dư đầu kỳ".
-- Ví điện tử hiện chỉ có phiếu lập tay (chưa có phương thức thanh toán ví điện tử trong bán hàng).
+- Ví điện tử có cả phương thức thanh toán trong bán hàng (mục 5.26) lẫn phiếu lập tay. Số phiếu `PT`/`PC` do máy chủ cấp (mục 5.15).
 - Dữ liệu: bảng `bank_accounts`, `cash_vouchers` (migration v8); `orders.payments` lưu chi tiết khoản + tài khoản nhận.
 
-**Trạng thái:** ✅ mới bổ sung (chưa kiểm thử trên thiết bị thật)
+**Trạng thái:** ✅ (chưa kiểm thử trên thiết bị thật). Đặc tả chi tiết: [F015](features/F015-cashbook.md).
 
 ---
 
@@ -401,7 +419,7 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
 - Thu ngân vẫn tự xác nhận khi đã nhận tiền rồi bấm *Thanh toán* (app chưa tự đối soát giao dịch ngân hàng).
 - **Lưu ý:** mã BIN của các ngân hàng trong `utils/banks.ts` ghi theo danh mục NAPAS công khai, cần **quét thử bằng app ngân hàng** sau khi thêm tài khoản để chắc chắn; thêm ngân hàng khác tại file này.
 
-**Trạng thái:** ✅ mới bổ sung
+**Trạng thái:** ✅. Đặc tả chi tiết: [F016](features/F016-bank-qr.md).
 
 ---
 
@@ -416,9 +434,86 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
 - **Hàng hóa:** *Đang phục vụ* (món trong các đơn chưa thanh toán, hiện tại) và *Đã bán* (trong kỳ) — tổng giá trị / số món, danh sách món giảm dần theo giá trị, 5 món đầu + *Xem thêm*.
 - **Phòng bàn:** theo loại đơn (Ngồi tại bàn / Mang về / Giao đi) và theo từng bàn (giá trị, số đơn, khu vực).
 - Mục "đang phục vụ" luôn là trạng thái hiện tại, không phụ thuộc kỳ đã chọn.
-- **Chưa có** (hệ thống chưa có dữ liệu): giảm giá theo món, chiết khấu đối tác / Food Apps, công nợ khách hàng, theo chi nhánh.
+- Đã có thêm: mục **Lợi nhuận** (giá vốn, chiết khấu đối tác, hao hụt), **Kênh bán**, **Giảm giá theo món**, **Công nợ khách hàng** (mục 5.27, 5.28). **Chưa có:** theo chi nhánh.
 
-**Trạng thái:** ✅ mới bổ sung
+**Trạng thái:** ✅. Đặc tả chi tiết: [F017](features/F017-end-of-day-report.md).
+
+### 5.19. Kiến trúc dữ liệu: máy chủ, chuyển tuyến domain/LAN, ứng dụng native
+
+Web dùng máy chủ SQLite qua `/api/sql`, `/api/batch` với mã API; tự chọn domain trước, LAN sau và quay lại domain; app native cấu hình "Dùng máy chủ"/"Không dùng máy chủ", kiểm tra kết nối, chọn cửa hàng, xuất file SQLite. Chi tiết: [F018](features/F018-data-architecture.md).
+**Trạng thái:** ✅ về mã và test; Android build được, chưa chạy thử trên điện thoại thật, iOS chưa tạo project.
+
+---
+
+### 5.20. Đồng bộ offline-first và xử lý xung đột
+
+Hàng đợi thay đổi trên máy, đẩy nhóm bản ghi (cha + dòng con), tải thay đổi theo con trỏ (ảnh chụp rồi nhật ký), lịch 5 giây / 30 giây có lùi thời gian khi lỗi, tải lần đầu chặn màn hình; hai máy sửa cùng bản ghi khác nội dung thì ghi **xung đột** để Chủ/Quản lý chọn bản đúng. Chi tiết: [F019](features/F019-sync.md), [F020](features/F020-sync-conflicts.md).
+**Trạng thái:** ✅ về mã và test; chưa thử trên thiết bị thật.
+
+---
+
+### 5.21. Cấp số chứng từ và mã tạm khi offline
+
+`HD00001`, `PNK0001`, `PXK0001`, `PT0001`, `PC0001`, `KK0001` tăng dần theo cửa hàng do máy chủ cấp; mất mạng quá 4 giây dùng mã tạm `TAM-<mã máy>-<số>`, máy chủ đổi thành số chính thức khi nhận chứng từ. Chi tiết: [F021](features/F021-document-numbering.md).
+**Trạng thái:** ✅.
+
+---
+
+### 5.22. In hóa đơn, phiếu tạm tính và phiếu bếp bằng ESC/POS
+
+In thẳng máy in nhiệt USB (Chrome/Edge, WebUSB), khổ 58/80mm, dịch lề, hai máy in (hóa đơn và bếp), hàng đợi theo từng máy in; quay lại hộp in trình duyệt nếu không có máy in. Chi tiết, nội dung phiếu, thông báo lỗi: [F022](features/F022-thermal-printing.md).
+**Trạng thái:** ✅ về mã và test; chưa kiểm chứng với nhiều dòng máy in. App điện thoại chưa in trực tiếp được.
+
+---
+
+### 5.23. Trừ kho khi báo bếp, hoàn kho, kho âm, công tắc tự động trừ kho
+
+Bấm *Thông báo bếp* trừ nguyên liệu theo công thức (FEFO); thiếu tồn chỉ cảnh báo, kho hiện số âm (lô `ÂM`); phần chưa báo bếp trừ nốt lúc thanh toán; bếp hủy món / giảm món / hủy hóa đơn thì hoàn đúng lô; công tắc *Tự động trừ kho khi bán* cho cả cửa hàng (mặc định bật). Chi tiết: [F023](features/F023-stock-deduction.md).
+**Trạng thái:** ✅ về mã và test; chưa chạy thử trên màn hình thật.
+
+---
+
+### 5.24. Kiểm kho, lịch sử kiểm kho và kiểm kho theo ca
+
+Đếm hàng thực tế, đưa tồn về số đếm, lập phiếu `KK` ghi chênh lệch (thừa/thiếu, giá trị); xem lịch sử, lọc theo ca/người/thời gian, xuất CSV; cờ *Kiểm kho mỗi ca* và kiểm đầu ca/cuối ca (nhân viên chỉ ghi, không xem lịch sử). Chi tiết: [F024](features/F024-stocktake.md).
+**Trạng thái:** ✅ về mã và test.
+
+---
+
+### 5.25. Xuất / nhập file CSV cho kho
+
+Xuất danh mục hàng, tồn theo lô, lịch sử phiếu kho; nhập hàng hóa và lô hàng từ file mẫu (UTF-8, tự nhận dấu `;`/`,`/tab), xem trước, **nhập toàn bộ hoặc không gì cả** khi có lỗi. Chi tiết: [F025](features/F025-inventory-csv.md).
+**Trạng thái:** ✅ về mã và test. Chưa có Excel (.xlsx).
+
+---
+
+### 5.26. Thanh toán bằng ví điện tử và kết hợp 4 phương thức
+
+Phương thức `wallet` (xác nhận thủ công), quỹ Ví điện tử riêng trong sổ quỹ, ô riêng ở ca, báo cáo cuối ngày và hóa đơn. Chi tiết, luật thanh toán kết hợp: [F026](features/F026-ewallet-payment.md).
+**Trạng thái:** ✅.
+
+---
+
+### 5.27. Giá vốn bán hàng, lợi nhuận và hao hụt
+
+Giá vốn lưu trên từng hóa đơn lúc bán (món + topping, cố định theo thiết lập; món chế biến lấy từ công thức); lợi nhuận gộp, chiết khấu đối tác, hao hụt (hư hỏng + kiểm kho thiếu − thừa; phiếu hoàn kho không tính); hóa đơn cũ chưa có giá vốn bị bỏ qua. Chi tiết: [F027](features/F027-costing-profit.md).
+**Trạng thái:** ✅ về mã và test; chờ chủ dự án xác nhận cách tính hoa hồng.
+
+---
+
+### 5.28. Giảm giá theo món, kênh bán và chiết khấu đối tác, công nợ khách hàng
+
+Giảm giá từng dòng lúc thanh toán (tiền cho cả dòng, không vượt giá trị dòng); danh sách kênh bán + % chiết khấu cấu hình ở màn Tài khoản (Chủ/Quản lý), chọn khi bán Mang về/Giao đi (và bán lẻ), hiện "Cửa hàng thực nhận"; công nợ khách hàng nhập tay và hiển thị. Chi tiết: [F028](features/F028-discounts-channels-debt.md).
+**Trạng thái:** ✅; báo cáo theo chi nhánh để sau.
+
+---
+
+### 5.29. Quên mật khẩu qua email
+
+Mã 6 số gửi qua SMTP của máy chủ (hiệu lực 15 phút, tối đa 5 lần thử, 1 mã/phút/tài khoản, 30 yêu cầu/15 phút/IP), mật khẩu mới được băm ngay trên máy người dùng; tắt khi máy chủ chưa cấu hình SMTP. Chi tiết: [F029](features/F029-forgot-password.md).
+**Trạng thái:** ✅ về mã và test; chưa gửi thử SMTP thật.
+
+---
 
 ---
 
@@ -426,11 +521,11 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
 
 | Hạng mục | Yêu cầu |
 |---|---|
-| Khả dụng ngoại tuyến | Toàn bộ nghiệp vụ bán hàng phải hoạt động 100% không cần Internet |
-| Toàn vẹn dữ liệu | Không mất dữ liệu khi tắt/mở lại ứng dụng hoặc mất điện đột ngột |
+| Khả dụng ngoại tuyến | App điện thoại bán hàng được khi mất mạng và đồng bộ lại; web cần kết nối máy chủ (domain hoặc LAN) |
+| Toàn vẹn dữ liệu | Không mất dữ liệu khi tắt/mở lại ứng dụng hoặc mất điện đột ngột; thay đổi chưa gửi nằm trong hàng đợi; sao lưu máy chủ định kỳ |
 | Bảo mật | Mật khẩu băm PBKDF2-SHA256; không lưu mật khẩu thô dưới mọi hình thức |
 | Đa nền tảng | Chạy trên trình duyệt (Web) và ứng dụng di động đóng gói (Android/iOS qua Capacitor) |
-| Đa cửa hàng | Hỗ trợ nhiều cửa hàng độc lập dữ liệu trên cùng một thiết bị |
+| Đa cửa hàng | Hỗ trợ nhiều cửa hàng độc lập dữ liệu trên cùng một CSDL |
 | Ngôn ngữ | Giao diện và toàn bộ nội dung hiển thị bằng tiếng Việt |
 
 ## 7. Thuật ngữ (Glossary)
@@ -444,30 +539,35 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
 | Ca làm việc (Shift) | Khoảng thời gian một nhân viên thu ngân mở quỹ tiền mặt cho đến khi đóng ca đối soát |
 | KDS | Kitchen Display System — màn hình điều phối bếp/pha chế |
 
-## 8. Hiện trạng mã nguồn & Ghi chú bàn giao (cập nhật 2026-10-11)
+## 8. Hiện trạng mã nguồn & Ghi chú bàn giao (cập nhật 2026-11-11)
 
-> Dành cho các phiên làm việc sau: tóm tắt những gì đã thay đổi và những gì cố ý **chưa** làm.
+> Dành cho các phiên làm việc sau: những gì đã có, những gì cố ý **chưa** làm, và việc đang chờ quyết định.
 
-**Đã làm**
-- Giao diện bán hàng F&B mới + gộp bàn / chuyển bàn / tách-ghép đơn (mục 5.3). Logic thuần có test tại `src/utils/tableOps.test.ts`.
-- Phân quyền 4 vai trò (`src/utils/permissions.ts`, test `permissions.test.ts`); điều hướng và chuyển hướng màn hình trong `src/App.tsx`.
-- (Đã thay đổi ở bước sau: SysAdmin quay lại dưới dạng tài khoản cứng — xem bên dưới.) Dọn chữ Demo: bỏ nhãn "Demo / Offline / Sandbox / Mã cửa hàng" ở thanh bên-header-trang Tài khoản, bỏ màn chờ duyệt/từ chối cửa hàng, không còn tạo tài khoản SysAdmin khi khởi động. Hàng `sysadmin` cũ trong bảng `users` (nếu còn) bị từ chối đăng nhập; sysadmin chỉ tồn tại dưới dạng tài khoản cứng.
-- Tab Demo ở màn đăng nhập **được giữ lại** theo yêu cầu (dùng để demo cho khách).
-- Đăng nhập bằng tên tài khoản thay cho email (mục 5.1).
-- Tài khoản **sysadmin cứng** + màn hình Cửa hàng / Tài khoản (mục 5.14); nút "Xóa toàn bộ dữ liệu"; khóa cửa hàng; đặt lại mật khẩu cho nhân viên (phương án C).
-- CSDL: migration v4 (cột bàn gộp / giờ mở / số khách) và v5 (cột `username` cho `users`).
-- Sửa lỗi in hóa đơn bị trắng trang (CSS in nhắm sai id) và chỉnh font/khổ in (mục 5.2).
-- Thêm `vitest` (`npm test`), log test ở `logs/test-latest.log`. `tsconfig.json` loại `src/demo.tsx` khỏi type-check.
+**Đã làm (gần đây, theo thứ tự)**
+- Máy chủ dữ liệu + web đọc/ghi qua máy chủ, chuyển tuyến domain/LAN (F018); app native offline-first, đồng bộ, màn xung đột, cấp số chứng từ và mã tạm (F019–F021).
+- In ESC/POS, máy in bếp riêng (F022).
+- Trừ kho khi báo bếp, hoàn kho khi bếp hủy món, kho âm, công tắc tự động trừ kho (F023); kiểm kho + lịch sử + kiểm theo ca (F024); CSV kho (F025).
+- Ví điện tử (F026); giá vốn, lợi nhuận, hao hụt (F027); giảm giá theo món, kênh bán, công nợ (F028); quên mật khẩu qua email (F029).
+- Từ đợt trước: giao diện bán hàng F&B và phân quyền 5 vai trò, đăng nhập bằng tên tài khoản, sysadmin cứng, dữ liệu mẫu, giao diện PC theo Figma.
+- Kiểm thử tự động: Vitest, hơn 500 test, log ở `logs/test-latest.log`; `tsc` sạch; build web và `assembleDebug` Android qua JDK của Android Studio.
+
+**Chưa kiểm chứng**
+- Mọi tính năng mới chỉ được kiểm tự động; **chưa chạy thử trên điện thoại/máy in/màn hình thật**.
+
+**Thứ tự triển khai cần nhớ**
+1. Cập nhật máy chủ (có `nodemailer`, bộ đếm `KK`, các cột mới) và biến SMTP nếu dùng quên mật khẩu.
+2. Mở bản web **một lần** để chạy migration v19–v21 trên CSDL máy chủ.
+3. Sau đó mới cho điện thoại đồng bộ (nếu không, push bị lỗi 400 vì cột chưa có).
 
 **Cố ý giữ nguyên (chưa xóa) theo yêu cầu chủ dự án**
-- Mã chết/không dùng: `src/demo.tsx` (bản cũ ~3400 dòng), `src/firebase.ts`, `src/utils/offlineManager.ts`, `src/fallbackData.json`, `src/cloud/*`, `CloudSyncSection.tsx`, `SysAdminDashboard.tsx`, `src/authConfig.ts` (chứa email/mật khẩu cũ — nên xóa khi dọn), `server/`, `firebase-*.json`, `firestore.rules`, các thư viện `firebase`, `express`, `@google/genai`, `dotenv`.
-- `SysAdminDashboard.tsx` (bản cũ) không còn được dùng; `ensureDemoStore` / `demoLogin` đang dùng cho tab Demo.
+- Mã chết: `src/demo.tsx`, `src/firebase.ts`, `src/utils/offlineManager.ts`, `src/fallbackData.json`, `src/cloud/*`, `CloudSyncSection.tsx`, `SysAdminDashboard.tsx`, các thư viện `firebase`, `@google/genai`, `dotenv`, `firebase-*.json`, `firestore.rules`.
+- `src/authConfig.ts` (tài khoản sysadmin cứng).
 
-**Việc tiếp theo đã biết**
-- Giao diện đã được làm lại theo hướng tối giản (mục 9). Còn lại: rà bố cục các màn hình phụ theo layout chính thức khi chủ dự án gửi ảnh; kiểm thử trên thiết bị thật (tablet/điện thoại).
-- **Quên mật khẩu / gửi mật khẩu reset qua email** chưa làm (đang dùng phương án C — chủ/quản lý/sysadmin đặt lại): cần dịch vụ gửi email (xem mục 5.1).
-- Kết nối Firebase (đăng nhập, đồng bộ) làm sau; khi đó cân nhắc dọn mã chết ở trên.
-- Máy in nhiệt: xác định driver / dùng ESC/POS nếu `window.print()` không ổn định (mục 5.2).
+**Việc đang chờ quyết định:** xem [features/INDEX.md](features/INDEX.md) mục 4 (hoa hồng kênh bán, giảm giá %, ghi nợ/thu nợ, SMTP, ca cho nhân viên, báo cáo chi nhánh) và mục 5 (phát hiện khi viết đặc tả).
+
+**Hoãn (nhóm bảo mật D):** API token nằm trong gói web, sysadmin cứng, dữ liệu/bí mật trong git, dọn mã chết, dọn `sync_log`, triển khai VPS.
+
+**Việc có thể làm tiếp (đã biết):** cửa hàng có màn thiết lập chung, xem nhật ký thao tác, trả hàng một phần, đổi điểm, xuất file cho kế toán, màn sao lưu/khôi phục, in từ app điện thoại, nhà cung cấp trên phiếu nhập.
 
 ## 9. Thiết kế giao diện (cập nhật 2026-10-19)
 
@@ -488,9 +588,9 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
   - Chấm công nằm trong hộp *Tài khoản của tôi* (bấm tên người dùng trên thanh menu), không còn ở màn Báo cáo.
   - **Chưa áp dụng:** Tổng quan hệ thống (SysAdminDashboard), Đồng bộ Cloud.
 
-## 10. Giới hạn đã biết: dữ liệu theo từng trình duyệt / thiết bị (ghi nhận 2026-10-24)
+## 10. Giới hạn đã biết: nơi lưu dữ liệu (cập nhật 2026-11-11)
 
-- Dữ liệu nằm trong IndexedDB của **từng trình duyệt trên từng máy** (hoặc kho SQLite của từng app). Tài khoản tạo ở Chrome **không tồn tại** ở Edge (hoặc máy khác) — đăng nhập báo "Tài khoản không tồn tại trên thiết bị này". Đây là hệ quả của kiến trúc local-first, **không phải lỗi mã**.
-- Vì vậy thu ngân và bếp hiện **không đồng bộ** giữa hai máy / hai trình duyệt. Muốn bếp thấy đơn của thu ngân theo thời gian thực cần một lớp đồng bộ (Cloud/Firebase đã dự kiến, hoặc đồng bộ mạng LAN).
-- **Không mở nhiều tab của cùng một cửa hàng trên cùng trình duyệt**: mỗi tab giữ một bản CSDL riêng trong bộ nhớ và ghi đè lẫn nhau → dữ liệu có thể lệch/mất. Khi kiểm thử, dùng một tab duy nhất.
-
+- **Có máy chủ:** mọi thiết bị dùng chung một CSDL, thu ngân và bếp thấy nhau (web làm mới vài giây một lần; app native đồng bộ nền). Cần mạng tới domain hoặc LAN; web không bán hàng được khi không tới được máy chủ.
+- **Không máy chủ** (web không cấu hình, hoặc app chọn "Không dùng máy chủ"): dữ liệu nằm riêng trong trình duyệt/máy, tài khoản tạo ở nơi này **không có** ở nơi khác, hai thiết bị không đồng bộ.
+- **Không mở nhiều tab của cùng một cửa hàng khi không dùng máy chủ**: mỗi tab giữ một bản CSDL riêng trong bộ nhớ và ghi đè lẫn nhau.
+- App native: nếu máy chủ được khôi phục từ bản sao lưu, thiết bị phải "Tải lại dữ liệu"; thay đổi chưa gửi sẽ mất (app nhắc xuất file SQLite trước).

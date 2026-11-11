@@ -81,12 +81,31 @@ Only the image is rebuilt. The data folder is not changed. The app applies new s
 - Restore: admin page, button "Nạp file .db lên". The previous data is saved in `backups/` first.
 - Schedule the download (or a copy of the folder while the container is stopped) outside the server as well.
 
-## 6. Security notes
+## 6. Forgot password by email (optional)
+The login screen shows "Quên mật khẩu?" only when the server can send mail. To turn it on, add the mail server of the
+company (or any SMTP account) to `.env` and run `docker compose up -d`:
+
+```
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587          # 587 = STARTTLS, 465 = TLS
+SMTP_USER=no-reply@example.com
+SMTP_PASS=<password of that account>
+SMTP_FROM=MVP POS <no-reply@example.com>
+```
+
+- The server log says at start whether it is on: `password reset by email: on (SMTP ...)`.
+- A code has 6 digits, works for 15 minutes, once, and is blocked after 5 wrong tries. Only accounts with an email address
+  can use it; for the others the owner or a manager resets the password in the staff screen.
+- With a company domain, set the SPF and DKIM records of that domain for the mail account, or the mail may go to spam.
+- If a code never arrives, `docker compose logs pos` shows `[password-reset] Could not send the code to ...` with the reason.
+- Never commit `.env`: it holds the mail password.
+
+## 7. Security notes
 - `API_TOKEN` is saved in the browser of every device that connects. Anyone with it can read and write all data. Use HTTPS only.
 - Keep `ADMIN_TOKEN` to yourself: it opens `/admin/db`, which can edit or replace the whole database.
 - The container port is bound to `127.0.0.1`, so it is reachable only through Apache.
 
-## 7. Troubleshooting
+## 8. Troubleshooting
 - `docker compose` stops with "API_TOKEN is required": `.env` is missing or not in the project root.
 - The app shows "Không mở được cơ sở dữ liệu": the address or `API_TOKEN` is wrong, or the container is not running
   (`docker compose ps`, `docker compose logs pos`).
