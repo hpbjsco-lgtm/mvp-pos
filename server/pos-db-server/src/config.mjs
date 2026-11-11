@@ -20,6 +20,17 @@ import path from 'node:path';
  * @property {number} backupKeepCount Number of scheduled backups to keep.
  * @property {string} staticDir Folder with the built web app to serve at `/` (empty: the server only provides the API and admin page).
  * @property {string[]} corsOrigins Origins allowed to call the API from a browser (a web page served from another address, or the app in a phone); empty disables CORS headers.
+ * @property {SmtpConfig | null} smtp Mail server used to send password reset codes; null when `SMTP_HOST` is not set (the "forgot password" feature is then off).
+ */
+
+/**
+ * @typedef {Object} SmtpConfig
+ * @property {string} host Mail server name.
+ * @property {number} port Mail server port (587 with STARTTLS, 465 with TLS).
+ * @property {boolean} secure True for a TLS connection from the start (port 465).
+ * @property {string} user Account name; empty for a server that needs no login.
+ * @property {string} pass Account password.
+ * @property {string} from Sender shown on the mail, for example `MVP POS <no-reply@example.com>`.
  */
 
 /** Name of the SQLite file inside the data folder. */
@@ -43,6 +54,23 @@ function parseOrigins(text) {
       }
       return origin;
     });
+}
+
+/**
+ * Reads the mail settings.
+ *
+ * @param {Record<string, string | undefined>} env Environment variables.
+ * @returns {SmtpConfig | null} The settings, or null when `SMTP_HOST` is empty.
+ * @throws {Error} When `SMTP_HOST` is set but the port or the sender is missing or invalid.
+ */
+function parseSmtp(env) {
+  const host = (env.SMTP_HOST || '').trim();
+  if (!host) return null;
+  const port = Number(env.SMTP_PORT || 587);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error(`SMTP_PORT must be an integer between 1 and 65535, got "${env.SMTP_PORT}".`);
+  const from = (env.SMTP_FROM || '').trim();
+  if (!from) throw new Error('SMTP_FROM is required when SMTP_HOST is set, for example "MVP POS <no-reply@example.com>".');
+  return { host, port, secure: port === 465, user: (env.SMTP_USER || '').trim(), pass: env.SMTP_PASS || '', from };
 }
 
 /**
@@ -95,5 +123,6 @@ export function loadConfig(env) {
     backupKeepCount,
     staticDir: env.STATIC_DIR ? path.resolve(env.STATIC_DIR) : '',
     corsOrigins: parseOrigins(env.CORS_ORIGIN),
+    smtp: parseSmtp(env),
   };
 }

@@ -7,6 +7,7 @@ import express from 'express';
 import path from 'node:path';
 import { createAdminRouter } from './adminRouter.mjs';
 import { requireBearerToken } from './auth.mjs';
+import { createAuthRouter } from './authRouter.mjs';
 import { createSyncRouter } from './syncRouter.mjs';
 
 /** Largest JSON body accepted; product photos are stored as data URLs inside SQL parameters. */
@@ -29,12 +30,13 @@ const MAX_BODY_SIZE = '32mb';
  * @param {import('./tableExplorer.mjs').TableExplorer} options.explorer Reads and edits table rows for the admin page.
  * @param {import('./databaseManager.mjs').DatabaseManager} options.manager Takes backups and restores them for the admin page.
  * @param {string} options.adminToken Secret required by the admin routes.
+ * @param {import('./passwordReset.mjs').PasswordResetService | null} [options.passwordReset] Password reset by email; without it the `/api/auth` routes are not mounted.
  * @param {import('./syncService.mjs').SyncService} [options.syncService] Change feed for devices; without it the `/api/sync` routes are not mounted.
  * @param {string} [options.staticDir] Folder with the built web app; when set it is served at `/` (the app has no URL routes, so `index.html` answers unknown paths).
  * @param {string[]} [options.corsOrigins] Origins allowed to call the API from a browser; empty means no CORS headers. A request from an origin on the list gets that origin back; other origins get no CORS headers.
  * @returns {import('express').Express} Configured application.
  */
-export function createApp({ sqlService, apiToken, explorer, manager, adminToken, syncService = null, staticDir = '', corsOrigins = [] }) {
+export function createApp({ sqlService, apiToken, explorer, manager, adminToken, syncService = null, passwordReset = null, staticDir = '', corsOrigins = [] }) {
   const app = express();
   app.disable('x-powered-by');
   app.use(express.json({ limit: MAX_BODY_SIZE }));
@@ -100,6 +102,7 @@ export function createApp({ sqlService, apiToken, explorer, manager, adminToken,
   });
 
   if (syncService) app.use('/api/sync', protectedRoute, createSyncRouter(syncService));
+  if (passwordReset) app.use('/api/auth', protectedRoute, createAuthRouter(passwordReset));
 
   app.use('/admin', createAdminRouter({ explorer, manager, adminToken }));
 

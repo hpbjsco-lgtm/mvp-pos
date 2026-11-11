@@ -181,6 +181,11 @@ export default function ReceiptThermal({
                       <span className="col-span-2 text-center">{item.quantity}</span>
                       <span className="col-span-5 text-right">{(item.price * item.quantity).toLocaleString('vi-VN')}đ</span>
                     </div>
+                    {!!item.discount && (
+                      <div className="text-[9px] text-error px-1 flex justify-between font-normal">
+                        <span>Giảm giá món:</span><span>-{item.discount.toLocaleString('vi-VN')}đ</span>
+                      </div>
+                    )}
                     <div className="text-[9px] text-on-surface-variant flex justify-between px-1">
                       <span>Đơn giá: {item.price.toLocaleString('vi-VN')}đ</span>
                       {item.batchCode && <span className="font-sans">Lô: {item.batchCode}</span>}
@@ -202,12 +207,18 @@ export default function ReceiptThermal({
 
             {/* Calculation summary */}
             <div className="space-y-1.5 text-on-surface font-bold">
-              {(order.subtotal !== undefined && (order.discountAmount || order.taxAmount)) ? (
+              {(order.subtotal !== undefined && (order.discountAmount || order.lineDiscountAmount || order.taxAmount)) ? (
                 <>
                   <div className="flex justify-between text-[10px] text-on-surface-variant font-normal">
                     <span>Tạm tính:</span>
                     <span>{order.subtotal.toLocaleString('vi-VN')} đ</span>
                   </div>
+                  {!!order.lineDiscountAmount && (
+                    <div className="flex justify-between text-[10px] text-error font-normal">
+                      <span>Giảm giá theo món:</span>
+                      <span>-{order.lineDiscountAmount.toLocaleString('vi-VN')} đ</span>
+                    </div>
+                  )}
                   {!!order.discountAmount && (
                     <div className="flex justify-between text-[10px] text-error font-normal">
                       <span>Giảm giá:</span>

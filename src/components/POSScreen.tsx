@@ -10,7 +10,7 @@ import {
   LayoutGrid, UtensilsCrossed, Landmark, ShoppingCart, ArrowRight,
   ArrowLeft, MoreVertical, Users, Timer, CalendarClock, Link2, History
 } from 'lucide-react';
-import { BankAccount, InventoryTransaction, InventoryTransactionType, PaymentPart, Product, DiningTable, Zone, KitchenItem, Order, PaymentMethod, TableStatus, KitchenStatus, InventoryBatch, Customer, StockPick } from '../types';
+import { BankAccount, InventoryTransaction, InventoryTransactionType, PaymentPart, Product, DiningTable, Zone, KitchenItem, Order, PaymentMethod, TableStatus, KitchenStatus, InventoryBatch, Customer, SalesChannel, StockPick } from '../types';
 import TableMap from './TableMap';
 import TableBoard from './TableBoard';
 import KiotTableGrid from './KiotTableGrid';
@@ -38,6 +38,7 @@ import { changeTopping, lineUnitPrice, toppingsFor, toppingsText } from '../util
 import { defaultSize, hasSizes, priceLabel } from '../utils/sizes';
 import { isDrinkProduct } from '../utils/recipes';
 import { lineUnitCost, orderCost } from '../utils/costing';
+import { clampLineDiscount, commissionOf } from '../utils/saleAdjustments';
 import { sortByBestSeller } from '../utils/salesRanking';
 import {
   lineKey, isVirtualCartId, resolvePrimaryId, getGroupLabel, getGroupTables, getTableStats, formatElapsed,
@@ -87,6 +88,8 @@ interface POSScreenProps {
   storeId: string;
   /** False when the store left stock to imports, exports and counts: sending to the kitchen and paying then take no stock. */
   autoStockDeduction: boolean;
+  /** Sales channels (delivery apps...) with their commission; when there are none the channel choice is not shown. */
+  salesChannels: SalesChannel[];
   fbStoreProfile: any;
   triggerBeep: (success: boolean) => void;
   simBatches: InventoryBatch[];
@@ -123,6 +126,7 @@ export default function POSScreen({
   fbUserProfile,
   storeId,
   autoStockDeduction,
+  salesChannels,
   fbStoreProfile,
   triggerBeep,
   simBatches,
@@ -209,12 +213,17 @@ export default function POSScreen({
   // Giảm giá & Thuế VAT áp dụng cho đơn hiện tại
   const [discountInput, setDiscountInput] = useState<number>(0);
   const [vatPercent, setVatPercent] = useState<number>(0);
+  // Giảm giá theo từng dòng món (cả dòng, không phải mỗi phần) và kênh bán của đơn, đặt lúc thanh toán
+  const [lineDiscounts, setLineDiscounts] = useState<Record<string, number>>({});
+  const [channelName, setChannelName] = useState('');
 
   useEffect(() => {
     setCashPadInput('');
     setCashChangeDue(0);
     setDiscountInput(0);
     setVatPercent(0);
+    setLineDiscounts({});
+    setChannelName('');
     setPosView('catalog');
   }, [currentCartId]);
 
@@ -232,10 +241,24 @@ export default function POSScreen({
 
   // Calculated totals
   const cartSubtotal = currentCart.reduce((sum, item) => sum + lineUnitPrice(item, simProducts) * item.quantity, 0);
-  const discountAmount = Math.max(0, Math.min(discountInput || 0, cartSubtotal));
-  const taxableAmount = cartSubtotal - discountAmount;
+  /** Discount given on a line, never more than the value of the line. */
+  const lineDiscountOf = (line: CartLine) => clampLineDiscount(lineDiscounts[lineKey(line)] ?? 0, lineUnitPrice(line, simProducts) * line.quantity);
+  const lineDiscountTotal = currentCart.reduce((sum, line) => sum + lineDiscountOf(line), 0);
+  // The discount of the whole invoice comes on top of the line discounts and cannot take more than what is left
+  const discountAmount = Math.max(0, Math.min(discountInput || 0, cartSubtotal - lineDiscountTotal));
+  const taxableAmount = cartSubtotal - lineDiscountTotal - discountAmount;
   const taxAmount = Math.round(taxableAmount * ((vatPercent || 0) / 100));
   const grandTotal = taxableAmount + taxAmount;
+  // Delivery apps and similar channels keep a share of the order; offered for takeaway and delivery orders and for retail
+  const channelOffered = salesChannels.length > 0 && (simStoreType === 'retail' || isVirtualCart);
+  const selectedChannel = channelOffered ? salesChannels.find(channel => channel.name === channelName) : undefined;
+  const commissionPercent = selectedChannel?.commissionPercent ?? 0;
+  const commissionAmount = commissionOf(grandTotal, commissionPercent);
+  /** Sets the discount of one line of the cart. */
+  const setLineDiscount = (index: number, amount: number) => {
+    const line = currentCart[index];
+    if (line) setLineDiscounts(prev => ({ ...prev, [lineKey(line)]: clampLineDiscount(amount, lineUnitPrice(line, simProducts) * line.quantity) }));
+  };
   const itemCount = currentCart.reduce((sum, item) => sum + item.quantity, 0);
 
   // Expiry Check helpers
@@ -679,6 +702,7 @@ export default function POSScreen({
         name: prod?.name || 'Món',
         quantity: line.quantity,
         price: lineUnitPrice(line, simProducts),
+        discount: lineDiscountOf(line) || undefined,
         toppings: (line.toppings || []).map(t => {
           const tp = simProducts.find(p => p.id === t.productId);
           return { name: tp?.name || 'Topping', price: tp?.price || 0, quantity: t.quantity };
@@ -694,6 +718,7 @@ export default function POSScreen({
       orderNumber: 'TẠM TÍNH',
       items,
       subtotal: cartSubtotal,
+      lineDiscountAmount: lineDiscountTotal || undefined,
       discountAmount,
       taxAmount,
       totalAmount: grandTotal,
@@ -943,6 +968,7 @@ export default function POSScreen({
           price: lineUnitPrice(cartItem, simProducts),
           // Cost set up for the dish and its toppings, kept on the order so later changes do not alter past profit
           cost: lineUnitCost(cartItem, simProducts),
+          discount: lineDiscountOf(cartItem) || undefined,
           toppings: (cartItem.toppings || []).map(t => {
             const tp = simProducts.find(p => p.id === t.productId);
             return { name: tp?.name || 'Topping', price: tp?.price || 0, quantity: t.quantity };
@@ -1033,6 +1059,10 @@ export default function POSScreen({
         totalAmount: grandTotal,
         totalCost: orderCost(currentCart, simProducts),
         costRecorded: true,
+        lineDiscountAmount: lineDiscountTotal || undefined,
+        channelName: selectedChannel?.name,
+        commissionPercent: selectedChannel ? commissionPercent : undefined,
+        commissionAmount: selectedChannel ? commissionAmount : undefined,
         paymentMethod: method === 'mixed'
           ? (mixed && mixed.parts.length > 1 ? PaymentMethod.MIXED : PAYMENT_METHOD_OF[mixed?.parts[0]?.method ?? 'cash'])
           : PAYMENT_METHOD_OF[method],
@@ -1095,6 +1125,8 @@ export default function POSScreen({
       setSelectedCustomerId('');
       setDiscountInput(0);
       setVatPercent(0);
+      setLineDiscounts({});
+      setChannelName('');
       playBeep(true);
 
     }, 800);
@@ -1133,6 +1165,21 @@ export default function POSScreen({
           contextLabel={simStoreType === 'fnb' ? selectedTableName : 'Đơn bán lẻ'}
           itemCount={itemCount}
           cartSubtotal={cartSubtotal}
+          lines={currentCart.map(line => ({
+            name: simProducts.find(p => p.id === line.productId)?.name || 'Món',
+            category: simProducts.find(p => p.id === line.productId)?.category || 'Khác',
+            quantity: line.quantity,
+            price: lineUnitPrice(line, simProducts),
+            discount: lineDiscountOf(line),
+            detail: '',
+          }))}
+          setLineDiscount={setLineDiscount}
+          lineDiscountTotal={lineDiscountTotal}
+          channels={channelOffered ? salesChannels : []}
+          channelName={channelName}
+          setChannelName={setChannelName}
+          commissionPercent={commissionPercent}
+          commissionAmount={commissionAmount}
           discountInput={discountInput}
           setDiscountInput={setDiscountInput}
           vatPercent={vatPercent}
@@ -1967,11 +2014,19 @@ export default function POSScreen({
                 category: prod?.category || 'Khác',
                 quantity: line.quantity,
                 price: lineUnitPrice(line, simProducts),
+                discount: lineDiscountOf(line),
                 detail: [tops, options, line.note].filter(Boolean).join(' · ')
               };
             })}
             itemCount={itemCount}
             subtotal={cartSubtotal}
+            setLineDiscount={setLineDiscount}
+            lineDiscountTotal={lineDiscountTotal}
+            channels={channelOffered ? salesChannels : []}
+            channelName={channelName}
+            setChannelName={setChannelName}
+            commissionPercent={commissionPercent}
+            commissionAmount={commissionAmount}
             discountInput={discountInput}
             setDiscountInput={setDiscountInput}
             vatPercent={vatPercent}

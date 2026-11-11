@@ -34,13 +34,13 @@ const COLUMN_LABELS: Record<string, Record<string, string>> = {
   orders: {
     order_number: 'Số hóa đơn', temp_order_number: 'Mã tạm', store_type: 'Loại cửa hàng', order_type: 'Hình thức', status: 'Trạng thái',
     table_number: 'Bàn', customer_name: 'Khách hàng', staff_name: 'Nhân viên', subtotal: 'Tạm tính', discount_amount: 'Giảm giá',
-    tax_amount: 'Thuế', total_amount: 'Tổng tiền', total_cost: 'Giá vốn', cost_recorded: 'Đã lưu giá vốn', payment_method: 'Thanh toán', payments: 'Chi tiết thanh toán',
+    tax_amount: 'Thuế', total_amount: 'Tổng tiền', total_cost: 'Giá vốn', cost_recorded: 'Đã lưu giá vốn', line_discount_amount: 'Giảm giá theo món', channel_name: 'Kênh bán', commission_percent: 'Chiết khấu (%)', commission_amount: 'Tiền chiết khấu', payment_method: 'Thanh toán', payments: 'Chi tiết thanh toán',
     paid_amount: 'Khách đưa', change_amount: 'Tiền thừa', points_earned: 'Điểm cộng', points_used: 'Điểm dùng', note: 'Ghi chú',
     deleted_at: 'Thời điểm xóa',
   },
   customers: {
     name: 'Tên', phone: 'Điện thoại', email: 'Email', address: 'Địa chỉ', birthday: 'Ngày sinh', points: 'Điểm', total_spent: 'Tổng chi tiêu',
-    visit_count: 'Số lần đến', note: 'Ghi chú', deleted_at: 'Thời điểm xóa',
+    visit_count: 'Số lần đến', debt: 'Công nợ', note: 'Ghi chú', deleted_at: 'Thời điểm xóa',
   },
   users: {
     email: 'Email', username: 'Tên đăng nhập', password_hash: 'Mật khẩu', password_salt: 'Mật khẩu (muối)', pin_code: 'Mã PIN', role: 'Vai trò',
@@ -49,7 +49,7 @@ const COLUMN_LABELS: Record<string, Record<string, string>> = {
   },
   stores: {
     name: 'Tên cửa hàng', address: 'Địa chỉ', phone: 'Điện thoại', store_type: 'Loại cửa hàng', status: 'Trạng thái', tax_code: 'Mã số thuế',
-    currency: 'Tiền tệ', receipt_footer: 'Chân hóa đơn', logo_url: 'Logo', auto_stock_deduction: 'Tự động trừ kho khi bán', deleted_at: 'Thời điểm xóa',
+    currency: 'Tiền tệ', receipt_footer: 'Chân hóa đơn', logo_url: 'Logo', auto_stock_deduction: 'Tự động trừ kho khi bán', sales_channels: 'Kênh bán', deleted_at: 'Thời điểm xóa',
   },
   suppliers: {
     name: 'Tên', phone: 'Điện thoại', email: 'Email', address: 'Địa chỉ', tax_code: 'Mã số thuế', note: 'Ghi chú', deleted_at: 'Thời điểm xóa',
@@ -85,7 +85,7 @@ const COLUMN_LABELS: Record<string, Record<string, string>> = {
     daily_wage: 'Lương ngày', status: 'Trạng thái', note: 'Ghi chú', deleted_at: 'Thời điểm xóa',
   },
   order_items: {
-    product_name: 'Món', quantity: 'Số lượng', price: 'Đơn giá', cost: 'Giá vốn', batch_code: 'Mã lô', note: 'Ghi chú', size: 'Size',
+    product_name: 'Món', quantity: 'Số lượng', price: 'Đơn giá', cost: 'Giá vốn', discount: 'Giảm giá', batch_code: 'Mã lô', note: 'Ghi chú', size: 'Size',
     sugar_level: 'Mức đường', ice_level: 'Mức đá', toppings: 'Topping',
   },
   inventory_transaction_items: { product_name: 'Hàng', batch_code: 'Mã lô', quantity: 'Số lượng', price: 'Đơn giá', system_quantity: 'Tồn hệ thống', counted_quantity: 'Đếm thực tế' },
@@ -108,7 +108,7 @@ const SENSITIVE_COLUMNS = new Set(['password_hash', 'password_salt', 'pin_code']
 /** Columns that hold an amount of money. */
 const MONEY_COLUMNS = new Set([
   'price', 'cost', 'subtotal', 'discount_amount', 'tax_amount', 'total_amount', 'total_cost', 'paid_amount', 'change_amount', 'amount',
-  'import_price', 'opening_cash', 'closing_cash_expected', 'closing_cash_actual', 'hourly_rate', 'daily_wage', 'total_spent',
+  'import_price', 'line_discount_amount', 'commission_amount', 'debt', 'discount', 'opening_cash', 'closing_cash_expected', 'closing_cash_actual', 'hourly_rate', 'daily_wage', 'total_spent',
 ]);
 
 /** Columns that hold yes or no as 1 or 0. */

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { BankAccount, CashVoucher, DiningTable, InventoryTransaction, Order, Product, Zone } from '../types';
+import { BankAccount, CashVoucher, Customer, DiningTable, InventoryTransaction, Order, Product, Zone } from '../types';
 import { summarizeProfit, type ProfitSummary } from './profit';
 import { buildLedger, SALES_CATEGORY } from './cashbook';
 import { getOrderPayments } from './payments';
@@ -21,17 +21,64 @@ export interface EodInput {
   zones: Zone[];
   /** Stock vouchers (ingredients and goods), for the shrinkage in the profit; leave out when not at hand. */
   transactions?: InventoryTransaction[];
+  /** Customers, for the debt shown in the report; leave out when not at hand. */
+  customers?: Pick<Customer, 'id' | 'name' | 'debt'>[];
   from: number;
   to: number;
 }
 
 export interface ItemTotal { name: string; value: number; quantity: number }
 
+/** Discounts given on one dish in the period. */
+export interface ItemDiscount {
+  name: string;
+  quantity: number;
+  /** Value before any discount. */
+  gross: number;
+  /** Discount given on the lines of this dish at payment. */
+  lineDiscount: number;
+  /** Share of the discount of whole invoices that falls on this dish, in proportion to its value on each invoice. */
+  invoiceShare: number;
+  /** gross - lineDiscount - invoiceShare. */
+  net: number;
+}
+
+/** Sales of one channel in the period ("Trực tiếp" for orders without a channel). */
+export interface ChannelSales {
+  name: string;
+  orders: number;
+  /** What customers paid for those orders. */
+  revenue: number;
+  /** Commission the channel kept. */
+  commission: number;
+  /** revenue - commission: what the shop really receives. */
+  received: number;
+}
+
+/** What customers owe the shop (typed in by hand on each customer). */
+export interface DebtSummary {
+  total: number;
+  /** Number of customers who owe something. */
+  customers: number;
+  /** The customers who owe most, largest first. */
+  top: { name: string; debt: number }[];
+}
+
+/** Name of the channel of orders that came without one. */
+export const DIRECT_CHANNEL = 'Trực tiếp';
+
 export interface EodReport {
   // Tổng hợp
   orderCount: number;
   grossRevenue: number; // Doanh thu tổng (trước giảm giá)
   invoiceDiscount: number;
+  /** Sum of the discounts given on lines at payment. */
+  lineDiscount: number;
+  /** Discounts per dish, those with a discount only, largest first. */
+  discountByItem: ItemDiscount[];
+  /** Sales per channel; only when at least one order came through a channel. */
+  byChannel: ChannelSales[];
+  debts: DebtSummary;
   revenue: number; // Sau giảm giá, gồm thuế
   tax: number;
   otherIncome: number; // Thu khác (phiếu thu lập tay)
@@ -75,7 +122,7 @@ const RETAIL_CART_ID = 'retail';
 
 /** Báo cáo cuối ngày / theo kỳ: tổng hợp bán hàng, thu chi, hàng hóa, phòng bàn + trạng thái đang phục vụ. */
 export function computeEndOfDay(input: EodInput): EodReport {
-  const { orders, vouchers, accounts, carts, products, tables, zones, transactions = [], from, to } = input;
+  const { orders, vouchers, accounts, carts, products, tables, zones, transactions = [], customers = [], from, to } = input;
   const inRange = (iso: string) => { const t = new Date(iso).getTime(); return t >= from && t <= to; };
 
   const periodOrders = orders.filter(o => inRange(o.createdAt));
@@ -105,6 +152,45 @@ export function computeEndOfDay(input: EodInput): EodReport {
   const soldMap = new Map<string, ItemTotal>();
   done.forEach(o => o.items.forEach(i => addItem(soldMap, i.name, i.price * i.quantity, i.quantity)));
   const soldItems = sortedItems(soldMap);
+
+  // Giảm giá theo món: giảm giá ghi trên từng dòng, cộng phần giảm giá cả hóa đơn chia theo giá trị còn lại của từng dòng
+  const discountMap = new Map<string, ItemDiscount>();
+  for (const order of done) {
+    const bases = order.items.map(item => item.price * item.quantity - (item.discount || 0));
+    const baseTotal = sum(bases);
+    order.items.forEach((item, index) => {
+      const gross = item.price * item.quantity;
+      const lineDiscount = item.discount || 0;
+      const invoiceShare = baseTotal > 0 ? Math.round(((order.discountAmount || 0) * bases[index]) / baseTotal) : 0;
+      const known = discountMap.get(item.name) ?? { name: item.name, quantity: 0, gross: 0, lineDiscount: 0, invoiceShare: 0, net: 0 };
+      known.quantity += item.quantity;
+      known.gross += gross;
+      known.lineDiscount += lineDiscount;
+      known.invoiceShare += invoiceShare;
+      known.net += gross - lineDiscount - invoiceShare;
+      discountMap.set(item.name, known);
+    });
+  }
+  const discountByItem = [...discountMap.values()]
+    .filter(entry => entry.lineDiscount + entry.invoiceShare > 0)
+    .sort((a, b) => (b.lineDiscount + b.invoiceShare) - (a.lineDiscount + a.invoiceShare));
+
+  // Kênh bán: doanh thu, chiết khấu đối tác và số cửa hàng thực nhận
+  const channelMap = new Map<string, ChannelSales>();
+  for (const order of done) {
+    const name = order.channelName || DIRECT_CHANNEL;
+    const known = channelMap.get(name) ?? { name, orders: 0, revenue: 0, commission: 0, received: 0 };
+    known.orders += 1;
+    known.revenue += order.totalAmount;
+    known.commission += order.commissionAmount || 0;
+    known.received = known.revenue - known.commission;
+    channelMap.set(name, known);
+  }
+  const byChannel = done.some(order => order.channelName) ? [...channelMap.values()].sort((a, b) => b.revenue - a.revenue) : [];
+
+  // Công nợ khách hàng (số nhập tay trên từng khách)
+  const owing = customers.filter(customer => (customer.debt || 0) > 0).sort((a, b) => (b.debt || 0) - (a.debt || 0));
+  const debts: DebtSummary = { total: sum(owing.map(customer => customer.debt || 0)), customers: owing.length, top: owing.slice(0, 10).map(customer => ({ name: customer.name, debt: customer.debt || 0 })) };
 
   // Đang phục vụ: giỏ đang mở. Chỉ tính giỏ mà màn hình bán hàng thật sự hiển thị: giỏ của một bàn còn tồn tại,
   // giỏ mang về / giao đi và giỏ của cửa hàng bán lẻ. Giỏ của bàn đã bị xóa hoặc đổi mã còn sót trong DB thì bỏ qua.
@@ -151,6 +237,10 @@ export function computeEndOfDay(input: EodInput): EodReport {
     orderCount: done.length,
     grossRevenue: sum(done.map(o => o.subtotal ?? o.totalAmount)),
     invoiceDiscount: sum(done.map(o => o.discountAmount || 0)),
+    lineDiscount: sum(done.map(o => o.lineDiscountAmount || 0)),
+    discountByItem,
+    byChannel,
+    debts,
     revenue,
     tax,
     otherIncome,

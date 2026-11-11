@@ -120,7 +120,53 @@ describe('profit in the end-of-day report', () => {
     } as Parameters<typeof computeEndOfDay>[0]);
     expect(report.profit).toMatchObject({ revenueExTax: 100000, cost: 40000, grossProfit: 60000, ordersWithoutCost: 1 });
     expect(report.profit.shrinkage.total).toBe(5000);
-    expect(report.profit.profitAfterShrinkage).toBe(55000);
+    expect(report.profit.netProfit).toBe(55000);
+  });
+});
+
+describe('discounts, channels and debt in the end-of-day report', () => {
+  const line = (name: string, price: number, quantity: number, discount?: number) => ({ productId: name, name, price, quantity, discount });
+  const data = () => computeEndOfDay({
+    orders: [
+      order('D1', { subtotal: 100000, lineDiscountAmount: 10000, discountAmount: 9000, totalAmount: 81000, items: [line('Latte', 40000, 2, 10000), line('Cake', 20000, 1)] }),
+      order('G1', { totalAmount: 100000, subtotal: 100000, channelName: 'GrabFood', commissionPercent: 25, commissionAmount: 25000, items: [line('Tea', 50000, 2)] }),
+      order('V1', { status: 'void', lineDiscountAmount: 99999, items: [line('Latte', 40000, 1, 99999)] }),
+    ],
+    vouchers: [], accounts: [], carts: {}, products: [], tables: [], zones: [], ...range,
+    customers: [{ id: 'a', name: 'An', debt: 200000 }, { id: 'b', name: 'Bình', debt: 0 }, { id: 'c', name: 'Chi', debt: 50000 }],
+  } as Parameters<typeof computeEndOfDay>[0]);
+
+  it('adds up the discounts given on lines, not counting cancelled orders', () => {
+    expect(data().lineDiscount).toBe(10000);
+  });
+
+  it('lists the dishes that got a discount, with the share of the invoice discount in proportion to what is left of each line', () => {
+    const entries = data().discountByItem;
+    // The invoice discount of 9,000 is split over 70,000 (Latte after its line discount) and 20,000 (Cake)
+    expect(entries.map(entry => entry.name)).toEqual(['Latte', 'Cake']);
+    expect(entries[0]).toMatchObject({ name: 'Latte', quantity: 2, gross: 80000, lineDiscount: 10000, invoiceShare: 7000, net: 63000 });
+    expect(entries[1]).toMatchObject({ name: 'Cake', quantity: 1, gross: 20000, lineDiscount: 0, invoiceShare: 2000, net: 18000 });
+  });
+
+  it('shows sales per channel with the commission and what the shop receives, only when a channel was used', () => {
+    expect(data().byChannel).toEqual([
+      { name: 'Trực tiếp', orders: 1, revenue: 81000, commission: 0, received: 81000 },
+      { name: 'GrabFood', orders: 1, revenue: 100000, commission: 25000, received: 75000 },
+    ].sort((a, b) => b.revenue - a.revenue));
+    const none = computeEndOfDay({ orders: [order('A', {})], vouchers: [], accounts: [], carts: {}, products: [], tables: [], zones: [], ...range } as Parameters<typeof computeEndOfDay>[0]);
+    expect(none.byChannel).toEqual([]);
+  });
+
+  it('shows what customers owe, largest first, and nothing for customers without debt', () => {
+    expect(data().debts).toEqual({ total: 250000, customers: 2, top: [{ name: 'An', debt: 200000 }, { name: 'Chi', debt: 50000 }] });
+  });
+
+  it('takes the commission out of the profit as its own cost', () => {
+    const report = computeEndOfDay({
+      orders: [order('G2', { totalAmount: 100000, totalCost: 30000, costRecorded: true, commissionAmount: 25000 })],
+      vouchers: [], accounts: [], carts: {}, products: [], tables: [], zones: [], ...range,
+    } as Parameters<typeof computeEndOfDay>[0]);
+    expect(report.profit).toMatchObject({ grossProfit: 70000, commission: 25000, netProfit: 45000 });
   });
 });
 

@@ -47,6 +47,7 @@ export default function CustomersSection({
   const [formPhone, setFormPhone] = useState('');
   const [formEmail, setFormEmail] = useState('');
   const [formPoints, setFormPoints] = useState<number>(0);
+  const [formDebt, setFormDebt] = useState<number>(0);
 
   // Open Add Modal
   const handleOpenAdd = () => {
@@ -55,6 +56,7 @@ export default function CustomersSection({
     setFormPhone('');
     setFormEmail('');
     setFormPoints(0);
+    setFormDebt(0);
     setModalOpen(true);
     triggerBeep(true);
   };
@@ -71,6 +73,7 @@ export default function CustomersSection({
     setFormPhone(c.phone);
     setFormEmail(c.email);
     setFormPoints(c.points);
+    setFormDebt(c.debt || 0);
     setModalOpen(true);
     triggerBeep(true);
   };
@@ -91,6 +94,7 @@ export default function CustomersSection({
       phone: formPhone.trim(),
       email: formEmail.trim(),
       points: Number(formPoints) || 0,
+      debt: Number(formDebt) || 0,
       createdAt: editingCustomer ? editingCustomer.createdAt : new Date().toISOString()
     };
 
@@ -176,6 +180,7 @@ export default function CustomersSection({
             { key: 'phone', header: 'Số điện thoại', render: c => c.phone || 'Chưa cập nhật SĐT' },
             { key: 'tier', header: 'Hạng', render: c => (c.id === 'khach-vang-lai' ? '' : getTier(c.points).name) },
             { key: 'points', header: 'Điểm tích lũy', className: 'text-right', render: c => c.points },
+            { key: 'debt', header: 'Công nợ', className: 'text-right', render: c => ((c.debt || 0) > 0 ? <span className="font-bold text-error">{(c.debt || 0).toLocaleString('vi-VN')} đ</span> : '') },
           ]}
           renderActions={c => (c.id === 'khach-vang-lai' ? null : (
             <RowActions onEdit={() => handleOpenEdit(c)} onDelete={() => handleDelete(c)} editLabel="Chỉnh sửa thông tin" deleteLabel="Xóa khách hàng" />
@@ -241,6 +246,19 @@ export default function CustomersSection({
                   placeholder="0"
                   className="m3-input font-mono"
                 />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-on-surface-variant">Công nợ (đ)</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={formDebt || ''}
+                  onChange={(e) => setFormDebt(Math.max(0, parseInt(e.target.value) || 0))}
+                  placeholder="0"
+                  className="m3-input font-mono"
+                />
+                <p className="text-xs text-on-surface-variant">Số tiền khách còn nợ cửa hàng, nhập tay. Hiển thị ở danh sách khách hàng và báo cáo cuối ngày.</p>
               </div>
 
               <div className="pt-3 border-t border-outline-variant flex justify-end gap-2">

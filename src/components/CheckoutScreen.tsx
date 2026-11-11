@@ -5,7 +5,8 @@
 
 import React from 'react';
 import { ArrowLeft, Award, Banknote, QrCode, CreditCard, Wallet } from 'lucide-react';
-import { BankAccount, Customer } from '../types';
+import { BankAccount, Customer, SalesChannel } from '../types';
+import type { CheckoutLine } from './KiotCheckoutDialog';
 import { buildVietQRPayload } from '../utils/vietqr';
 import type { SimpleMethod } from '../utils/payments';
 import { findBank } from '../utils/banks';
@@ -16,6 +17,16 @@ interface CheckoutScreenProps {
   contextLabel: string;
   itemCount: number;
   cartSubtotal: number;
+  /** Lines of the order, to give a discount to each one. */
+  lines: CheckoutLine[];
+  setLineDiscount: (index: number, amount: number) => void;
+  lineDiscountTotal: number;
+  /** Channels that can be picked for this order; none hides the choice. */
+  channels: SalesChannel[];
+  channelName: string;
+  setChannelName: (name: string) => void;
+  commissionPercent: number;
+  commissionAmount: number;
   discountInput: number;
   setDiscountInput: (n: number) => void;
   vatPercent: number;
@@ -63,6 +74,14 @@ export default function CheckoutScreen({
   contextLabel,
   itemCount,
   cartSubtotal,
+  lines,
+  setLineDiscount,
+  lineDiscountTotal,
+  channels,
+  channelName,
+  setChannelName,
+  commissionPercent,
+  commissionAmount,
   discountInput,
   setDiscountInput,
   vatPercent,
@@ -173,13 +192,46 @@ export default function CheckoutScreen({
                   />
                 </div>
               </div>
+              {lines.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-on-surface-variant">Giảm giá theo món (cả dòng)</p>
+                  {lines.map((line, index) => (
+                    <div key={index} className="flex items-center justify-between gap-3 text-sm">
+                      <span className="min-w-0 truncate">{line.name} x{line.quantity}</span>
+                      <input
+                        type="number" min="0" value={line.discount || ''} placeholder="0"
+                        onChange={(e) => setLineDiscount(index, parseInt(e.target.value) || 0)}
+                        className="m3-input !min-h-9 !px-2 w-28 text-right" aria-label={`Giảm giá ${line.name}`}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+              {channels.length > 0 && (
+                <div className="space-y-1">
+                  <label className="text-sm font-semibold text-on-surface-variant" htmlFor="sales-channel">Kênh bán</label>
+                  <select id="sales-channel" value={channelName} onChange={(e) => setChannelName(e.target.value)} className="m3-input !min-h-10 text-base">
+                    <option value="">Trực tiếp</option>
+                    {channels.map(channel => <option key={channel.name} value={channel.name}>{channel.name} ({channel.commissionPercent}%)</option>)}
+                  </select>
+                </div>
+              )}
               <div className="space-y-1 text-sm text-on-surface-variant">
                 <div className="flex justify-between"><span>Tạm tính</span><span className="font-bold text-on-surface">{cartSubtotal.toLocaleString('vi-VN')} đ</span></div>
+                {lineDiscountTotal > 0 && (
+                  <div className="flex justify-between"><span>Giảm giá theo món</span><span className="text-error font-semibold">-{lineDiscountTotal.toLocaleString('vi-VN')} đ</span></div>
+                )}
                 {discountAmount > 0 && (
                   <div className="flex justify-between"><span>Giảm giá</span><span className="text-error font-semibold">-{discountAmount.toLocaleString('vi-VN')} đ</span></div>
                 )}
                 {taxAmount > 0 && (
                   <div className="flex justify-between"><span>Thuế VAT</span><span className="font-semibold">+{taxAmount.toLocaleString('vi-VN')} đ</span></div>
+                )}
+                {commissionAmount > 0 && (
+                  <>
+                    <div className="flex justify-between"><span>Chiết khấu {channelName} ({commissionPercent}%)</span><span className="text-error font-semibold">-{commissionAmount.toLocaleString('vi-VN')} đ</span></div>
+                    <div className="flex justify-between"><span>Cửa hàng thực nhận</span><span className="font-bold text-on-surface">{(grandTotal - commissionAmount).toLocaleString('vi-VN')} đ</span></div>
+                  </>
                 )}
               </div>
             </div>

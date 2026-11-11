@@ -113,6 +113,7 @@ export function buildReceiptDocument(input: ReceiptInput): ReceiptDocument {
   for (const item of order.items) {
     text(item.name, { bold: true });
     row(`${item.quantity} x ${item.price.toLocaleString('vi-VN')}`, formatMoney(item.price * item.quantity));
+    if (item.discount) row('  Giảm giá món:', `-${formatMoney(item.discount)}`, { size: 'small' });
     if (item.toppings && item.toppings.length > 0) {
       text(item.toppings.map(topping => `+ ${topping.quantity} ${topping.name}`).join(', '), { size: 'small' });
     }
@@ -126,8 +127,9 @@ export function buildReceiptDocument(input: ReceiptInput): ReceiptDocument {
   }
   divider();
 
-  if (order.subtotal !== undefined && (order.discountAmount || order.taxAmount)) {
+  if (order.subtotal !== undefined && (order.discountAmount || order.lineDiscountAmount || order.taxAmount)) {
     row('Tạm tính:', formatMoney(order.subtotal), { size: 'small' });
+    if (order.lineDiscountAmount) row('Giảm giá theo món:', `-${formatMoney(order.lineDiscountAmount)}`, { size: 'small' });
     if (order.discountAmount) row('Giảm giá:', `-${formatMoney(order.discountAmount)}`, { size: 'small' });
     if (order.taxAmount) row('Thuế VAT:', `+${formatMoney(order.taxAmount)}`, { size: 'small' });
   }

@@ -30,6 +30,7 @@ import TopNavBar from './components/TopNavBar';
 import SyncStatusBadge from './components/SyncStatusBadge';
 import ConflictsSection from './components/ConflictsSection';
 import ShiftStockCheck from './components/ShiftStockCheck';
+import SalesChannelSettings from './components/SalesChannelSettings';
 import type { StockCheckDeps } from './components/StocktakeFlow';
 import type { KitchenItem } from './types';
 import { applyKitchenRestores } from './utils/kitchenRestore';
@@ -64,6 +65,7 @@ export default function App() {
     setCarts: setSimCarts,
     setStoreLogo,
     setAutoStockDeduction,
+    setSalesChannels,
   } = app;
   // Selling takes stock automatically unless the store turned it off (F&B)
   const autoStockDeduction = fbStoreProfile?.autoStockDeduction ?? true;
@@ -720,6 +722,7 @@ export default function App() {
                 <POSScreen
                   storeId={storeId}
                   autoStockDeduction={autoStockDeduction}
+                  salesChannels={fbStoreProfile?.salesChannels ?? []}
                   simStoreType={simStoreType}
                   setSimStoreType={setSimStoreType}
                   simProducts={simProducts}
@@ -822,6 +825,7 @@ export default function App() {
               <motion.div key="eod" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
                 <EndOfDayReport
                   transactions={[...simTransactions, ...simIngredientTransactions]}
+                  customers={simCustomers}
                   orders={simOrders}
                   vouchers={simCashVouchers}
                   accounts={simBankAccounts}
@@ -1148,6 +1152,12 @@ export default function App() {
                   </div>
 
                   <StoreLogoSettings logoUrl={fbStoreProfile.logoUrl} onSave={setStoreLogo} />
+
+                  {isAdminRole(userRole) && (
+                    <React.Fragment key={JSON.stringify(fbStoreProfile.salesChannels)}>
+                      <SalesChannelSettings channels={fbStoreProfile.salesChannels} onSave={setSalesChannels} />
+                    </React.Fragment>
+                  )}
 
                   <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
                     <span>Cơ sở dữ liệu: SQLite (lưu trên thiết bị)</span>

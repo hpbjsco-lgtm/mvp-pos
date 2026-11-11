@@ -26,6 +26,8 @@ import { getServerRoute } from './driver';
 import { batch, flush, initDatabase, queryOne, run, setMeta } from './index';
 import { fetchChangeSummary, planReload, type ReloadPlan } from './liveRefresh';
 import { onSyncSchedulerReady } from '../sync/nativeSyncRuntime';
+import type { SalesChannel } from '../types';
+import { validateSalesChannels } from '../utils/saleAdjustments';
 import {
   changeOwnPassword as authChangeOwnPassword,
   changePassword,
@@ -37,6 +39,7 @@ import {
   signIn as authSignIn,
   signOut as authSignOut,
   updateAutoStockDeduction,
+  updateSalesChannels,
   updateStoreLogo,
   type AuthStore,
   type AuthUser,
@@ -86,6 +89,8 @@ export interface AppDataApi {
   setStoreLogo: (logoUrl: string) => Promise<void>;
   /** Bật / tắt việc tự trừ kho khi báo bếp và thanh toán (F&B) cho cửa hàng hiện tại. */
   setAutoStockDeduction: (enabled: boolean) => Promise<void>;
+  /** Lưu danh sách kênh bán (và chiết khấu đối tác) của cửa hàng hiện tại. */
+  setSalesChannels: (channels: SalesChannel[]) => Promise<void>;
 }
 
 /** How often a device asks the server whether other devices changed something. */
@@ -383,6 +388,15 @@ export function useAppData(): AppDataApi {
     setStore((prev) => (prev ? { ...prev, autoStockDeduction: enabled } : prev));
   }, []);
 
+  const setSalesChannels = useCallback(async (channels: SalesChannel[]) => {
+    const sid = storeIdRef.current;
+    if (!sid) throw new Error('Chưa chọn cửa hàng.');
+    const valid = validateSalesChannels(channels);
+    await writeChain.current;
+    await updateSalesChannels(sid, valid);
+    setStore((prev) => (prev ? { ...prev, salesChannels: valid } : prev));
+  }, []);
+
   /* Cập nhật trực tiếp: thiết bị khác cùng dùng máy chủ thay đổi dữ liệu (bếp, bàn, giỏ hàng...) thì tải lại phần đã đổi. */
   useEffect(() => {
     const route = getServerRoute();
@@ -465,5 +479,6 @@ export function useAppData(): AppDataApi {
     setStoreType,
     setStoreLogo,
     setAutoStockDeduction,
+    setSalesChannels,
   };
 }

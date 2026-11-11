@@ -17,6 +17,8 @@ import { clearSessionUid, getSessionUid, setSessionUid } from './sessionStore';
 import { seedStore } from './seed';
 import { hashPassword, randomSalt, verifyPassword } from './password';
 import { normalizeRole } from '../utils/permissions';
+import { parseSalesChannels } from '../utils/saleAdjustments';
+import type { SalesChannel } from '../types';
 
 export interface AuthUser {
   uid: string;
@@ -43,6 +45,8 @@ export interface AuthStore {
   logoUrl: string;
   /** True when selling dishes takes stock automatically (on sending to the kitchen, or at payment); false when stock only changes by importing, exporting and counting. */
   autoStockDeduction: boolean;
+  /** Ways a sale reaches the shop (direct, delivery apps...) with the commission each keeps; empty when the store set none up. */
+  salesChannels: SalesChannel[];
   createdAt: string;
 }
 
@@ -73,6 +77,7 @@ function mapStore(r: Record<string, any>): AuthStore {
     status: (r.status ?? 'active') as AuthStore['status'],
     logoUrl: String(r.logo_url ?? ''),
     autoStockDeduction: Number(r.auto_stock_deduction ?? 1) !== 0,
+    salesChannels: parseSalesChannels(r.sales_channels),
     createdAt: String(r.created_at ?? ''),
   };
 }
@@ -392,5 +397,15 @@ export async function updateStoreLogo(storeId: string, logoUrl: string): Promise
  */
 export async function updateAutoStockDeduction(storeId: string, enabled: boolean): Promise<void> {
   await run('UPDATE stores SET auto_stock_deduction = ?, updated_at = ?, rev = rev + 1 WHERE id = ?', [enabled ? 1 : 0, nowIso(), storeId]);
+}
+
+/**
+ * Saves the sales channels of a store.
+ *
+ * @param storeId Store to change.
+ * @param channels Channels already checked with `validateSalesChannels`.
+ */
+export async function updateSalesChannels(storeId: string, channels: SalesChannel[]): Promise<void> {
+  await run('UPDATE stores SET sales_channels = ?, updated_at = ?, rev = rev + 1 WHERE id = ?', [channels.length > 0 ? JSON.stringify(channels) : '', nowIso(), storeId]);
 }
 

@@ -5,7 +5,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Delete, X } from 'lucide-react';
-import { BankAccount, Customer, PaymentPart } from '../types';
+import { BankAccount, Customer, PaymentPart, SalesChannel } from '../types';
 import { buildVietQRPayload } from '../utils/vietqr';
 import { findBank } from '../utils/banks';
 import QrCodeImage from './QrCodeImage';
@@ -16,6 +16,8 @@ export interface CheckoutLine {
   category: string;
   quantity: number;
   price: number;
+  /** Giảm giá của cả dòng (không phải mỗi phần). */
+  discount: number;
   /** Tùy chọn / ghi chú hiển thị dưới tên món. */
   detail: string;
 }
@@ -26,6 +28,16 @@ interface KiotCheckoutDialogProps {
   lines: CheckoutLine[];
   itemCount: number;
   subtotal: number;
+  /** Đặt giảm giá cho một dòng món (theo vị trí trong `lines`). */
+  setLineDiscount: (index: number, amount: number) => void;
+  /** Tổng giảm giá của các dòng món. */
+  lineDiscountTotal: number;
+  /** Kênh bán có thể chọn cho đơn này; trống thì không hiện ô chọn. */
+  channels: SalesChannel[];
+  channelName: string;
+  setChannelName: (name: string) => void;
+  commissionPercent: number;
+  commissionAmount: number;
   discountInput: number;
   setDiscountInput: (n: number) => void;
   vatPercent: number;
@@ -74,7 +86,7 @@ function suggestAmounts(total: number): number[] {
  */
 export default function KiotCheckoutDialog(props: KiotCheckoutDialogProps) {
   const {
-    title, dateText, lines, itemCount, subtotal, discountInput, setDiscountInput, vatPercent, setVatPercent, taxAmount, grandTotal,
+    title, dateText, lines, itemCount, subtotal, setLineDiscount, lineDiscountTotal, channels, channelName, setChannelName, commissionPercent, commissionAmount, discountInput, setDiscountInput, vatPercent, setVatPercent, taxAmount, grandTotal,
     customers, selectedCustomerId, setSelectedCustomerId, pointsToEarn, paymentMethod, setPaymentMethod,
     cashPadInput, setCashPadInput, setCashChangeDue, processing, onClose, onPay, onPrintProvisional, playBeep,
     bankAccounts, onManageBankAccounts, qrMemo
@@ -243,10 +255,22 @@ export default function KiotCheckoutDialog(props: KiotCheckoutDialogProps) {
                     <div className="min-w-0">
                       <p className="text-base text-on-surface">{index + 1}. {line.name}</p>
                       {line.detail && <p className="text-sm text-on-surface-variant">{line.detail}</p>}
+                      <label className="mt-1 flex items-center gap-2 text-sm text-on-surface-variant">
+                        Giảm giá món
+                        <input
+                          type="number" min={0} value={line.discount || ''} placeholder="0"
+                          onChange={e => setLineDiscount(index, parseInt(e.target.value) || 0)}
+                          className="w-28 text-right bg-transparent border-b border-outline-variant focus:border-primary outline-none font-bold py-0.5"
+                          aria-label={`Giảm giá ${line.name}`}
+                        />
+                      </label>
                     </div>
                     <span className="text-center text-base text-on-surface-variant">{line.quantity}</span>
                     <span className="text-right text-base text-on-surface-variant">{money(line.price)}</span>
-                    <span className="text-right text-base font-bold text-on-surface">{money(line.price * line.quantity)}</span>
+                    <span className="text-right text-base font-bold text-on-surface">
+                      {money(line.price * line.quantity - line.discount)}
+                      {line.discount > 0 && <span className="block text-xs font-semibold text-error">-{money(line.discount)}</span>}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -273,6 +297,27 @@ export default function KiotCheckoutDialog(props: KiotCheckoutDialogProps) {
               <span className="flex items-center gap-2 font-bold">Tổng tiền hàng <span className="min-w-6 h-6 px-1.5 rounded-full bg-primary-container text-on-primary-container text-sm flex items-center justify-center">{itemCount}</span></span>
               <span className="font-bold">{money(subtotal)}</span>
             </div>
+            {lineDiscountTotal > 0 && (
+              <div className="flex items-center justify-between text-base">
+                <span className="text-on-surface-variant">Giảm giá theo món</span>
+                <span className="font-bold text-error">-{money(lineDiscountTotal)}</span>
+              </div>
+            )}
+            {channels.length > 0 && (
+              <div className="flex items-center justify-between gap-4 text-base">
+                <span className="text-on-surface-variant">Kênh bán</span>
+                <select value={channelName} onChange={e => setChannelName(e.target.value)} className="w-40 text-right bg-transparent border-b border-outline-variant py-1 font-bold" aria-label="Kênh bán">
+                  <option value="">Trực tiếp</option>
+                  {channels.map(channel => <option key={channel.name} value={channel.name}>{channel.name} ({channel.commissionPercent}%)</option>)}
+                </select>
+              </div>
+            )}
+            {commissionAmount > 0 && (
+              <div className="rounded-lg bg-surface-container px-3 py-2 text-sm text-on-surface-variant space-y-0.5">
+                <p className="flex justify-between"><span>Chiết khấu {channelName} ({commissionPercent}%)</span><span className="font-bold text-error">-{money(commissionAmount)}</span></p>
+                <p className="flex justify-between"><span>Cửa hàng thực nhận</span><span className="font-bold text-on-surface">{money(grandTotal - commissionAmount)}</span></p>
+              </div>
+            )}
             <div className="flex items-center justify-between gap-4 text-base">
               <span className="text-on-surface-variant">Giảm giá</span>
               <input

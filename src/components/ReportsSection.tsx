@@ -216,8 +216,8 @@ export default function ReportsSection({
           <div className="rounded-xl bg-primary-container text-on-primary-container p-4 flex items-center gap-4">
             <TrendingUp className="w-9 h-9 shrink-0" />
             <div>
-              <p className="text-2xl font-bold">{Math.round(profit.profitAfterShrinkage).toLocaleString('vi-VN')}</p>
-              <p className="text-sm">Lợi nhuận sau hao hụt</p>
+              <p className="text-2xl font-bold">{Math.round(profit.netProfit).toLocaleString('vi-VN')}</p>
+              <p className="text-sm">Lợi nhuận sau chiết khấu và hao hụt</p>
             </div>
           </div>
         </div>
@@ -229,8 +229,9 @@ export default function ReportsSection({
             ['Doanh thu (chưa thuế)', profit.revenueExTax, false],
             ['Giá vốn hàng bán', -profit.cost, false],
             ['Lợi nhuận gộp', profit.grossProfit, true],
+            ['Chiết khấu đối tác (Grab, Shopee...)', -profit.commission, false],
             ['Hao hụt (hư hỏng, chênh lệch kiểm kho)', -profit.shrinkage.total, false],
-            ['Lợi nhuận sau hao hụt', profit.profitAfterShrinkage, true],
+            ['Lợi nhuận sau chiết khấu và hao hụt', profit.netProfit, true],
           ].map(([label, value, bold]) => (
             <p key={label as string} className={`flex justify-between gap-3 text-base ${bold ? 'font-bold' : ''}`}>
               <span>{label as string}</span>

@@ -109,6 +109,8 @@ export interface OrderItem {
   price: number;
   /** Cost of one portion (dish plus its toppings) as set up when the order was paid; 0 for orders without recorded cost. */
   cost?: number;
+  /** Discount given on this line when it was paid, for the whole line (not per portion); 0 or absent for none. */
+  discount?: number;
   batchId?: string;
   batchCode?: string;
   note?: string;
@@ -181,6 +183,13 @@ export interface Order {
   totalCost?: number;
   /** True when the cost of the dishes was recorded when the order was paid (`totalCost` and the `cost` of each line). Older orders have no cost and are left out of profit. */
   costRecorded?: boolean;
+  /** Sum of the discounts given on the lines (`items[].discount`); the discount of the whole invoice is `discountAmount`. */
+  lineDiscountAmount?: number;
+  /** Where the order came from (a delivery app, for example); empty for a sale made directly. */
+  channelName?: string;
+  /** Commission of that channel, in percent, and its amount in money, worked out when the order was paid. */
+  commissionPercent?: number;
+  commissionAmount?: number;
   paymentMethod: PaymentMethod;
   payments?: PaymentPart[]; // Chi tiết các khoản thanh toán (có khi thanh toán kết hợp)
   paidAmount: number;
@@ -337,12 +346,21 @@ export interface InventoryTransaction {
   createdAt: string;
 }
 
+/** A way a sale reaches the shop (direct, GrabFood...) and the commission the channel keeps. */
+export interface SalesChannel {
+  name: string;
+  /** Share of the order total the channel keeps, 0 to 100. */
+  commissionPercent: number;
+}
+
 export interface Customer {
   id: string; // Default walk-in could be 'khach-vang-lai'
   name: string;
   phone: string;
   email: string;
   points: number; // Tích điểm lũy kế
+  /** Money the customer owes the shop, typed in by hand; shown in the customer list and the reports. */
+  debt?: number;
   createdAt: string;
 }
 

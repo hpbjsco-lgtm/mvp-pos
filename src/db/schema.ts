@@ -18,7 +18,7 @@
  *     không mất order đang gọi (lỗi "không lưu được" của bản cũ).
  */
 
-export const SCHEMA_VERSION = 20;
+export const SCHEMA_VERSION = 21;
 
 /** Các câu lệnh DDL, chạy tuần tự khi khởi tạo / nâng cấp DB. */
 export const MIGRATIONS: { version: number; statements: string[] }[] = [
@@ -648,6 +648,21 @@ export const MIGRATIONS: { version: number; statements: string[] }[] = [
       `ALTER TABLE inventory_transactions ADD COLUMN stocktake_kind TEXT NOT NULL DEFAULT '';`,
       /* Hàng được kiểm ở mỗi ca (1 = có). */
       `ALTER TABLE products ADD COLUMN check_each_shift INTEGER NOT NULL DEFAULT 0;`,
+    ],
+  },
+  {
+    version: 21,
+    statements: [
+      /* Giảm giá theo dòng món lúc thanh toán (order_items.discount là tổng giảm của dòng; orders.line_discount_amount là tổng các dòng). */
+      `ALTER TABLE order_items ADD COLUMN discount REAL NOT NULL DEFAULT 0;`,
+      `ALTER TABLE orders ADD COLUMN line_discount_amount REAL NOT NULL DEFAULT 0;`,
+      /* Kênh bán (Tại quán, GrabFood...) và chiết khấu đối tác tính lúc bán. Danh sách kênh của cửa hàng là JSON [{name, commissionPercent}]. */
+      `ALTER TABLE orders ADD COLUMN channel_name TEXT NOT NULL DEFAULT '';`,
+      `ALTER TABLE orders ADD COLUMN commission_percent REAL NOT NULL DEFAULT 0;`,
+      `ALTER TABLE orders ADD COLUMN commission_amount REAL NOT NULL DEFAULT 0;`,
+      `ALTER TABLE stores ADD COLUMN sales_channels TEXT NOT NULL DEFAULT '';`,
+      /* Công nợ của khách (nhập tay, chỉ để hiển thị). */
+      `ALTER TABLE customers ADD COLUMN debt REAL NOT NULL DEFAULT 0;`,
     ],
   },
 ];

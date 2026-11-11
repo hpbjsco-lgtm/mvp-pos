@@ -4,6 +4,7 @@
  */
 
 import type { ServerEndpoints } from '../db/serverEndpoints';
+import { hashPassword, randomSalt } from '../db/password';
 
 /** One change delivered by the server's change feed. */
 export interface PullChange {
@@ -187,6 +188,45 @@ export class SyncClient implements PullSource, PushTarget {
    */
   async resolveConflict(id: string, choice: 'server' | 'device', resolvedBy: string): Promise<void> {
     await this.request(`/api/sync/conflicts/${encodeURIComponent(id)}/resolve`, { method: 'POST', body: JSON.stringify({ choice, resolvedBy }) }, false);
+  }
+
+  /**
+   * Tells whether the server can mail password reset codes (it has a mail server set up).
+   *
+   * @returns True when "forgot password" is available; false when the server has no mail settings, is too old to know the
+   *   route, or cannot be reached.
+   */
+  async passwordResetAvailable(): Promise<boolean> {
+    try {
+      return Boolean((await this.get('/api/auth/capabilities')).passwordReset);
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Asks the server to mail a reset code to the account. The answer is the same for every login, so it does not say
+   * whether the account exists.
+   *
+   * @param login User name or email.
+   * @throws {Error} When the server cannot be reached or refuses the request (for example too many requests).
+   */
+  async requestPasswordReset(login: string): Promise<void> {
+    await this.request('/api/auth/forgot', { method: 'POST', body: JSON.stringify({ login }) }, false);
+  }
+
+  /**
+   * Sets a new password with the code from the email. The password is hashed here and only the hash leaves the device.
+   *
+   * @param login User name or email.
+   * @param code The 6-digit code.
+   * @param newPassword The new password.
+   * @throws {SyncRequestError} With code `INVALID_CODE` for a wrong, expired or used code.
+   */
+  async resetPassword(login: string, code: string, newPassword: string): Promise<void> {
+    const salt = randomSalt();
+    const hash = await hashPassword(newPassword, salt);
+    await this.request('/api/auth/reset', { method: 'POST', body: JSON.stringify({ login, code, salt, hash }) }, false);
   }
 
   /**

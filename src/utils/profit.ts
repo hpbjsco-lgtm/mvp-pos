@@ -25,13 +25,15 @@ export interface ProfitSummary {
   cost: number;
   /** revenueExTax - cost. */
   grossProfit: number;
+  /** Commission kept by sales channels (delivery apps...) on those orders. It is a selling cost, so it is not part of the cost of the dishes. */
+  commission: number;
   /** Orders counted above. */
   ordersWithCost: number;
   /** Orders left out because they were paid before cost was recorded. */
   ordersWithoutCost: number;
   shrinkage: ShrinkageSummary;
-  /** grossProfit - shrinkage.total. */
-  profitAfterShrinkage: number;
+  /** grossProfit - commission - shrinkage.total: what is left of the sales after the cost of the dishes, the commission and the losses. */
+  netProfit: number;
 }
 
 /** Start of the note of a voucher that puts stock back because an order or dish was cancelled; it reverses a sale, so it is not a loss. */
@@ -49,6 +51,7 @@ export function summarizeProfit(orders: Order[], transactions: InventoryTransact
   const revenueExTax = withCost.reduce((sum, order) => sum + order.totalAmount - (order.taxAmount || 0), 0);
   const cost = withCost.reduce((sum, order) => sum + (order.totalCost || 0), 0);
   const grossProfit = revenueExTax - cost;
+  const commission = withCost.reduce((sum, order) => sum + (order.commissionAmount || 0), 0);
 
   let adjustments = 0;
   let stocktakeShort = 0;
@@ -66,10 +69,10 @@ export function summarizeProfit(orders: Order[], transactions: InventoryTransact
   }
   const total = adjustments + stocktakeShort - stocktakeSurplus;
   return {
-    revenueExTax, cost, grossProfit,
+    revenueExTax, cost, grossProfit, commission,
     ordersWithCost: withCost.length,
     ordersWithoutCost: orders.length - withCost.length,
     shrinkage: { adjustments, stocktakeShort, stocktakeSurplus, total },
-    profitAfterShrinkage: grossProfit - total,
+    netProfit: grossProfit - commission - total,
   };
 }

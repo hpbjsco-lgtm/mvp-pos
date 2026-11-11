@@ -3,9 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import loginCafeImage from '../assets/login-cafe.png';
 import NativeConfigButton from './NativeConfigDialog';
+import ForgotPasswordDialog from './ForgotPasswordDialog';
+import { getAppSyncClient } from '../sync/appSyncClient';
 import {
   Lock, Mail, Store, User, Phone, MapPin, Coffee, ShoppingBag,
   ArrowRight, ShieldCheck, HelpCircle, HardDrive, LogIn, Sparkles, UserCheck, Key
@@ -51,6 +53,16 @@ export default function LoginScreen({
   triggerBeep
 }: LoginScreenProps) {
   const [authMode, setAuthMode] = useState<'demo' | 'login' | 'register'>('login');
+
+  // "Quên mật khẩu?" is offered only when the app uses a server that can mail codes
+  const resetClient = getAppSyncClient();
+  const [canResetPassword, setCanResetPassword] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
+  useEffect(() => {
+    let stopped = false;
+    if (resetClient) void resetClient.passwordResetAvailable().then(available => { if (!stopped) setCanResetPassword(available); });
+    return () => { stopped = true; };
+  }, [resetClient]);
   
   // Cloud Auth state
   const [username, setUsername] = useState('');
@@ -309,6 +321,9 @@ export default function LoginScreen({
                     required
                   />
                 </div>
+                {canResetPassword && (
+                  <button type="button" onClick={() => setForgotOpen(true)} className="text-sm text-primary font-semibold underline cursor-pointer">Quên mật khẩu?</button>
+                )}
               </div>
             )}
 
@@ -463,6 +478,7 @@ export default function LoginScreen({
 
         {/* Cấu hình kết nối: chỉ có trong app Android / iOS */}
         <div className="pt-4 max-w-md mx-auto w-full"><NativeConfigButton className="m3-btn-outlined w-full !min-h-11 text-sm" /></div>
+        {forgotOpen && resetClient && <ForgotPasswordDialog client={resetClient} onClose={() => setForgotOpen(false)} />}
 
         {/* Footer info text */}
         <div className="pt-6 border-t border-outline-variant flex flex-col sm:flex-row justify-between items-center gap-2 text-sm text-on-surface-variant">
