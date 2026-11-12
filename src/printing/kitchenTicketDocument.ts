@@ -4,6 +4,7 @@
  */
 
 import { KitchenItem } from '../types';
+import { optionsText } from '../utils/productOptions';
 import { ReceiptBlock, ReceiptDocument } from './receiptDocument';
 
 /** Everything printed on a kitchen ticket. */
@@ -41,7 +42,7 @@ export function buildKitchenTicketDocument(input: KitchenTicketInput): ReceiptDo
 
   for (const item of input.items) {
     text(`${item.quantity} x ${item.productName}`, { size: 'large', bold: true });
-    const options = [item.size, item.sugarLevel && `Đường ${item.sugarLevel}`, item.iceLevel && `Đá ${item.iceLevel}`].filter(Boolean).join(' - ');
+    const options = [item.size, optionsText(item.options)].filter(Boolean).join(' - ');
     if (options) text(options);
     if (item.toppings) text(`+ ${item.toppings}`);
     if (item.note) text(`Ghi chú: ${item.note}`, { bold: true });

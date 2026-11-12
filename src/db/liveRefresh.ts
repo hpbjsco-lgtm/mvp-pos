@@ -40,7 +40,7 @@ export function planReload(tables: string[]): ReloadPlan {
   const changed = new Set(tables);
   const keys = COLLECTION_KEYS.filter((key) => {
     const spec = COLLECTIONS[key];
-    return changed.has(spec.table) || (spec.children !== undefined && changed.has(spec.children.table));
+    return changed.has(spec.table) || (spec.children ?? []).some((child) => changed.has(child.table));
   });
   return { keys, carts: tables.some((table) => CART_TABLES.has(table)), store: tables.includes('stores') };
 }

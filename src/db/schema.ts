@@ -18,7 +18,7 @@
  *     không mất order đang gọi (lỗi "không lưu được" của bản cũ).
  */
 
-export const SCHEMA_VERSION = 21;
+export const SCHEMA_VERSION = 22;
 
 /** Các câu lệnh DDL, chạy tuần tự khi khởi tạo / nâng cấp DB. */
 export const MIGRATIONS: { version: number; statements: string[] }[] = [
@@ -665,6 +665,68 @@ export const MIGRATIONS: { version: number; statements: string[] }[] = [
       `ALTER TABLE customers ADD COLUMN debt REAL NOT NULL DEFAULT 0;`,
     ],
   },
+  {
+    version: 22,
+    statements: [
+      /* Option groups of a dish (Sugar, Ice, quick notes...) and their choices. Both are child tables of products: they are saved,
+         pushed and replaced together with the dish, like order_items with orders. `line_no` is the position in the list. */
+      `CREATE TABLE IF NOT EXISTS product_option_groups (
+        id              TEXT PRIMARY KEY,
+        store_id        TEXT NOT NULL,
+        product_id      TEXT NOT NULL,
+        name            TEXT NOT NULL DEFAULT '',
+        allow_multiple  INTEGER NOT NULL DEFAULT 0,
+        line_no         INTEGER NOT NULL DEFAULT 0,
+        created_at      TEXT NOT NULL
+      );`,
+      `CREATE INDEX IF NOT EXISTS idx_product_option_groups_product ON product_option_groups(product_id);`,
+      `CREATE TABLE IF NOT EXISTS product_option_choices (
+        id          TEXT PRIMARY KEY,
+        store_id    TEXT NOT NULL,
+        product_id  TEXT NOT NULL,
+        group_id    TEXT NOT NULL,
+        label       TEXT NOT NULL DEFAULT '',
+        is_default  INTEGER NOT NULL DEFAULT 0,
+        line_no     INTEGER NOT NULL DEFAULT 0,
+        created_at  TEXT NOT NULL
+      );`,
+      `CREATE INDEX IF NOT EXISTS idx_product_option_choices_product ON product_option_choices(product_id);`,
+
+      /* What was chosen on a line, as JSON [{group, choice, multiple?}]. Replaces sugar_level and ice_level, which stay in the tables but are no longer read or written. */
+      `ALTER TABLE cart_items ADD COLUMN options TEXT NOT NULL DEFAULT '';`,
+      `ALTER TABLE order_items ADD COLUMN options TEXT NOT NULL DEFAULT '';`,
+      `ALTER TABLE kitchen_items ADD COLUMN options TEXT NOT NULL DEFAULT '';`,
+      `UPDATE cart_items SET options = CASE WHEN sugar_level <> '' OR ice_level <> '' THEN '[' ||
+          CASE WHEN sugar_level <> '' THEN '{"group":"Đường","choice":"' || sugar_level || '"}' ELSE '' END ||
+          CASE WHEN sugar_level <> '' AND ice_level <> '' THEN ',' ELSE '' END ||
+          CASE WHEN ice_level <> '' THEN '{"group":"Đá","choice":"' || ice_level || '"}' ELSE '' END || ']' ELSE '' END;`,
+      `UPDATE order_items SET options = CASE WHEN sugar_level <> '' OR ice_level <> '' THEN '[' ||
+          CASE WHEN sugar_level <> '' THEN '{"group":"Đường","choice":"' || sugar_level || '"}' ELSE '' END ||
+          CASE WHEN sugar_level <> '' AND ice_level <> '' THEN ',' ELSE '' END ||
+          CASE WHEN ice_level <> '' THEN '{"group":"Đá","choice":"' || ice_level || '"}' ELSE '' END || ']' ELSE '' END;`,
+      `UPDATE kitchen_items SET options = CASE WHEN sugar_level <> '' OR ice_level <> '' THEN '[' ||
+          CASE WHEN sugar_level <> '' THEN '{"group":"Đường","choice":"' || sugar_level || '"}' ELSE '' END ||
+          CASE WHEN sugar_level <> '' AND ice_level <> '' THEN ',' ELSE '' END ||
+          CASE WHEN ice_level <> '' THEN '{"group":"Đá","choice":"' || ice_level || '"}' ELSE '' END || ']' ELSE '' END;`,
+
+      /* Drinks that existed before keep Sugar and Ice. Ids are built from the product id, so every database that runs this
+         migration (the server, each phone, each browser) creates identical rows and nothing has to be synchronised for them. */
+      `INSERT OR IGNORE INTO product_option_groups (id, store_id, product_id, name, allow_multiple, line_no, created_at)
+        SELECT p.id || '::sugar', p.store_id, p.id, 'Đường', 0, 0, p.created_at
+        FROM products p WHERE p.kind = 'product' AND (p.menu_type = 'drink' OR (p.menu_type = '' AND p.category = 'Đồ uống')) AND p.deleted_at IS NULL;`,
+      `INSERT OR IGNORE INTO product_option_groups (id, store_id, product_id, name, allow_multiple, line_no, created_at)
+        SELECT p.id || '::ice', p.store_id, p.id, 'Đá', 0, 1, p.created_at
+        FROM products p WHERE p.kind = 'product' AND (p.menu_type = 'drink' OR (p.menu_type = '' AND p.category = 'Đồ uống')) AND p.deleted_at IS NULL;`,
+      `INSERT OR IGNORE INTO product_option_choices (id, store_id, product_id, group_id, label, is_default, line_no, created_at)
+        SELECT p.id || '::sugar::' || l.n, p.store_id, p.id, p.id || '::sugar', l.label, l.is_default, l.n, p.created_at
+        FROM products p CROSS JOIN (SELECT 0 AS n, '0%' AS label, 0 AS is_default UNION ALL SELECT 1, '30%', 0 UNION ALL SELECT 2, '50%', 0 UNION ALL SELECT 3, '70%', 0 UNION ALL SELECT 4, '100%', 1) l
+        WHERE p.kind = 'product' AND (p.menu_type = 'drink' OR (p.menu_type = '' AND p.category = 'Đồ uống')) AND p.deleted_at IS NULL;`,
+      `INSERT OR IGNORE INTO product_option_choices (id, store_id, product_id, group_id, label, is_default, line_no, created_at)
+        SELECT p.id || '::ice::' || l.n, p.store_id, p.id, p.id || '::ice', l.label, l.is_default, l.n, p.created_at
+        FROM products p CROSS JOIN (SELECT 0 AS n, '0%' AS label, 0 AS is_default UNION ALL SELECT 1, '30%', 0 UNION ALL SELECT 2, '50%', 0 UNION ALL SELECT 3, '70%', 0 UNION ALL SELECT 4, '100%', 1) l
+        WHERE p.kind = 'product' AND (p.menu_type = 'drink' OR (p.menu_type = '' AND p.category = 'Đồ uống')) AND p.deleted_at IS NULL;`,
+    ],
+  },
 ];
 
 /** Danh sách bảng nghiệp vụ dùng cho export / import snapshot Cloud. */
@@ -674,6 +736,8 @@ export const SYNCED_TABLES = [
   'zones',
   'dining_tables',
   'products',
+  'product_option_groups',
+  'product_option_choices',
   'suppliers',
   'customers',
   'inventory_batches',
@@ -700,6 +764,8 @@ export const TABLE_PRIMARY_KEY: Record<string, string> = {
   zones: 'id',
   dining_tables: 'id',
   products: 'id',
+  product_option_groups: 'id',
+  product_option_choices: 'id',
   suppliers: 'id',
   customers: 'id',
   inventory_batches: 'id',

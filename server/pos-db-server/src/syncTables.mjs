@@ -17,6 +17,8 @@ export const SYNCED_TABLES = Object.freeze([
   { table: 'zones', primaryKey: 'id' },
   { table: 'dining_tables', primaryKey: 'id' },
   { table: 'products', primaryKey: 'id' },
+  { table: 'product_option_groups', primaryKey: 'id' },
+  { table: 'product_option_choices', primaryKey: 'id' },
   { table: 'suppliers', primaryKey: 'id' },
   { table: 'customers', primaryKey: 'id' },
   { table: 'bank_accounts', primaryKey: 'id' },

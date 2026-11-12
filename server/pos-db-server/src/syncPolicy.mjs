@@ -19,6 +19,10 @@ export const CHILD_TABLES = Object.freeze({
   orders: [{ table: 'order_items', foreignKey: 'order_id' }],
   inventory_transactions: [{ table: 'inventory_transaction_items', foreignKey: 'transaction_id' }],
   carts: [{ table: 'cart_items', foreignKey: 'cart_id' }],
+  products: [
+    { table: 'product_option_groups', foreignKey: 'product_id' },
+    { table: 'product_option_choices', foreignKey: 'product_id' },
+  ],
 });
 
 /** Names of the child tables; they cannot be pushed on their own. */

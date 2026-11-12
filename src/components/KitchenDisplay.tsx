@@ -10,6 +10,7 @@ import { canCancelFromKitchen } from '../utils/kitchenSync';
 import PageCard from './ui/PageCard';
 import PageTabs from './ui/PageTabs';
 import FilterPills from './ui/FilterPills';
+import { optionsText } from '../utils/productOptions';
 import DataTable, { DataTableColumn } from './ui/DataTable';
 
 interface KitchenDisplayProps {
@@ -139,8 +140,7 @@ export default function KitchenDisplay({
         render: item => {
           const options = [
             item.size && `Size ${item.size}`,
-            item.sugarLevel && `Đường ${item.sugarLevel}`,
-            item.iceLevel && `Đá ${item.iceLevel}`,
+            optionsText(item.options),
           ].filter(Boolean).join(' · ');
           return (
             <div className="text-sm space-y-0.5">

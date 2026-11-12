@@ -17,8 +17,22 @@ export interface SavedUsbPrinter {
   label: string;
 }
 
+/**
+ * Identity of a printer on a serial port the person has allowed the browser to use. A Bluetooth printer
+ * (Bluetooth Classic, SPP) appears as such a port once it is paired and connected in the operating system.
+ */
+export interface SavedSerialPrinter {
+  /** Kind of connection; tells which transport sends the data. */
+  type: 'serial';
+  /** Ids reported by the port; absent for Bluetooth ports, which report none. */
+  usbVendorId?: number;
+  usbProductId?: number;
+  /** Name shown in the settings dialog. */
+  label: string;
+}
+
 /** A printer chosen on this device, by kind of connection. More kinds are added here as they are supported. */
-export type SavedPrinter = SavedUsbPrinter;
+export type SavedPrinter = SavedUsbPrinter | SavedSerialPrinter;
 
 /** Receipt printer settings of this device (browser). */
 export interface PrinterSettings {
@@ -69,6 +83,15 @@ function parseSavedPrinter(entry: any, name: string): SavedPrinter | undefined {
       vendorId: entry.vendorId,
       productId: entry.productId,
       ...(entry.serialNumber === undefined ? {} : { serialNumber: entry.serialNumber }),
+      label: entry.label,
+    };
+  }
+  if (kind === 'serial' && typeof entry?.label === 'string'
+    && [entry.usbVendorId, entry.usbProductId].every(id => id === undefined || Number.isInteger(id))) {
+    return {
+      type: 'serial',
+      ...(entry.usbVendorId === undefined ? {} : { usbVendorId: entry.usbVendorId }),
+      ...(entry.usbProductId === undefined ? {} : { usbProductId: entry.usbProductId }),
       label: entry.label,
     };
   }

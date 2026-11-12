@@ -17,6 +17,7 @@ const TABLE_LABELS: Record<string, string> = {
 /** Name of a child record type. */
 const CHILD_LABELS: Record<string, string> = {
   order_items: 'Dòng món', inventory_transaction_items: 'Dòng hàng', cart_items: 'Dòng món',
+  product_option_groups: 'Nhóm tùy chọn', product_option_choices: 'Lựa chọn',
 };
 
 /**
@@ -86,10 +87,12 @@ const COLUMN_LABELS: Record<string, Record<string, string>> = {
   },
   order_items: {
     product_name: 'Món', quantity: 'Số lượng', price: 'Đơn giá', cost: 'Giá vốn', discount: 'Giảm giá', batch_code: 'Mã lô', note: 'Ghi chú', size: 'Size',
-    sugar_level: 'Mức đường', ice_level: 'Mức đá', toppings: 'Topping',
+    sugar_level: 'Mức đường', ice_level: 'Mức đá', options: 'Tùy chọn', toppings: 'Topping',
   },
   inventory_transaction_items: { product_name: 'Hàng', batch_code: 'Mã lô', quantity: 'Số lượng', price: 'Đơn giá', system_quantity: 'Tồn hệ thống', counted_quantity: 'Đếm thực tế' },
-  cart_items: { quantity: 'Số lượng', note: 'Ghi chú', size: 'Size', sugar_level: 'Mức đường', ice_level: 'Mức đá', toppings: 'Topping' },
+  cart_items: { quantity: 'Số lượng', note: 'Ghi chú', size: 'Size', sugar_level: 'Mức đường', ice_level: 'Mức đá', options: 'Tùy chọn', toppings: 'Topping' },
+  product_option_groups: { name: 'Tên nhóm', allow_multiple: 'Cho chọn nhiều' },
+  product_option_choices: { label: 'Lựa chọn', is_default: 'Mặc định' },
 };
 
 /**
@@ -99,7 +102,7 @@ const COLUMN_LABELS: Record<string, Record<string, string>> = {
 const HIDDEN_COLUMNS = new Set([
   'id', 'uid', 'store_id', 'rev', 'created_at', 'updated_at', 'line_no', 'table_id', 'customer_id', 'staff_id', 'zone_id', 'supplier_id',
   'product_id', 'order_id', 'transaction_id', 'cart_id', 'batch_id', 'bank_account_id', 'user_id', 'merged_into_id', 'cart_key', 'kind',
-  'image_url', 'topping_for', 'order_seq', 'import_seq', 'export_seq', 'sent_quantity', 'kitchen_batch_id', 'shift_id',
+  'image_url', 'topping_for', 'order_seq', 'import_seq', 'export_seq', 'sent_quantity', 'kitchen_batch_id', 'shift_id', 'group_id',
 ]);
 
 /** Columns whose value must never appear on screen; a difference is shown without the values. */
@@ -229,6 +232,7 @@ function describeRow(table: string, row: SyncRow, fallback: string): string {
     case 'shifts': return pick('staff_name') ?? fallback;
     case 'attendance': return pick('user_name') ?? fallback;
     case 'order_items': case 'inventory_transaction_items': return `${pick('product_name', 'product_id') ?? fallback} x${row.quantity ?? '?'}`;
+    case 'product_option_choices': return pick('label') ?? fallback;
     default: return pick('name') ?? fallback;
   }
 }

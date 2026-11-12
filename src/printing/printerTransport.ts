@@ -4,6 +4,7 @@
  */
 
 import { SavedPrinter } from './printerSettings';
+import { findAllowedSerialPrinter, isWebSerialSupported, writeToSerialPrinter } from './serialTransport';
 import { findAllowedUsbPrinter, isWebUsbSupported, writeToUsbPrinter } from './usbTransport';
 
 /** A way to send print data to one printer, whatever the kind of connection. */
@@ -24,7 +25,8 @@ export interface PrinterTransport {
  * @returns The key.
  */
 export function printerKey(printer: SavedPrinter): string {
-  return `${printer.type}:${printer.vendorId}:${printer.productId}:${printer.serialNumber ?? ''}`;
+  if (printer.type === 'serial') return `serial:${printer.usbVendorId ?? ''}:${printer.usbProductId ?? ''}`;
+  return `usb:${printer.vendorId}:${printer.productId}:${printer.serialNumber ?? ''}`;
 }
 
 /**
@@ -34,7 +36,7 @@ export function printerKey(printer: SavedPrinter): string {
  * @returns True when the browser supports the connection.
  */
 export function isDirectPrintingSupported(printer: SavedPrinter): boolean {
-  return isWebUsbSupported();
+  return printer.type === 'serial' ? isWebSerialSupported() : isWebUsbSupported();
 }
 
 /**
@@ -46,6 +48,11 @@ export function isDirectPrintingSupported(printer: SavedPrinter): boolean {
  */
 export async function openTransport(printer: SavedPrinter): Promise<PrinterTransport> {
   if (!isDirectPrintingSupported(printer)) throw new Error('Trình duyệt này không in trực tiếp được. Hãy dùng Chrome hoặc Edge.');
+  if (printer.type === 'serial') {
+    const port = await findAllowedSerialPrinter(printer);
+    if (!port) throw new Error(`Không thấy máy in "${printer.label}". Bật máy in, kết nối Bluetooth với thiết bị này hoặc chọn lại máy in.`);
+    return { write: bytes => writeToSerialPrinter(port, bytes) };
+  }
   const device = await findAllowedUsbPrinter(printer);
   if (!device) throw new Error(`Không thấy máy in "${printer.label}". Cắm dây USB, bật máy in hoặc chọn lại máy in.`);
   return { write: bytes => writeToUsbPrinter(device, bytes) };

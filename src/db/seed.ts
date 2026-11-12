@@ -12,6 +12,7 @@
 import { batch as runBatch, buildUpsert, newId, nowIso, queryOne } from './index';
 import type { SqlStatement } from './driver';
 import { hashPassword, randomSalt } from './password';
+import { defaultDrinkOptionGroups } from '../utils/productOptions';
 
 const FNB_PRODUCTS: { id: string; sku: string; name: string; price: number; cost: number; category: string; sizes?: { name: string; price: number }[]; menuType?: string; dishKind?: string; recipe?: { ingredientId: string; quantity: number; unit?: string }[] }[] = [
   { id: 'P1', sku: '8930001001', name: 'Cà Phê Sữa Đá Sài Gòn', price: 29000, cost: 10000, category: 'Đồ uống', sizes: [{ name: 'Nhỏ', price: 29000 }, { name: 'Vừa', price: 35000 }, { name: 'Lớn', price: 42000 }], menuType: 'drink', dishKind: 'prepared', recipe: [{ ingredientId: 'I1', quantity: 0.02 }, { ingredientId: 'I2', quantity: 0.05 }, { ingredientId: 'I8', quantity: 0.05 }] },
@@ -187,6 +188,15 @@ export async function seedStore(storeId: string, storeType: 'fnb' | 'retail'): P
         created_at: ts,
         updated_at: ts,
       });
+      // Sample drinks start with Sugar and Ice, like a drink created in the menu form.
+      if (storeType === 'fnb' && 'menuType' in p && p.menuType === 'drink') {
+        defaultDrinkOptionGroups(p.id).forEach((group, groupIndex) => {
+          push('product_option_groups', { id: group.id, store_id: storeId, product_id: p.id, name: group.name, allow_multiple: 0, line_no: groupIndex, created_at: ts });
+          group.choices.forEach((choice, choiceIndex) => {
+            push('product_option_choices', { id: choice.id, store_id: storeId, product_id: p.id, group_id: group.id, label: choice.label, is_default: choice.isDefault ? 1 : 0, line_no: choiceIndex, created_at: ts });
+          });
+        });
+      }
     }
 
     if (storeType === 'fnb') {

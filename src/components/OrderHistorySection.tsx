@@ -15,6 +15,7 @@ import { logOperation } from '../utils/logger';
 import { PAYMENT_LABELS, getOrderPayments } from '../utils/payments';
 import PageCard from './ui/PageCard';
 import FilterPills from './ui/FilterPills';
+import { optionsText } from '../utils/productOptions';
 import DataTable from './ui/DataTable';
 
 interface OrderHistorySectionProps {
@@ -254,7 +255,7 @@ export default function OrderHistorySection({
               emptyMessage="Hóa đơn không có món"
               columns={[
                 { key: 'name', header: 'Tên món', render: item => {
-                  const options = [item.size && `Size ${item.size}`, item.sugarLevel && `Đường ${item.sugarLevel}`, item.iceLevel && `Đá ${item.iceLevel}`, item.note, ...(item.toppings || []).map(t => `+ ${t.name}`)].filter(Boolean).join(' · ');
+                  const options = [item.size && `Size ${item.size}`, optionsText(item.options), item.note, ...(item.toppings || []).map(t => `+ ${t.name}`)].filter(Boolean).join(' · ');
                   return <div><span>{item.name}</span>{options && <span className="block text-sm text-on-surface-variant">Tùy chọn: {options}</span>}</div>;
                 } },
                 { key: 'price', header: 'Đơn giá', className: 'text-right', render: item => item.price.toLocaleString('vi-VN') },

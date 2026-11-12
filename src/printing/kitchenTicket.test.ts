@@ -14,12 +14,12 @@ describe('buildKitchenTicketDocument', () => {
   it('shows the table, each dish with quantity, options, toppings and notes, and the total', () => {
     const all = texts(buildKitchenTicketDocument({
       tableName: 'Bàn 05', staffName: 'Alan', sentAt,
-      items: [item({ size: 'Lớn', sugarLevel: '50%', iceLevel: '100%', toppings: 'Trân châu x1', note: 'Không cay' }), item({ id: 'k2', productName: 'Phở bò', quantity: 1 })],
+      items: [item({ size: 'Lớn', options: [{ group: 'Đường', choice: '50%' }, { group: 'Đá', choice: '100%' }, { group: 'Ghi chú nhanh', choice: 'Ít cay', multiple: true }], toppings: 'Trân châu x1', note: 'Không cay' }), item({ id: 'k2', productName: 'Phở bò', quantity: 1 })],
     }).blocks);
     expect(all).toContain('PHIẾU BẾP');
     expect(all).toContain('Bàn 05');
     expect(all).toContain('2 x Cà phê sữa đá');
-    expect(all).toContain('Lớn - Đường 50% - Đá 100%');
+    expect(all).toContain('Lớn - Đường 50%, Đá 100%, Ít cay');
     expect(all).toContain('+ Trân châu x1');
     expect(all).toContain('Ghi chú: Không cay');
     expect(all).toContain('1 x Phở bò');

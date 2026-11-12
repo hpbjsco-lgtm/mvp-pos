@@ -35,6 +35,15 @@ export function newId(prefix = 'id'): string {
 /* Khởi tạo                                                               */
 /* ---------------------------------------------------------------------- */
 
+/**
+ * @param driver The device database.
+ * @returns True when the device sync tables already exist (they are created by the first device migration).
+ */
+async function hasSyncState(driver: SqlDriver): Promise<boolean> {
+  const rows = await driver.all<{ name: string }>(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'sync_state'`);
+  return rows.length > 0;
+}
+
 async function migrate(driver: SqlDriver): Promise<void> {
   await driver.exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
     version    INTEGER PRIMARY KEY,
@@ -49,8 +58,15 @@ async function migrate(driver: SqlDriver): Promise<void> {
   const migrations = driver.platform === 'native' ? [...MIGRATIONS, ...DEVICE_MIGRATIONS] : MIGRATIONS;
   for (const migration of migrations) {
     if (done.has(migration.version)) continue;
-    for (const stmt of migration.statements) {
-      await driver.exec(stmt);
+    // A migration rewrites rows the same way on every database, so on a phone it must not queue them as edits to upload.
+    const pauseTracking = driver.platform === 'native' && migration.version < DEVICE_MIGRATIONS[0].version && await hasSyncState(driver);
+    if (pauseTracking) await driver.run(`INSERT OR REPLACE INTO sync_state (key, value) VALUES ('applying', '1')`);
+    try {
+      for (const stmt of migration.statements) {
+        await driver.exec(stmt);
+      }
+    } finally {
+      if (pauseTracking) await driver.run(`INSERT OR REPLACE INTO sync_state (key, value) VALUES ('applying', '0')`);
     }
     await driver.run('INSERT OR REPLACE INTO schema_migrations (version, applied_at) VALUES (?, ?)', [
       migration.version,

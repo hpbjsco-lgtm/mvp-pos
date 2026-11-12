@@ -77,7 +77,7 @@ describe('column names in words', () => {
     const driver = await createSqlJsTestDriver();
     for (const migration of MIGRATIONS) for (const statement of migration.statements) await driver.exec(statement);
     const missing: string[] = [];
-    for (const table of [...LABELLED_TABLES, 'order_items', 'inventory_transaction_items']) {
+    for (const table of [...LABELLED_TABLES, 'order_items', 'inventory_transaction_items', 'product_option_groups', 'product_option_choices']) {
       for (const column of await driver.all<{ name: string }>(`PRAGMA table_info(${table})`)) {
         if (!isColumnCovered(table, column.name)) missing.push(`${table}.${column.name}`);
       }

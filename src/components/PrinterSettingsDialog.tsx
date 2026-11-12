@@ -9,6 +9,7 @@ import { PAPER_WIDTH_DOTS, PaperWidthMm } from '../printing/escpos';
 import { clearPrinterSettings, DEFAULT_PRINTER_SETTINGS, getPrinterSettings, MAX_SHIFT_RIGHT_MM, PrinterSettings, savePrinterSettings } from '../printing/printerSettings';
 import { buildReceiptDocument } from '../printing/receiptDocument';
 import { printReceipt } from '../printing/receiptPrinting';
+import { isWebSerialSupported, requestSerialPrinter, toSavedSerialPrinter } from '../printing/serialTransport';
 import { isWebUsbSupported, requestUsbPrinter, toSavedUsbPrinter } from '../printing/usbTransport';
 import { buildKitchenTicketDocument } from '../printing/kitchenTicketDocument';
 import { KitchenStatus, PaymentMethod } from '../types';
@@ -58,7 +59,7 @@ const TEST_KITCHEN_TICKET = buildKitchenTicketDocument({
 });
 
 /**
- * Dialog to choose the receipt printer of this device (USB), set the paper width and print a test receipt.
+ * Dialog to choose the receipt printer of this device (USB or Bluetooth), set the paper width and print a test receipt.
  * The choice is stored in this browser only.
  */
 export default function PrinterSettingsDialog({ onClose }: PrinterSettingsDialogProps) {
@@ -118,6 +119,24 @@ export default function PrinterSettingsDialog({ onClose }: PrinterSettingsDialog
     setMessage({ ok: true, text: `Đã chọn máy in phiếu bếp: ${kitchenPrinter.label}. Bấm "In thử phiếu bếp" để kiểm tra.` });
   });
 
+  /** Opens the browser's port picker and keeps the chosen Bluetooth printer. */
+  const chooseBluetoothPrinter = () => withBusy(async () => {
+    const port = await requestSerialPrinter();
+    if (!port) return;
+    const printer = toSavedSerialPrinter(port);
+    update({ ...settings, printer });
+    setMessage({ ok: true, text: `Đã chọn máy in: ${printer.label}. Bấm "In thử" để kiểm tra.` });
+  });
+
+  /** Opens the browser's port picker and keeps the chosen Bluetooth printer for kitchen tickets. */
+  const chooseKitchenBluetoothPrinter = () => withBusy(async () => {
+    const port = await requestSerialPrinter();
+    if (!port) return;
+    const kitchenPrinter = toSavedSerialPrinter(port);
+    update({ ...settings, kitchenPrinter });
+    setMessage({ ok: true, text: `Đã chọn máy in phiếu bếp: ${kitchenPrinter.label}. Bấm "In thử phiếu bếp" để kiểm tra.` });
+  });
+
   /**
    * Switches kitchen tickets between the receipt printer and a printer of their own.
    *
@@ -160,7 +179,7 @@ export default function PrinterSettingsDialog({ onClose }: PrinterSettingsDialog
         </div>
 
         <div className="p-5 overflow-y-auto space-y-5">
-          {!isWebUsbSupported() ? (
+          {!isWebUsbSupported() && !isWebSerialSupported() ? (
             <p className="p-3 rounded-xl bg-error-container text-on-error-container text-sm font-semibold">
               Trình duyệt này không in trực tiếp được. Hãy mở bằng Chrome hoặc Edge.
             </p>
@@ -169,17 +188,29 @@ export default function PrinterSettingsDialog({ onClose }: PrinterSettingsDialog
               <section className="space-y-2">
                 <h4 className="text-base font-bold text-on-surface">Máy in đang dùng</h4>
                 <p className="text-sm text-on-surface-variant">
-                  {settings.printer ? <strong className="text-on-surface">{settings.printer.label}</strong> : 'Chưa chọn máy in. Cắm dây USB, bật máy in rồi bấm "Chọn máy in".'}
+                  {settings.printer ? <strong className="text-on-surface">{settings.printer.label}</strong> : 'Chưa chọn máy in. Cắm dây USB hoặc kết nối Bluetooth, bật máy in rồi chọn máy in.'}
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" disabled={busy} onClick={() => choosePrinter(false)} className="m3-btn-filled !min-h-11 text-sm">Chọn máy in</button>
+                  {isWebUsbSupported() && (
+                    <button type="button" disabled={busy} onClick={() => choosePrinter(false)} className="m3-btn-filled !min-h-11 text-sm">Chọn máy in USB</button>
+                  )}
+                  {isWebSerialSupported() && (
+                    <button type="button" disabled={busy} onClick={chooseBluetoothPrinter} className="m3-btn-filled !min-h-11 text-sm">Chọn máy in Bluetooth</button>
+                  )}
                   {settings.printer && (
                     <button type="button" disabled={busy} onClick={forget} className="m3-btn-outlined !min-h-11 text-sm">Bỏ chọn</button>
                   )}
                 </div>
-                <button type="button" disabled={busy} onClick={() => choosePrinter(true)} className="text-sm text-primary font-semibold underline cursor-pointer">
-                  Không thấy máy in? Hiện mọi thiết bị USB
-                </button>
+                {isWebUsbSupported() && (
+                  <button type="button" disabled={busy} onClick={() => choosePrinter(true)} className="text-sm text-primary font-semibold underline cursor-pointer">
+                    Không thấy máy in USB? Hiện mọi thiết bị USB
+                  </button>
+                )}
+                {isWebSerialSupported() && (
+                  <p className="text-sm text-on-surface-variant">
+                    Máy in Bluetooth: ghép đôi và kết nối máy in trong cài đặt Bluetooth của thiết bị trước, rồi bấm "Chọn máy in Bluetooth".
+                  </p>
+                )}
               </section>
 
               <section className="space-y-2">
@@ -241,9 +272,16 @@ export default function PrinterSettingsDialog({ onClose }: PrinterSettingsDialog
                 {separateKitchenPrinter && (
                   <div className="space-y-2 pl-8">
                     <p className="text-sm text-on-surface-variant">
-                      {settings.kitchenPrinter ? <strong className="text-on-surface">{settings.kitchenPrinter.label}</strong> : 'Chưa chọn máy in bếp. Cắm dây USB, bật máy in rồi bấm "Chọn máy in bếp".'}
+                      {settings.kitchenPrinter ? <strong className="text-on-surface">{settings.kitchenPrinter.label}</strong> : 'Chưa chọn máy in bếp. Cắm dây USB hoặc kết nối Bluetooth, bật máy in rồi chọn máy in bếp.'}
                     </p>
-                    <button type="button" disabled={busy} onClick={chooseKitchenPrinter} className="m3-btn-outlined !min-h-11 text-sm">Chọn máy in bếp</button>
+                    <div className="flex flex-wrap gap-2">
+                      {isWebUsbSupported() && (
+                        <button type="button" disabled={busy} onClick={chooseKitchenPrinter} className="m3-btn-outlined !min-h-11 text-sm">Chọn máy in bếp USB</button>
+                      )}
+                      {isWebSerialSupported() && (
+                        <button type="button" disabled={busy} onClick={chooseKitchenBluetoothPrinter} className="m3-btn-outlined !min-h-11 text-sm">Chọn máy in bếp Bluetooth</button>
+                      )}
+                    </div>
                   </div>
                 )}
                 <button type="button" disabled={busy || !(settings.kitchenPrinter ?? settings.printer)} onClick={printKitchenTest} className="m3-btn-tonal w-full !min-h-12 disabled:opacity-50">

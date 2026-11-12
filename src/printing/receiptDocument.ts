@@ -5,6 +5,7 @@
 
 import { Order } from '../types';
 import { PAYMENT_LABELS } from '../utils/payments';
+import { optionsText } from '../utils/productOptions';
 
 /** Horizontal alignment of a block. */
 export type ReceiptAlign = 'left' | 'center' | 'right';
@@ -117,7 +118,7 @@ export function buildReceiptDocument(input: ReceiptInput): ReceiptDocument {
     if (item.toppings && item.toppings.length > 0) {
       text(item.toppings.map(topping => `+ ${topping.quantity} ${topping.name}`).join(', '), { size: 'small' });
     }
-    const modifiers = [item.size, item.sugarLevel && `Đường ${item.sugarLevel}`, item.iceLevel && `Đá ${item.iceLevel}`]
+    const modifiers = [item.size, optionsText(item.options)]
       .filter(Boolean)
       .join(' - ');
     if (modifiers) text(`Tùy chọn: ${modifiers}`, { size: 'small' });

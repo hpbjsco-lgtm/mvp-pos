@@ -38,7 +38,7 @@ Mỗi vòng đồng bộ: **gửi lên trước, tải xuống sau** (một vòn
 | Outbox | Bảng thiết bị ghi dòng đã đổi mà chưa gửi |
 
 ### 3.1 Bảng được đồng bộ (20)
-`stores, users, zones, dining_tables, products, suppliers, customers, bank_accounts, inventory_batches, inventory_transactions, inventory_transaction_items, orders, order_items, kitchen_items, carts, cart_items, attendance, activity_logs, shifts, cash_vouchers`.
+`stores, users, zones, dining_tables, products, product_option_groups, product_option_choices, suppliers, customers, bank_accounts, inventory_batches, inventory_transactions, inventory_transaction_items, orders, order_items, kitchen_items, carts, cart_items, attendance, activity_logs, shifts, cash_vouchers`.
 Không đồng bộ: `meta`, `schema_migrations`, `sync_*` của thiết bị.
 
 ## 4. Use case
@@ -199,4 +199,4 @@ done = đã đọc tới cuối
 - Chưa có xóa mềm đồng bộ cho các bảng không có `deleted_at`: dòng con thay theo tập.
 - Hóa đơn/phiếu kho bị sửa đồng thời trên hai máy luôn đi vào xung đột để người xử lý (không tự trộn theo từng cột).
 - Chưa kiểm chứng trên thiết bị thật; cần thử mạng yếu, chuyển wifi/4G, app bị hệ điều hành tắt giữa vòng.
-- Thứ tự triển khai: cập nhật máy chủ (nodemailer, bộ đếm `KK`, cột mới) và **mở bản web một lần** để chạy migration v19–v21 **trước** khi điện thoại đồng bộ, nếu không push bị 400 vì cột chưa có.
+- Thứ tự triển khai: cập nhật máy chủ (nodemailer, bộ đếm `KK`, cột mới) và **mở bản web một lần** để chạy migration v19–v22 **trước** khi điện thoại đồng bộ, nếu không push bị 400 vì cột chưa có.

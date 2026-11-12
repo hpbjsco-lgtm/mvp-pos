@@ -13,7 +13,7 @@ Thu ngân chọn món, chỉnh số lượng/ghi chú/tùy chọn, tính tiền 
 
 ## 2. Giỏ hàng
 - Mỗi "đơn đang mở" là một giỏ (`carts` + `cart_items`) khóa theo id bàn; hai giỏ ảo `takeaway` (Mang về) và `delivery` (Giao đi); bán lẻ có một giỏ riêng (`RETAIL_CART_ID`).
-- **Định danh dòng** `lineKey` = sản phẩm + ghi chú + size + đường + đá + topping. Hai dòng cùng sản phẩm nhưng khác bất kỳ phần nào là **hai dòng riêng**.
+- **Định danh dòng** `lineKey` = sản phẩm + ghi chú + size + tùy chọn đã chọn (`options`, F030) + topping. Hai dòng cùng sản phẩm nhưng khác bất kỳ phần nào là **hai dòng riêng**.
 
 ## 3. Use case
 
@@ -23,7 +23,7 @@ handleAddToCart(product):
     if (!product.isAvailable)              -> bíp lỗi + "Sản phẩm này hiện đang báo hết hàng!"
     mods = {}
     if (F&B && món có size)                -> mods.size = size mặc định (đầu tiên)
-    if (F&B && món là đồ uống)             -> mods.sugarLevel = mặc định, mods.iceLevel = mặc định (100%)
+    if (F&B && món có nhóm tùy chọn)       -> mods.options = lựa chọn mặc định của từng nhóm (F030)
     if (F&B && giỏ rỗng && bàn có phiếu đặt trước):
          hỏi xác nhận "Bàn này đã được đặt trước, hãy xác nhận thông tin khách. Khách đặt: <tên - SĐT - hẹn giờ> [Ghi chú]"
          không xác nhận -> không thêm
@@ -37,7 +37,7 @@ Nhập mã vạch/SKU (ô quét tay): khớp **SKU chính xác** → thêm như 
 
 ### UC-002-02 — Chỉnh dòng
 - `+` / `−`: tăng/giảm 1; giảm xuống dưới 1 thì xóa dòng. Thùng rác: xóa cả dòng.
-- Ghi chú dòng, ghi chú cả đơn (lưu vào `orders.note`), chọn size (đổi đơn giá theo size), mức đường/đá, topping (F005).
+- Ghi chú dòng, ghi chú cả đơn (lưu vào `orders.note`), chọn size (đổi đơn giá theo size), nhóm tùy chọn của món như đường, đá, ghi chú nhanh (F030), topping (F005).
 - Với F&B, thay đổi dòng đã báo bếp đi qua `changeKitchenItems` (F023/F004).
 
 ### UC-002-03 — Chọn khách
@@ -86,16 +86,16 @@ Nút **In tạm tính** (không cần thanh toán): phiếu 80mm có tạm tính
 |---|---|---|
 | Kho | Trừ theo lô lúc thanh toán | Trừ theo công thức lúc báo bếp/thanh toán (F023) |
 | Bàn / bếp / đặt bàn | Không có | Có (F003, F004) |
-| Tùy chọn size/đường/đá/topping | Không | Có |
+| Tùy chọn size/nhóm tùy chọn/topping | Không | Có |
 | Kênh bán | Có (nếu có kênh) | Chỉ Mang về/Giao đi |
 
 ## 5. Dữ liệu (Database)
 | Bảng | Cột chính |
 |---|---|
 | `carts` | `id, store_id, cart_key, customer_id, note` |
-| `cart_items` | `cart_id, cart_key, product_id, quantity, note, size, sugar_level, ice_level, toppings (JSON), sent_quantity, line_no` |
+| `cart_items` | `cart_id, cart_key, product_id, quantity, note, size, options (JSON, F030), toppings (JSON), sent_quantity, line_no` |
 | `orders` | `order_number, temp_order_number, store_type, order_type ('dine-in'/'takeaway'), status ('completed'/'void'), table_id, table_number, customer_id, customer_name, staff_id, staff_name, subtotal, discount_amount, line_discount_amount, tax_amount, total_amount, total_cost, cost_recorded, payment_method, payments (JSON), paid_amount, change_amount, points_earned, points_used, channel_name, commission_percent, commission_amount, note` |
-| `order_items` | `order_id, product_id, product_name, quantity, price, cost, discount, batch_id, batch_code, note, size, sugar_level, ice_level, toppings (JSON)` |
+| `order_items` | `order_id, product_id, product_name, quantity, price, cost, discount, batch_id, batch_code, note, size, options (JSON, F030), toppings (JSON)` |
 | `customers` | `points` (cộng khi thanh toán) |
 
 ## 6. Trường hợp biên

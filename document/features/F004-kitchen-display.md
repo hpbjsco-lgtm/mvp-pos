@@ -9,7 +9,7 @@
 | Liên quan | F002, F003, F022 (in phiếu bếp), F023 (kho khi báo/hủy) |
 
 ## 1. Mục tiêu
-Chuyển món từ quầy xuống bếp kèm đầy đủ yêu cầu (bàn, size, đường, đá, topping, ghi chú) để bếp làm đúng; theo dõi trạng thái từng món; bếp hủy được món chưa làm.
+Chuyển món từ quầy xuống bếp kèm đầy đủ yêu cầu (bàn, size, các tùy chọn như đường, đá, ghi chú nhanh, topping, ghi chú) để bếp làm đúng; theo dõi trạng thái từng món; bếp hủy được món chưa làm.
 
 ## 2. Phiếu bếp và trạng thái
 Mỗi dòng của một lần báo bếp tạo một phiếu `kitchen_items`.
@@ -30,12 +30,12 @@ Chờ làm (pending)  --Làm món-->  Đang nấu (preparing)  --Xong-->  Xong, 
 | Lỗi | Giỏ trống: "Giỏ hàng trống! Không thể gửi yêu cầu xuống bếp." · Không còn gì mới: "Tất cả món trong đơn đã được báo bếp. Hãy thêm món mới rồi báo bếp lại." |
 | Nhãn | Dòng giỏ hiện "Đã báo bếp x/y"; thanh nhắc "Bạn vừa cập nhật đơn hàng… Thông báo" khi còn món chưa báo |
 | Thông báo xong | "Đã báo bếp N món mới!" |
-Phiếu ghi: món, SL, bàn/nhóm bàn (`table_number`), size, đường, đá, topping (chuỗi), ghi chú, người báo (`staff_name`), giờ.
+Phiếu ghi: món, SL, bàn/nhóm bàn (`table_number`), size, tùy chọn (`options`, F030), topping (chuỗi), ghi chú, người báo (`staff_name`), giờ.
 
 ### UC-004-02 — Bếp xử lý món
 - Hai cách xem: **Theo món** và **Theo phòng bàn**.
 - Bộ lọc: *Đang hoạt động*, *Chờ làm*, *Đang làm*, *Chờ phục vụ*, *Đã hủy*, *Tất cả* (kèm số lượng).
-- Thẻ hiển thị món, giờ tạo, size/đường/đá, `+ topping` (đậm), ghi chú, bàn ("Mang đi" nếu không có bàn), số phút kể từ lúc tạo (cập nhật mỗi 15 giây).
+- Thẻ hiển thị món, giờ tạo, size và tùy chọn (F030), `+ topping` (đậm), ghi chú, bàn ("Mang đi" nếu không có bàn), số phút kể từ lúc tạo (cập nhật mỗi 15 giây).
 - **Cảnh báo trễ**: phiếu chưa đóng và đã ≥ **10 phút** → chữ đỏ "· Quá giờ".
 - Đổi trạng thái bằng nút hành động; mỗi lần có tiếng bíp thành công.
 - **Dọn hàng đợi**: hộp xác nhận "Bạn có muốn xóa các món đã phục vụ xong và các món đã hủy ra khỏi hàng đợi bếp?" → xóa mọi phiếu đóng khỏi danh sách.
@@ -49,7 +49,7 @@ Chi tiết ở F023 (UC-023-03): xác nhận, đặt `cancelled` + `cancelledAt/
 
 ### UC-004-05 — Lịch sử báo bếp (kiểu KiotViet)
 Nút biểu tượng đồng hồ ở chân khung đơn hoặc menu ⋯ → ngăn bên phải **LỊCH SỬ BÁO BẾP**:
-- Mỗi lần *Thông báo* là một mục: ngày giờ, "<tên người> thông báo bếp", các món `+ 1 Tên món` kèm dòng phụ (size, `+ 1 topping`, `50% đường, 70% đá`, ghi chú trong ngoặc kép).
+- Mỗi lần *Thông báo* là một mục: ngày giờ, "<tên người> thông báo bếp", các món `+ 1 Tên món` kèm dòng phụ (size, `+ 1 topping`, tùy chọn như `Đường 50%, Đá 70%, Ít cay`, ghi chú trong ngoặc kép).
 - Món bị hủy sau đó là mục riêng `− 1 Tên món` (đỏ, ghi giờ + người hủy).
 - Mới nhất ở trên; chỉ gồm phiếu của đơn hiện tại (từ lúc mở bàn; Mang về/Giao đi: trong ngày). Mã: `utils/kitchenHistory.ts`.
 
@@ -61,11 +61,11 @@ Dùng máy chủ: web đọc/ghi chung CSDL (làm mới vài giây một lần, 
 |---|---|
 | Không báo trùng | `cart_items.sent_quantity` (migration v6) |
 | Nhãn bàn gộp | "Bàn 02 + Bàn 03" ghi vào phiếu; đổi nhãn khi gộp/chuyển bàn (`relabelKitchenTickets`) |
-| Khớp phiếu ↔ dòng giỏ | `ticketMatchesLine`: cùng sản phẩm, ghi chú, size, đường, đá, topping |
+| Khớp phiếu ↔ dòng giỏ | `ticketMatchesLine`: cùng sản phẩm, ghi chú, size, tùy chọn (`optionsSignature`), topping |
 | Vai trò bếp | Chỉ thấy màn Bếp và Kiểm kho ca (F001, F024) |
 
 ## 5. Dữ liệu (Database) — bảng `kitchen_items`
-`id, store_id, order_id (mã lần báo NB-…), product_id, product_name, quantity, table_id, table_number, status ('pending','preparing','completed','served','cancelled'), note, served_at, size, sugar_level, ice_level, toppings, staff_name, cancelled_at, cancelled_by, stock_portions, stock_picks, created_at, updated_at, deleted_at, rev`.
+`id, store_id, order_id (mã lần báo NB-…), product_id, product_name, quantity, table_id, table_number, status ('pending','preparing','completed','served','cancelled'), note, served_at, size, options (JSON, F030; cột cũ sugar_level/ice_level không còn dùng), toppings, staff_name, cancelled_at, cancelled_by, stock_portions, stock_picks, created_at, updated_at, deleted_at, rev`.
 Migration: `staff_name, cancelled_at, cancelled_by` v11; `stock_portions, stock_picks` v17.
 
 ## 6. Trường hợp biên

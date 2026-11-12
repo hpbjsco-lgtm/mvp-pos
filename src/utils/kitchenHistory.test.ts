@@ -10,13 +10,13 @@ const k = (id: string, extra: Partial<KitchenItem>): KitchenItem => ({
 describe('kitchen history', () => {
   it('groups items sent together and lists modifiers, toppings and notes', () => {
     const h = buildKitchenHistory([
-      k('1', { size: 'L', toppings: 'Trân châu đen x1', sugarLevel: '50%', iceLevel: '70%', note: 'ít ngọt' }),
+      k('1', { size: 'L', toppings: 'Trân châu đen x1', options: [{ group: 'Đường', choice: '50%' }, { group: 'Đá', choice: '70%' }, { group: 'Ghi chú nhanh', choice: 'Ít ngọt', multiple: true }], note: 'ít ngọt' }),
       k('2', { productName: 'Bò né', note: 'Chín vừa' }),
     ]);
     expect(h).toHaveLength(1);
     expect(h[0].staff).toBe('Sơn');
     expect(h[0].lines.map(l => l.name)).toEqual(['Trà sữa', 'Bò né']);
-    expect(h[0].lines[0].details).toEqual(['L', '+ 1 Trân châu đen', '50% đường, 70% đá', '"ít ngọt"']);
+    expect(h[0].lines[0].details).toEqual(['L', '+ 1 Trân châu đen', 'Đường 50%, Đá 70%, Ít ngọt', '"ít ngọt"']);
   });
   it('separate sends are separate entries, newest first', () => {
     const h = buildKitchenHistory([k('1', {}), k('2', { orderId: 'B2', createdAt: '2026-10-10T10:05:00.000Z' })]);

@@ -3,9 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { DiningTable, KitchenItem, KitchenStatus, Product } from '../types';
+import { DiningTable, KitchenItem, KitchenStatus, Product, SelectedOption } from '../types';
 import { splitTicketStock } from './kitchenStock';
 import { DELIVERY_ID, resolvePrimaryId, TAKEAWAY_ID, virtualCartLabel } from './tableOps';
+import { optionsSignature } from './productOptions';
 import { toppingsText } from './toppings';
 
 /** Kitchen tickets still being worked on; served or cancelled tickets are never changed. */
@@ -13,10 +14,10 @@ export const isKitchenTicketOpen = (item: KitchenItem): boolean =>
   item.status === KitchenStatus.PENDING || item.status === KitchenStatus.PREPARING || item.status === KitchenStatus.COMPLETED;
 
 /** Fields of a kitchen ticket that a cashier can edit on a line already sent to the kitchen. */
-export type KitchenEditableField = 'size' | 'sugarLevel' | 'iceLevel' | 'note';
+export type KitchenEditableField = 'size' | 'options' | 'note';
 
 /**
- * Applies a new size, sugar level, ice level or note to the open tickets of one cart line, so the kitchen
+ * Applies a new size, options or note to the open tickets of one cart line, so the kitchen
  * screen shows what the cashier screen shows.
  *
  * @param items All kitchen tickets.
@@ -25,11 +26,11 @@ export type KitchenEditableField = 'size' | 'sugarLevel' | 'iceLevel' | 'note';
  * @param value New value.
  * @returns A new list; tickets of other lines are returned as they are.
  */
-export function applyLineEditToKitchen(
+export function applyLineEditToKitchen<F extends KitchenEditableField>(
   items: KitchenItem[],
   belongsToLine: (item: KitchenItem) => boolean,
-  field: KitchenEditableField,
-  value: string,
+  field: F,
+  value: KitchenItem[F],
 ): KitchenItem[] {
   return items.map(item => (isKitchenTicketOpen(item) && belongsToLine(item) ? { ...item, [field]: value } : item));
 }
@@ -138,14 +139,13 @@ export interface TicketLine {
   quantity: number;
   note: string;
   size?: string;
-  sugarLevel?: string;
-  iceLevel?: string;
+  options?: SelectedOption[];
   sentQuantity?: number;
   toppings?: { productId: string; quantity: number }[];
 }
 
 /**
- * True when a kitchen ticket was sent for exactly this cart line: the same dish with the same note, size, sugar, ice and toppings.
+ * True when a kitchen ticket was sent for exactly this cart line: the same dish with the same note, size, options and toppings.
  *
  * @param ticket Kitchen ticket.
  * @param line Cart line.
@@ -154,8 +154,8 @@ export interface TicketLine {
  */
 export function ticketMatchesLine(ticket: KitchenItem, line: TicketLine, products: Product[]): boolean {
   return ticket.productId === line.productId && (ticket.note || '') === (line.note || '')
-    && (ticket.size || '') === (line.size || '') && (ticket.sugarLevel || '') === (line.sugarLevel || '')
-    && (ticket.iceLevel || '') === (line.iceLevel || '') && (ticket.toppings || '') === toppingsText(line, products);
+    && (ticket.size || '') === (line.size || '') && optionsSignature(ticket.options) === optionsSignature(line.options)
+    && (ticket.toppings || '') === toppingsText(line, products);
 }
 
 /** True while the kitchen can still cancel a dish: it has not been made yet (waiting or being cooked). */

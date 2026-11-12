@@ -11,6 +11,7 @@ import { DiningTable, KitchenItem, Product, Zone } from '../types';
 import { buildKitchenHistory } from '../utils/kitchenHistory';
 import { lineUnitPrice } from '../utils/toppings';
 import type { CartLine } from './POSScreen';
+import { optionsText } from '../utils/productOptions';
 import {
   CartMap, DELIVERY_ID, MoveSelection, TAKEAWAY_ID, canTransferTo, formatElapsed, getChildTables, getGroupLabel,
   getGroupTables, getTableStats, lineKey, resolvePrimaryId, virtualCartLabel,
@@ -399,7 +400,7 @@ export function SplitMergeOrderDialog({ currentId, initialMode, tables, zones, c
               <div className="flex-1 min-w-0">
                 <p className="text-base font-bold text-on-surface truncate">{prod?.name || 'Món'}</p>
                 <p className="text-[13px] text-on-surface-variant truncate">
-                  {[l.size, l.sugarLevel && `Đường ${l.sugarLevel}`, l.iceLevel && `Đá ${l.iceLevel}`, l.note].filter(Boolean).join(' · ') || money(prod?.price || 0)}
+                  {[l.size, optionsText(l.options), l.note].filter(Boolean).join(' · ') || money(prod?.price || 0)}
                   {' '}· có {l.quantity}
                 </p>
               </div>

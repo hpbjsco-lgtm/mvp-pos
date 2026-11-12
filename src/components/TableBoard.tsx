@@ -23,6 +23,8 @@ interface TableBoardProps {
   /** Id giỏ đang chọn: id bàn hoặc 'takeaway' / 'delivery'. */
   selectedId: string;
   onSelect: (id: string) => void;
+  /** Called on a double click on a table or a virtual cart: the screen shows the menu for it. */
+  onOpenMenu: (id: string) => void;
 }
 
 const money = (n: number) => `${n.toLocaleString('vi-VN')}đ`;
@@ -36,7 +38,7 @@ function TableIcon({ className = '' }: { className?: string }) {
  * Danh sách bàn F&B dạng lưới thẻ: mỗi thẻ cho biết ngay bàn trống / đang dùng / gộp / đặt trước,
  * kèm tổng tiền, thời gian ngồi, số món và số khách.
  */
-export default function TableBoard({ tables, zones, carts, products, selectedId, onSelect }: TableBoardProps) {
+export default function TableBoard({ tables, zones, carts, products, selectedId, onSelect, onOpenMenu }: TableBoardProps) {
   const [zoneId, setZoneId] = useState<string>('all');
   const [filter, setFilter] = useState<StatusFilter>('all');
   const [query, setQuery] = useState('');
@@ -145,6 +147,7 @@ export default function TableBoard({ tables, zones, carts, products, selectedId,
             <button
               key={id}
               onClick={() => onSelect(id)}
+        onDoubleClick={() => onOpenMenu(id)}
               className={`text-left rounded-2xl border-2 p-3 min-h-[108px] flex flex-col justify-between cursor-pointer transition-all active:scale-[0.98] ${
                 selected
                   ? 'bg-primary border-primary text-on-primary shadow-md'
@@ -187,6 +190,7 @@ export default function TableBoard({ tables, zones, carts, products, selectedId,
             <button
               key={table.id}
               onClick={() => onSelect(table.id)}
+                onDoubleClick={() => onOpenMenu(table.id)}
               className={`relative text-left rounded-2xl border-2 p-3 min-h-[108px] flex flex-col justify-between cursor-pointer transition-all active:scale-[0.98] ${tone}`}
             >
               <span className="flex items-start justify-between gap-1">

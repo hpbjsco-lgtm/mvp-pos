@@ -2,10 +2,10 @@
 
 Tài liệu tổng quan: [../FEATURES.md](../FEATURES.md). Mỗi file dưới đây đặc tả **một chức năng** theo mẫu: thông tin chung, mục tiêu, use case (tiền điều kiện, luồng chính, luồng thay thế/lỗi), quy tắc if/else, dữ liệu (bảng, cột, migration), trường hợp biên, giới hạn, kiểm thử.
 
-Cập nhật: 2026-11-11. Đối chiếu với mã nguồn tại nhánh `change-ui`, `SCHEMA_VERSION = 21`.
+Cập nhật: 2026-11-12. Đối chiếu với mã nguồn tại nhánh `change-ui`, `SCHEMA_VERSION = 22`.
 
 ## 1. Quy ước
-- Mã chức năng `F001`…`F029`. F001–F017 là chức năng có từ trước (nguồn cũ: FEATURES.md mục 5.x), F018–F029 là chức năng bổ sung gần đây.
+- Mã chức năng `F001`…`F030`. F001–F017 là chức năng có từ trước (nguồn cũ: FEATURES.md mục 5.x), F018–F030 là chức năng bổ sung gần đây.
 - Văn bản mô tả bằng tiếng Việt; tên bảng, cột, hàm, mã lỗi giữ nguyên tiếng Anh như trong mã nguồn.
 - "Trạng thái" nói rõ mức hoàn thiện: **đã có test tự động** khác với **đã chạy thử trên thiết bị thật**. Phần lớn tính năng mới **chưa được chạy thử trên màn hình/điện thoại thật**.
 - Mục "Giới hạn" và "Việc chờ quyết định" liệt kê điều chưa làm hoặc đang chờ chủ dự án.
@@ -43,6 +43,7 @@ Cập nhật: 2026-11-11. Đối chiếu với mã nguồn tại nhánh `change-
 | F027 | Giá vốn, lợi nhuận, hao hụt | [F027-costing-profit.md](F027-costing-profit.md) |
 | F028 | Giảm giá theo món, kênh bán, công nợ | [F028-discounts-channels-debt.md](F028-discounts-channels-debt.md) |
 | F029 | Quên mật khẩu qua email | [F029-forgot-password.md](F029-forgot-password.md) |
+| F030 | Nhóm tùy chọn của món (đường, đá, ghi chú nhanh), nhấp đúp mở thực đơn | [F030-option-groups.md](F030-option-groups.md) |
 
 ## 3. Bản đồ phụ thuộc chính
 ```
@@ -52,6 +53,7 @@ F018 máy chủ ─┬─ F019 đồng bộ ── F020 xung đột
 F002 bán hàng ─ F003 bàn ─ F004 bếp ─ F023 trừ kho ─ F006 kho ─ F024 kiểm kho ─ F025 CSV
 F002 ─ F026 thanh toán ─ F015 sổ quỹ ─ F017 báo cáo cuối ngày
 F005 công thức ─ F027 giá vốn ─ F013/F017 lợi nhuận ─ F028 kênh bán
+F005 món ─ F030 nhóm tùy chọn ─ (F002 giỏ, F004 bếp, F022 in, F019 đồng bộ)
 ```
 
 ## 4. Việc chờ chủ dự án quyết định (tổng hợp)

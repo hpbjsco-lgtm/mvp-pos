@@ -120,7 +120,7 @@ catch UnreachableError:
 ## 5. Dữ liệu (Database)
 
 ### 5.1 Migration
-- `schema_migrations(version PK, applied_at)`: danh sách migration đã chạy. Hàm `migrate()` (`src/db/index.ts`) chạy `MIGRATIONS` (dùng chung, v1 → v21) và, **chỉ trên nền tảng native**, `DEVICE_MIGRATIONS` (v1001+: bảng đồng bộ của thiết bị, F019). Sau đó kiểm tra đủ trigger (`verifyDeviceSyncSchema`), thiếu thì **báo lỗi rõ**.
+- `schema_migrations(version PK, applied_at)`: danh sách migration đã chạy. Hàm `migrate()` (`src/db/index.ts`) chạy `MIGRATIONS` (dùng chung, v1 → v22) và, **chỉ trên nền tảng native**, `DEVICE_MIGRATIONS` (v1001+: bảng đồng bộ của thiết bị, F019). Sau đó kiểm tra đủ trigger (`verifyDeviceSyncSchema`), thiếu thì **báo lỗi rõ**.
 - `meta(key PK, value, updated_at)`: cặp khóa-giá trị, có `schema_version`, `active_store_id`.
 
 ### 5.2 Cấu hình trên thiết bị native (Preferences, không phải bảng)

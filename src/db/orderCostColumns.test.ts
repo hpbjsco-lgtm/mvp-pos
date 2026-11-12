@@ -14,7 +14,7 @@ describe('cost kept on an order', () => {
     const order = { id: 'o1', orderNumber: 'HD1', totalAmount: 50000, totalCost: 21000, costRecorded: true, items: [{ productId: 'p', name: 'Latte', quantity: 2, price: 25000, cost: 10500 }] };
     const row = spec.toRow(order, 'S1');
     expect(row).toMatchObject({ total_cost: 21000, cost_recorded: 1 });
-    expect(spec.children!.toRows(order, 'S1')[0]).toMatchObject({ cost: 10500 });
+    expect(spec.children![0].toRows(order, 'S1')[0]).toMatchObject({ cost: 10500 });
     expect(spec.fromRow({ ...row, id: 'o1' })).toMatchObject({ totalCost: 21000, costRecorded: true });
   });
 

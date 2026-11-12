@@ -17,9 +17,9 @@ describe('what a stocktake keeps', () => {
   it('writes the shift, the kind and the stock before and after of each line, and reads them back', () => {
     const spec = COLLECTIONS.transactions;
     expect(spec.toRow(voucher, 'S1')).toMatchObject({ shift_id: 'sh1', stocktake_kind: 'close', staff_name: 'An' });
-    expect(spec.children!.toRows(voucher, 'S1')[0]).toMatchObject({ quantity: -2, system_quantity: 10, counted_quantity: 8, batch_code: 'L1, L2' });
+    expect(spec.children![0].toRows(voucher, 'S1')[0]).toMatchObject({ quantity: -2, system_quantity: 10, counted_quantity: 8, batch_code: 'L1, L2' });
     const parent = spec.fromRow({ ...spec.toRow(voucher, 'S1'), id: 'T1' });
-    spec.children!.attach([parent], new Map([['T1', spec.children!.toRows(voucher, 'S1')]]));
+    spec.children![0].attach([parent], new Map([['T1', spec.children![0].toRows(voucher, 'S1')]]));
     expect(parent).toMatchObject({ shiftId: 'sh1', stocktakeKind: 'close', staffName: 'An' });
     expect(parent.items[0]).toMatchObject({ quantity: -2, systemQuantity: 10, countedQuantity: 8 });
   });
@@ -28,7 +28,7 @@ describe('what a stocktake keeps', () => {
     const spec = COLLECTIONS.transactions;
     const exportVoucher = { id: 'T2', transactionNumber: 'PXK1', type: 'export', staffId: 'u1', createdAt: 'x', items: [{ productId: 'milk', batchCode: 'L1', quantity: 2 }] };
     const parent = spec.fromRow({ ...spec.toRow(exportVoucher, 'S1'), id: 'T2' });
-    spec.children!.attach([parent], new Map([['T2', spec.children!.toRows(exportVoucher, 'S1')]]));
+    spec.children![0].attach([parent], new Map([['T2', spec.children![0].toRows(exportVoucher, 'S1')]]));
     expect(parent.items[0].systemQuantity).toBeUndefined();
     expect(parent.items[0].countedQuantity).toBeUndefined();
   });

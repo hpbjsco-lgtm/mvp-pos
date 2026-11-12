@@ -15,6 +15,7 @@
 
 | Phiên bản | Ngày | Nội dung thay đổi |
 |---|---|---|
+| 5.1 | 2026-11-12 | Thêm F030: nhóm tùy chọn theo từng món (đường, đá, ghi chú nhanh; chọn một hoặc chọn nhiều), thay mức đường/đá cố định; hai bảng `product_option_groups`, `product_option_choices`; migration v22 (SCHEMA_VERSION 22); nhấp đúp vào bàn mở thực đơn; máy in qua lớp `PrinterTransport` và Bluetooth Web Serial (F022) |
 | 5.0 | 2026-11-11 | Cập nhật theo mã nguồn (SCHEMA_VERSION 21): máy chủ dữ liệu + đồng bộ offline-first + xung đột + cấp số chứng từ; in ESC/POS; trừ kho khi báo bếp, hoàn kho, kho âm, công tắc; kiểm kho + lịch sử + theo ca; CSV kho; ví điện tử; giá vốn, lợi nhuận, hao hụt; giảm giá theo món, kênh bán, công nợ; quên mật khẩu qua email. Tách đặc tả từng chức năng vào `features/` (F001–F029) |
 | 1.0 | 2026-07-02 | Bản đặc tả đầu tiên, mô tả hệ thống trên nền Firebase/Firestore (đã lỗi thời) |
 | 2.0 | 2026-08-13 | Viết lại toàn bộ theo cấu trúc BA chuẩn; cập nhật kiến trúc thực tế (SQLite local-first); bổ sung 6 chức năng mới: Đặt bàn trước, Tùy chọn món (size/đường/đá), Giảm giá & Thuế VAT, Lịch sử hóa đơn (hủy/in lại), Sổ quỹ ca làm việc, Dữ liệu mẫu demo |
@@ -65,7 +66,7 @@ SmartPOS là phần mềm quản lý bán hàng phục vụ đồng thời hai m
 - **Đa cửa hàng**: mọi bảng nghiệp vụ có `store_id`.
 - **Đăng nhập**: tài khoản và mật khẩu (băm PBKDF2-SHA256) lưu trong SQLite (máy chủ hoặc máy); quên mật khẩu qua email khi máy chủ có SMTP ([F029](features/F029-forgot-password.md)).
 - **Sao lưu**: máy chủ sao lưu định kỳ (mặc định 24 giờ, giữ 14 bản); khôi phục tạo "epoch" mới để các máy tải lại.
-- **Lược đồ**: `SCHEMA_VERSION = 21`; bảng đồng bộ riêng của thiết bị (`sync_state`, `sync_outbox`, `sync_row_base`) chỉ có trên app native.
+- **Lược đồ**: `SCHEMA_VERSION = 22`; bảng đồng bộ riêng của thiết bị (`sync_state`, `sync_outbox`, `sync_row_base`) chỉ có trên app native.
 - **Bảo mật (chưa xử lý, hoãn)**: API token nằm trong gói web, tài khoản sysadmin cứng, dữ liệu/bí mật trong git — xem [features/INDEX.md](features/INDEX.md) mục 4.
 
 ## 4. Đối tượng người dùng (Actors)
@@ -119,7 +120,7 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
 - Là *Thu ngân*, tôi muốn nhập giảm giá và thuế VAT cho hóa đơn khi khách có yêu cầu hoặc theo chính sách cửa hàng.
 
 **Quy tắc nghiệp vụ:**
-- **Tùy chọn món (mới):** áp dụng cho sản phẩm thuộc danh mục "Đồ uống" trong cửa hàng F&B. Mặc định khi thêm vào giỏ: Size M, Đường 100%, Đá 100%; nhân viên chỉnh trực tiếp trên từng dòng. Hai dòng cùng sản phẩm nhưng khác tùy chọn/ghi chú được tính là hai dòng riêng biệt.
+- **Tùy chọn món:** mỗi món F&B có các **nhóm tùy chọn** tự cấu hình (đường, đá, mức cay, ghi chú nhanh...); khi thêm vào giỏ, mỗi nhóm lấy lựa chọn mặc định (nếu có) và nhân viên chỉnh trực tiếp trên từng dòng. Món uống mới được điền sẵn nhóm Đường và Đá (0/30/50/70/100%, mặc định 100%), sửa hoặc xóa được. Xem mục 5.30 và [F030](features/F030-option-groups.md). Hai dòng cùng sản phẩm nhưng khác tùy chọn/ghi chú được tính là hai dòng riêng biệt.
 - **Giảm giá & Thuế VAT (mới):** công thức tính hóa đơn là `Tạm tính − Giảm giá = Số tiền chịu thuế`, `Số tiền chịu thuế × VAT% = Tiền thuế`, `Tổng cần thanh toán = Số tiền chịu thuế + Tiền thuế`. Giảm giá không được vượt quá Tạm tính. Điểm tích lũy được tính trên Tổng cần thanh toán sau cùng.
 - Bán lẻ: hệ thống tự chọn lô hàng theo nguyên tắc FIFO/FEFO (lô hết hạn sớm nhất được xuất trước); chặn bán nếu sản phẩm hết lô tồn kho.
 - F&B: chọn khách hàng và tích điểm loyalty ngay tại quầy; hỗ trợ thêm nhanh khách hàng mới.
@@ -184,7 +185,7 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
 
 **Quy tắc nghiệp vụ:**
 - Luồng trạng thái: `Chờ chế biến → Đang chế biến → Chờ bưng → Đã phục vụ`.
-- **Hiển thị tùy chọn món (mới):** mỗi thẻ món hiển thị badge Size/Đường/Đá nếu có.
+- **Hiển thị tùy chọn món:** mỗi thẻ món hiển thị size và các tùy chọn đã chọn (vd `Đường 50%, Đá 70%, Ít cay`).
 - Cảnh báo trực quan khi món chờ chế biến quá 10 phút.
 - Cho phép dọn hàng loạt các món đã "Đã phục vụ" để màn hình luôn gọn.
 
@@ -193,7 +194,7 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
 - **Bếp tự hủy món (nút *Hủy món*, có hộp xác nhận)** khi món còn *Chờ làm* hoặc *Đang nấu*: món bị bỏ khỏi đơn của bàn và nguyên liệu đã trừ được **hoàn lại đúng lô** (mục 5.23).
 - **Báo bếp trừ kho ngay** và in phiếu bếp (mục 5.22, 5.23).
 
-- **Lịch sử báo bếp (kiểu KiotViet, 2026-10-28):** nút 🕘 ở chân khung đơn (hoặc menu ⋯ → Lịch sử báo bếp) mở **ngăn bên phải** "LỊCH SỬ BÁO BẾP": mỗi lần bấm *Thông báo* là một mục gồm ngày giờ, *"<tên người> thông báo bếp"* và các món `+ 1 Tên món` kèm dòng phụ (size, `+ 1 topping`, `50% đường, 70% đá`, ghi chú trong ngoặc kép); món bị hủy sau đó hiện thành mục riêng `− 1 Tên món` (màu đỏ, ghi giờ + người hủy). Mới nhất ở trên; chỉ gồm phiếu bếp của đơn hiện tại (từ lúc mở bàn; Mang về / Giao đi: trong ngày). Mã: `utils/kitchenHistory.ts` (có test), `KitchenHistoryDialog` trong `TableDialogs.tsx`. Phiếu bếp lưu thêm `staffName`, `cancelledAt`, `cancelledBy` (migration v11); các món của cùng một lần báo bếp dùng chung mã lô.
+- **Lịch sử báo bếp (kiểu KiotViet, 2026-10-28):** nút 🕘 ở chân khung đơn (hoặc menu ⋯ → Lịch sử báo bếp) mở **ngăn bên phải** "LỊCH SỬ BÁO BẾP": mỗi lần bấm *Thông báo* là một mục gồm ngày giờ, *"<tên người> thông báo bếp"* và các món `+ 1 Tên món` kèm dòng phụ (size, `+ 1 topping`, tùy chọn như `Đường 50%, Đá 70%`, ghi chú trong ngoặc kép); món bị hủy sau đó hiện thành mục riêng `− 1 Tên món` (màu đỏ, ghi giờ + người hủy). Mới nhất ở trên; chỉ gồm phiếu bếp của đơn hiện tại (từ lúc mở bàn; Mang về / Giao đi: trong ngày). Mã: `utils/kitchenHistory.ts` (có test), `KitchenHistoryDialog` trong `TableDialogs.tsx`. Phiếu bếp lưu thêm `staffName`, `cancelledAt`, `cancelledBy` (migration v11); các món của cùng một lần báo bếp dùng chung mã lô.
 
 **Trạng thái:** ✅. Đặc tả chi tiết: [F004](features/F004-kitchen-display.md).
 
@@ -213,7 +214,7 @@ Chú thích trạng thái: ✅ Hoàn thiện · 🟡 Hoàn thiện một phần 
 - **Ảnh món (mới):** mỗi món/sản phẩm có thể tải ảnh lên từ thư viện hoặc camera thiết bị (khi thêm mới, hoặc chạm vào ảnh trên danh sách để đổi). Ảnh được thu nhỏ (cạnh dài tối đa 640px), nén JPEG và lưu trực tiếp trong SQLite (cột `image_url`, dạng data URL ~30-80KB/ảnh); hiển thị ở màn hình bán hàng và quản lý thực đơn. Mã: `src/utils/imageUpload.ts`.
 
 - **Size / mức giá tùy chỉnh theo từng món (F&B, mới 2026-10-27):** mọi món trong thực đơn đều có thể bật *Nhiều mức giá / size* (nút **Sửa món** trên thẻ món, hoặc khi thêm món mới): tự đặt tên size (vd Nhỏ, Vừa, Lớn, Tô đặc biệt) và **giá bán riêng cho từng size**. Size đầu tiên là mặc định (và là giá gốc `price` của món). Lưu ở `Product.sizes` (migration v10); logic ở `utils/sizes.ts` (có test). Màn Bán hàng: lưới món hiện *từ <giá thấp nhất>*; thêm món vào đơn dùng size mặc định; dòng món có nút chọn size kèm giá, đổi size thì đơn giá dòng đổi theo (cộng thêm topping nếu có). Size được ghi vào phiếu bếp, hóa đơn; doanh thu / sổ quỹ / báo cáo dùng đúng giá theo size. Món **không** khai báo size thì bán một giá như cũ (không còn nút S/M/L cố định; đường / đá vẫn chỉ có ở đồ uống). Cửa hàng mới có dữ liệu mẫu cà phê, trà đào, phở với size mẫu.
-- **Tạo / sửa món kiểu KiotViet + công thức nguyên liệu (F&B, mới 2026-10-28):** nút *Sửa món* / *+ Món* mở hộp **Tạo món** (`DishDialog.tsx`): tên món, nhóm món, **loại thực đơn** (Đồ ăn / Đồ uống / Dịch vụ / Khác — loại *Đồ uống* mới có mức đường / đá), mã món, ảnh; **Giá & Thuế** (một giá hoặc *Thiết lập giá* nhiều size) kèm *Lợi nhuận ròng dự kiến* và *Tỷ lệ giá vốn / giá bán*; **Chọn loại món**:
+- **Tạo / sửa món kiểu KiotViet + công thức nguyên liệu (F&B, mới 2026-10-28):** nút *Sửa món* / *+ Món* mở hộp **Tạo món** (`DishDialog.tsx`): tên món, nhóm món, **loại thực đơn** (Đồ ăn / Đồ uống / Dịch vụ / Khác — loại *Đồ uống* được điền sẵn nhóm Đường / Đá, xem mục 5.30), mã món, ảnh; **Giá & Thuế** (một giá hoặc *Thiết lập giá* nhiều size) kèm *Lợi nhuận ròng dự kiến* và *Tỷ lệ giá vốn / giá bán*; **Chọn loại món**:
   - *Món chế biến* — có **Thành phần nguyên liệu**: tìm và thêm nguyên vật liệu trong kho, nhập số lượng cho 1 phần món theo đơn vị cơ bản hoặc đơn vị quy đổi; hệ thống **tự tính giá vốn** (Σ giá vốn nguyên liệu × số lượng) và **tự trừ kho** khi thanh toán.
   - *Món thường* — hàng nhập sẵn, trừ tồn trực tiếp trên chính món nếu món có quản lý lô.
   - **Topping (Món thêm):** bật để tích chọn các topping gắn cho món (cập nhật ngược lại danh sách món của topping); *Cho phép bán*.
@@ -461,7 +462,7 @@ Hàng đợi thay đổi trên máy, đẩy nhóm bản ghi (cha + dòng con), t
 
 ### 5.22. In hóa đơn, phiếu tạm tính và phiếu bếp bằng ESC/POS
 
-In thẳng máy in nhiệt USB (Chrome/Edge, WebUSB), khổ 58/80mm, dịch lề, hai máy in (hóa đơn và bếp), hàng đợi theo từng máy in; quay lại hộp in trình duyệt nếu không có máy in. Chi tiết, nội dung phiếu, thông báo lỗi: [F022](features/F022-thermal-printing.md).
+In thẳng máy in nhiệt USB (Chrome/Edge, WebUSB) hoặc Bluetooth Classic (Web Serial, chưa in thử với máy thật), khổ 58/80mm, dịch lề, hai máy in (hóa đơn và bếp), hàng đợi theo từng máy in; quay lại hộp in trình duyệt nếu không có máy in. Chi tiết, nội dung phiếu, thông báo lỗi: [F022](features/F022-thermal-printing.md).
 **Trạng thái:** ✅ về mã và test; chưa kiểm chứng với nhiều dòng máy in. App điện thoại chưa in trực tiếp được.
 
 ---
@@ -515,6 +516,16 @@ Mã 6 số gửi qua SMTP của máy chủ (hiệu lực 15 phút, tối đa 5 l
 
 ---
 
+### 5.30. Nhóm tùy chọn của món và nhấp đúp mở thực đơn
+
+**Mô tả:** Mỗi món tự cấu hình các nhóm tùy chọn (đường, đá, mức cay, ghi chú nhanh) và các lựa chọn trong nhóm; thu ngân chọn nhanh khi gọi món, kết quả hiện trên phiếu bếp, hóa đơn và lịch sử. Nhóm chọn một (đường, đá) hoặc chọn nhiều (ghi chú nhanh). Nhấp đúp vào bàn để vào thực đơn gọi món.
+
+**Dữ liệu:** hai bảng `product_option_groups`, `product_option_choices` (bảng con của `products`, đồng bộ cùng món); cột `options` (JSON) trên `cart_items`, `order_items`, `kitchen_items`; migration v22 chuyển đường/đá cũ thành `options` và gán Đường/Đá cho món uống đang có. Chi tiết, if/else, trường hợp biên: [F030](features/F030-option-groups.md).
+
+**Trạng thái:** ✅ về mã và test tự động; chưa chạy thử trên thiết bị thật.
+
+---
+
 ---
 
 ## 6. Yêu cầu phi chức năng
@@ -548,6 +559,7 @@ Mã 6 số gửi qua SMTP của máy chủ (hiệu lực 15 phút, tối đa 5 l
 - In ESC/POS, máy in bếp riêng (F022).
 - Trừ kho khi báo bếp, hoàn kho khi bếp hủy món, kho âm, công tắc tự động trừ kho (F023); kiểm kho + lịch sử + kiểm theo ca (F024); CSV kho (F025).
 - Ví điện tử (F026); giá vốn, lợi nhuận, hao hụt (F027); giảm giá theo món, kênh bán, công nợ (F028); quên mật khẩu qua email (F029).
+- Nhóm tùy chọn theo món (đường, đá, ghi chú nhanh) và nhấp đúp bàn mở thực đơn (F030); máy in qua `PrinterTransport` và Bluetooth Web Serial (F022).
 - Từ đợt trước: giao diện bán hàng F&B và phân quyền 5 vai trò, đăng nhập bằng tên tài khoản, sysadmin cứng, dữ liệu mẫu, giao diện PC theo Figma.
 - Kiểm thử tự động: Vitest, hơn 500 test, log ở `logs/test-latest.log`; `tsc` sạch; build web và `assembleDebug` Android qua JDK của Android Studio.
 
@@ -556,7 +568,7 @@ Mã 6 số gửi qua SMTP của máy chủ (hiệu lực 15 phút, tối đa 5 l
 
 **Thứ tự triển khai cần nhớ**
 1. Cập nhật máy chủ (có `nodemailer`, bộ đếm `KK`, các cột mới) và biến SMTP nếu dùng quên mật khẩu.
-2. Mở bản web **một lần** để chạy migration v19–v21 trên CSDL máy chủ.
+2. Mở bản web **một lần** để chạy migration v19–v22 trên CSDL máy chủ.
 3. Sau đó mới cho điện thoại đồng bộ (nếu không, push bị lỗi 400 vì cột chưa có).
 
 **Cố ý giữ nguyên (chưa xóa) theo yêu cầu chủ dự án**

@@ -21,6 +21,8 @@ export const CHILD_TABLE_PARENTS: Readonly<Record<string, { parentTable: string;
   order_items: { parentTable: 'orders', foreignKey: 'order_id' },
   inventory_transaction_items: { parentTable: 'inventory_transactions', foreignKey: 'transaction_id' },
   cart_items: { parentTable: 'carts', foreignKey: 'cart_id' },
+  product_option_groups: { parentTable: 'products', foreignKey: 'product_id' },
+  product_option_choices: { parentTable: 'products', foreignKey: 'product_id' },
 });
 
 /** Prefix of the names of the change-tracking triggers. */
@@ -110,6 +112,13 @@ export const DEVICE_MIGRATIONS: { version: number; statements: string[] }[] = [
         base_rev    INTEGER NOT NULL,
         PRIMARY KEY (table_name, row_id)
       );`,
+      ...buildOutboxTriggers(),
+    ],
+  },
+  {
+    version: 1002,
+    statements: [
+      /* Triggers for the tables added after 1001 (option groups and choices). The others already exist and are kept by IF NOT EXISTS. */
       ...buildOutboxTriggers(),
     ],
   },

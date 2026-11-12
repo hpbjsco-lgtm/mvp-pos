@@ -15,7 +15,7 @@ Tìm lại hóa đơn cũ, in lại, và hủy hóa đơn nhập sai sao cho kho
 Hai khung: trái **Lịch sử hóa đơn** (danh sách), phải **Chi tiết hóa đơn**.
 - Tìm: "Tìm số hóa đơn, khách, thu ngân, số bàn...". Lọc trạng thái: *Tất cả / Hoàn tất / Đã hủy*.
 - Thẻ trong danh sách: `#<số hóa đơn>` (gạch ngang nếu hủy), nhãn *Hoàn thành* / *Đã hủy*, bàn hoặc tên khách ("Khách vãng lai" nếu trống), ngày giờ + "- Bởi <thu ngân>", tổng tiền.
-- Chi tiết: số hóa đơn, phương thức thanh toán (liệt kê từng khoản `Tiền mặt 50.000đ + Chuyển khoản …`), ngày, thu ngân, bàn, hình thức (*Mang về* nếu `orderType = takeaway`, *Ăn tại bàn* nếu có bàn, còn lại *Bán trực tiếp*), khách; bảng món (tên, tùy chọn: size/đường/đá/ghi chú/topping, đơn giá, SL, thành tiền) và tổng.
+- Chi tiết: số hóa đơn, phương thức thanh toán (liệt kê từng khoản `Tiền mặt 50.000đ + Chuyển khoản …`), ngày, thu ngân, bàn, hình thức (*Mang về* nếu `orderType = takeaway`, *Ăn tại bàn* nếu có bàn, còn lại *Bán trực tiếp*), khách; bảng món (tên, tùy chọn: size/nhóm tùy chọn (F030)/ghi chú/topping, đơn giá, SL, thành tiền) và tổng.
 - Danh sách trống: "Không tìm thấy hóa đơn nào"; chưa chọn: "Chọn một hóa đơn để xem chi tiết".
 - Hóa đơn đã hủy **vẫn hiển thị** (gạch ngang, trạng thái "Đã hủy") để đối soát.
 

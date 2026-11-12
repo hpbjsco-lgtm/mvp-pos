@@ -12,6 +12,7 @@ import QrCodeImage from './QrCodeImage';
 import { TransferInfo } from '../utils/transferInfo';
 import { buildReceiptDocument } from '../printing/receiptDocument';
 import { canPrintDirectly, printReceipt } from '../printing/receiptPrinting';
+import { optionsText } from '../utils/productOptions';
 
 interface ReceiptThermalProps {
   order: Order | null;
@@ -171,7 +172,7 @@ export default function ReceiptThermal({
               <div className="border-t border-dashed border-slate-300 my-1"></div>
 
               {order.items.map((item, idx) => {
-                const modifiers = [item.size, item.sugarLevel && `Đường ${item.sugarLevel}`, item.iceLevel && `Đá ${item.iceLevel}`]
+                const modifiers = [item.size, optionsText(item.options)]
                   .filter(Boolean)
                   .join(' - ');
                 return (

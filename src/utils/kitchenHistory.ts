@@ -4,6 +4,7 @@
  */
 
 import { KitchenItem, KitchenStatus } from '../types';
+import { optionsText } from './productOptions';
 
 export interface HistoryLine {
   sign: '+' | '-';
@@ -33,8 +34,8 @@ function detailsOf(k: KitchenItem): string[] {
   const out: string[] = [];
   if (k.size) out.push(k.size);
   out.push(...formatToppingLines(k.toppings));
-  const mods = [k.sugarLevel && `${k.sugarLevel} đường`, k.iceLevel && `${k.iceLevel} đá`].filter(Boolean).join(', ');
-  if (mods) out.push(mods);
+  const chosen = optionsText(k.options);
+  if (chosen) out.push(chosen);
   if (k.note) out.push(`"${k.note}"`);
   return out;
 }

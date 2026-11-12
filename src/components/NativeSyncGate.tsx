@@ -19,7 +19,7 @@ type GatePhase = { kind: 'checking' } | { kind: 'downloading'; progress: Initial
 
 /** Names of tables on the loading screen. */
 const TABLE_LABELS: Record<string, string> = {
-  stores: 'cửa hàng', users: 'tài khoản', zones: 'khu vực', dining_tables: 'bàn', products: 'món và hàng hóa',
+  stores: 'cửa hàng', users: 'tài khoản', zones: 'khu vực', dining_tables: 'bàn', products: 'món và hàng hóa', product_option_groups: 'tùy chọn của món', product_option_choices: 'tùy chọn của món',
   suppliers: 'nhà cung cấp', customers: 'khách hàng', bank_accounts: 'tài khoản ngân hàng', inventory_batches: 'lô hàng',
   inventory_transactions: 'phiếu kho', inventory_transaction_items: 'phiếu kho', orders: 'hóa đơn', order_items: 'hóa đơn',
   kitchen_items: 'phiếu bếp', carts: 'đơn đang mở', cart_items: 'đơn đang mở', attendance: 'chấm công',

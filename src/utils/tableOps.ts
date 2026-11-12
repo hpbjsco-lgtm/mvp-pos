@@ -13,6 +13,7 @@
 
 import { DiningTable, Product, TableStatus } from '../types';
 import { lineUnitPrice, toppingSignature } from './toppings';
+import { optionsSignature } from './productOptions';
 import type { CartLine } from '../components/POSScreen';
 
 export type CartMap = Record<string, CartLine[]>;
@@ -26,8 +27,8 @@ export const virtualCartLabel = (id: string) =>
   id === TAKEAWAY_ID ? 'Mang về' : id === DELIVERY_ID ? 'Giao đi' : '';
 
 /** Khoá định danh 1 dòng giỏ hàng: cùng sản phẩm nhưng khác tuỳ chọn/ghi chú -> là dòng khác nhau. */
-export const lineKey = (i: Pick<CartLine, 'productId' | 'note' | 'size' | 'sugarLevel' | 'iceLevel' | 'toppings'>) =>
-  `${i.productId}|${i.note}|${i.size || ''}|${i.sugarLevel || ''}|${i.iceLevel || ''}|${toppingSignature(i.toppings)}`;
+export const lineKey = (i: Pick<CartLine, 'productId' | 'note' | 'size' | 'options' | 'toppings'>) =>
+  `${i.productId}|${i.note}|${i.size || ''}|${optionsSignature(i.options)}|${toppingSignature(i.toppings)}`;
 
 /** Bàn chính của nhóm gộp (chính nó nếu không gộp / là bàn ảo). */
 export function resolvePrimaryId(tables: DiningTable[], id: string): string {

@@ -5,10 +5,12 @@
 
 import React, { useMemo, useState } from 'react';
 import { Plus, Trash2, X } from 'lucide-react';
-import { Product, ProductSize, RecipeItem } from '../types';
+import { Product, ProductOptionGroup, ProductSize, RecipeItem } from '../types';
 import { fileToResizedDataUrl } from '../utils/imageUpload';
 import { cleanSizes, hasSizes } from '../utils/sizes';
 import { isDrinkProduct, recipeCost } from '../utils/recipes';
+import { defaultDrinkOptionGroups, validateOptionGroups } from '../utils/productOptions';
+import OptionGroupsEditor from './OptionGroupsEditor';
 import RecipeEditor from './RecipeEditor';
 
 interface DishDialogProps {
@@ -31,13 +33,16 @@ const money = (n: number) => Math.round(n).toLocaleString('vi-VN');
 
 /**
  * Tạo / sửa món (F&B): thông tin, giá (một giá hoặc nhiều size), loại món (chế biến / thường),
- * thành phần nguyên liệu (trừ kho khi bán + tự tính giá vốn, lợi nhuận) và gắn topping.
+ * thành phần nguyên liệu (trừ kho khi bán + tự tính giá vốn, lợi nhuận), nhóm tùy chọn khi bán (đường, đá, ghi chú nhanh...)
+ * và gắn topping.
  */
 export default function DishDialog({ dish, menuProducts, ingredients, onSave, onClose }: DishDialogProps) {
   const dishes = useMemo(() => menuProducts.filter(p => !p.isTopping), [menuProducts]);
   const toppings = useMemo(() => menuProducts.filter(p => p.isTopping), [menuProducts]);
   const categories = useMemo(() => [...new Set<string>(dishes.map(d => d.category).filter(Boolean))], [dishes]);
 
+  /** Id of the dish being edited, or the id a new dish will get; the default option groups are built from it. */
+  const [productId, setProductId] = useState(() => dish?.id ?? `P-${Date.now()}`);
   const [name, setName] = useState(dish?.name || '');
   const [category, setCategory] = useState(dish?.category || '');
   const [menuType, setMenuType] = useState<NonNullable<Product['menuType']>>(dish?.menuType || (isDrinkProduct(dish) ? 'drink' : 'food'));
@@ -50,6 +55,12 @@ export default function DishDialog({ dish, menuProducts, ingredients, onSave, on
   const [recipe, setRecipe] = useState<RecipeItem[]>(dish?.recipe || []);
   const [toppingOn, setToppingOn] = useState(!!dish && toppings.some(t => (t.toppingFor || []).includes(dish.id)));
   const [toppingIds, setToppingIds] = useState<string[]>(dish ? toppings.filter(t => (t.toppingFor || []).includes(dish.id)).map(t => t.id) : []);
+  const initialMenuType = dish?.menuType || (isDrinkProduct(dish) ? 'drink' : 'food');
+  /** A new drink starts with Sugar and Ice (the person can change or delete them); an existing dish shows what it has. */
+  const [optionGroups, setOptionGroups] = useState<ProductOptionGroup[]>(() => dish?.optionGroups?.map(group => ({ ...group, choices: group.choices.map(choice => ({ ...choice })) }))
+    ?? (initialMenuType === 'drink' ? defaultDrinkOptionGroups(productId) : []));
+  /** True once the person edited the groups by hand; from then on changing the menu type no longer replaces them. */
+  const [optionsEdited, setOptionsEdited] = useState(false);
   const [allowSale, setAllowSale] = useState(dish?.isAvailable ?? true);
   const [showOnPos, setShowOnPos] = useState(dish?.isActive !== false);
   const [error, setError] = useState('');
@@ -58,6 +69,23 @@ export default function DishDialog({ dish, menuProducts, ingredients, onSave, on
   const cost = kind === 'prepared' && recipe.length > 0 ? recipeCost(recipe, ingredients) : dish?.cost || 0;
   const hasCost = kind === 'prepared' && recipe.length > 0;
   const profit = basePrice - cost;
+
+  /**
+   * Changes the menu type. For a new dish whose option groups were not edited, the groups follow the type:
+   * a drink gets Sugar and Ice, any other type gets none.
+   *
+   * @param next The chosen type.
+   */
+  const changeMenuType = (next: NonNullable<Product['menuType']>) => {
+    setMenuType(next);
+    if (!dish && !optionsEdited) setOptionGroups(next === 'drink' ? defaultDrinkOptionGroups(productId) : []);
+  };
+
+  /** Keeps the groups as edited by hand. */
+  const editOptionGroups = (groups: ProductOptionGroup[]) => {
+    setOptionGroups(groups);
+    setOptionsEdited(true);
+  };
 
   const toggleSizes = () => {
     if (!sizesOn && sizes.length === 0) setSizes([{ name: 'Nhỏ', price }, { name: 'Lớn', price: price + 10000 }]);
@@ -69,9 +97,11 @@ export default function DishDialog({ dish, menuProducts, ingredients, onSave, on
     const cleaned = sizesOn ? cleanSizes(sizes) : [];
     if (sizesOn && cleaned.length === 0) { setError('Vui lòng nhập ít nhất một size (tên và giá).'); return; }
     if (kind === 'prepared' && recipe.some(r => !(r.quantity > 0))) { setError('Số lượng của mỗi nguyên liệu phải lớn hơn 0.'); return; }
+    const optionError = validateOptionGroups(optionGroups);
+    if (optionError) { setError(optionError); return; }
 
     const product: Product = {
-      ...(dish || { id: `P-${Date.now()}`, createdAt: new Date().toISOString() }),
+      ...(dish || { id: productId, createdAt: new Date().toISOString() }),
       sku: sku.trim() || dish?.sku || `MN-${Date.now().toString().slice(-6)}`,
       name: name.trim(),
       category: category.trim() || (menuType === 'drink' ? 'Đồ uống' : menuType === 'food' ? 'Món ăn' : 'Khác'),
@@ -82,12 +112,18 @@ export default function DishDialog({ dish, menuProducts, ingredients, onSave, on
       sizes: cleaned.length > 0 ? cleaned : undefined,
       dishKind: kind,
       recipe: kind === 'prepared' && recipe.length > 0 ? recipe : undefined,
+      optionGroups: optionGroups.length > 0
+        ? optionGroups.map(group => ({ ...group, name: group.name.trim(), choices: group.choices.map(choice => ({ ...choice, label: choice.label.trim() })) }))
+        : undefined,
       isAvailable: allowSale,
       isActive: showOnPos,
     };
     onSave(product, toppingOn ? toppingIds : []);
     if (andNew) {
+      const nextId = `P-${Date.now()}`;
+      setProductId(nextId);
       setName(''); setSku(''); setImageUrl(''); setPrice(0); setSizesOn(false); setSizes([]); setRecipe([]); setToppingIds([]); setToppingOn(false); setError('');
+      setOptionGroups(menuType === 'drink' ? defaultDrinkOptionGroups(nextId) : []); setOptionsEdited(false);
     } else onClose();
   };
 
@@ -118,7 +154,7 @@ export default function DishDialog({ dish, menuProducts, ingredients, onSave, on
                   <input list="dish-categories" value={category} onChange={e => setCategory(e.target.value)} placeholder="Chọn hoặc nhập nhóm mới" className="m3-input" />
                   <datalist id="dish-categories">{categories.map(c => <option key={c} value={c} />)}</datalist></div>
                 <div className="space-y-1"><label className={lab}>Loại thực đơn</label>
-                  <select value={menuType} onChange={e => setMenuType(e.target.value as any)} className="m3-input">
+                  <select value={menuType} onChange={e => changeMenuType(e.target.value as NonNullable<Product['menuType']>)} className="m3-input">
                     {MENU_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}</select></div>
               </div>
               <div className="space-y-1 max-w-xs"><label className={lab}>Mã món</label>
@@ -183,6 +219,9 @@ export default function DishDialog({ dish, menuProducts, ingredients, onSave, on
           </div>
 
           {kind === 'prepared' && <RecipeEditor ingredients={ingredients} recipe={recipe} onChange={setRecipe} />}
+
+          {/* Tùy chọn khi bán: đường, đá, ghi chú nhanh... */}
+          <OptionGroupsEditor groups={optionGroups} onChange={editOptionGroups} />
 
           {/* Topping */}
           <div className="rounded-xl border border-outline-variant p-4 space-y-3">

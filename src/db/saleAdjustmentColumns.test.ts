@@ -17,9 +17,9 @@ describe('discounts, channels and debt kept with the data', () => {
     };
     const row = spec.toRow(order, 'S1');
     expect(row).toMatchObject({ line_discount_amount: 10000, channel_name: 'GrabFood', commission_percent: 25, commission_amount: 17500 });
-    expect(spec.children!.toRows(order, 'S1')[0]).toMatchObject({ discount: 10000 });
+    expect(spec.children![0].toRows(order, 'S1')[0]).toMatchObject({ discount: 10000 });
     const parent = spec.fromRow({ ...row, id: 'o1' });
-    spec.children!.attach([parent], new Map([['o1', spec.children!.toRows(order, 'S1')]]));
+    spec.children![0].attach([parent], new Map([['o1', spec.children![0].toRows(order, 'S1')]]));
     expect(parent).toMatchObject({ lineDiscountAmount: 10000, channelName: 'GrabFood', commissionPercent: 25, commissionAmount: 17500 });
     expect(parent.items[0].discount).toBe(10000);
   });

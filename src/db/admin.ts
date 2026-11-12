@@ -155,7 +155,7 @@ export async function adminDeleteUser(uid: string): Promise<void> {
  */
 export async function wipeAllData(): Promise<void> {
   // Bảng con trước, bảng cha sau (các bảng có khóa ngoại ON DELETE CASCADE)
-  const children = ['order_items', 'inventory_transaction_items', 'cart_items'];
+  const children = ['order_items', 'inventory_transaction_items', 'cart_items', 'product_option_groups', 'product_option_choices'];
   const tables = [...children, ...SYNCED_TABLES.filter(t => !children.includes(t)), 'sync_outbox', 'sync_state'];
   await batch(tables.map(t => buildHardDelete(t, '1 = 1', [])));
   await setMeta('session_uid', '');

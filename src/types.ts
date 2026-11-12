@@ -41,6 +41,33 @@ export interface ProductSize {
   price: number;
 }
 
+/** One value a customer can pick in an option group (for example "50%" in "Sugar"). */
+export interface ProductOptionChoice {
+  id: string;
+  label: string;
+  /** Picked automatically when the dish is added to an order. */
+  isDefault: boolean;
+}
+
+/** A group of choices set up on a dish (sugar, ice, spice level, quick notes...). */
+export interface ProductOptionGroup {
+  id: string;
+  name: string;
+  /** False: exactly one choice at a time (sugar, ice). True: any number of choices (quick notes such as "No onion"). */
+  allowMultiple: boolean;
+  choices: ProductOptionChoice[];
+}
+
+/** A choice picked on an order line. The names are copied, so later changes to the dish do not change old orders. */
+export interface SelectedOption {
+  /** Name of the group. */
+  group: string;
+  /** Label of the chosen value. */
+  choice: string;
+  /** True when the group allows several choices; such a choice is shown without the group name. */
+  multiple?: boolean;
+}
+
 export interface Product {
   id: string;
   sku: string; // Barcode or code (used for QR/Barcode scanner)
@@ -52,6 +79,8 @@ export interface Product {
   imageUrl?: string; // Ảnh sản phẩm hiển thị trên lưới bán hàng (POS)
   /** Các size / biến thể giá tùy chỉnh của món (vd Nhỏ 29.000, Lớn 35.000). Size đầu tiên là mặc định; `price` = giá size mặc định. */
   sizes?: ProductSize[];
+  /** Option groups of the dish (sugar, ice, quick notes...); absent or empty when the dish has none. */
+  optionGroups?: ProductOptionGroup[];
   /** Topping: bán kèm món chính (không hiện trên lưới món), cộng thêm vào giá của dòng món. */
   isTopping?: boolean;
   toppingKind?: 'prepared' | 'regular' | 'made'; // chế biến / thường / sản xuất
@@ -115,8 +144,8 @@ export interface OrderItem {
   batchCode?: string;
   note?: string;
   size?: string; // Size đồ uống (Nhỏ/Vừa/Lớn...)
-  sugarLevel?: string; // Mức đường (0%/30%/50%/70%/100%)
-  iceLevel?: string; // Mức đá (0%/30%/50%/70%/100%)
+  /** Options chosen for this line (sugar, ice, spice level...), as they were when the order was made. */
+  options?: SelectedOption[];
   /** Topping đã chọn kèm món (giá `price` của dòng đã gồm tiền topping). */
   toppings?: { name: string; price: number; quantity: number }[];
 }
@@ -270,8 +299,8 @@ export interface KitchenItem {
   status: KitchenStatus; // Trạng thái chế biến món ăn cho bếp
   note?: string; // Ghi chú đặc biệt (ví dụ: Không cay, nhiều đá)
   size?: string;
-  sugarLevel?: string;
-  iceLevel?: string;
+  /** Options chosen for this ticket (sugar, ice, spice level...), as they were when it was sent. */
+  options?: SelectedOption[];
   toppings?: string; // Topping kèm món, dạng chữ (vd "Trân châu đen x1, Thạch dừa x2")
   staffName?: string; // Người bấm báo bếp
   cancelledAt?: string; // Thời điểm hủy món (khi status = cancelled)

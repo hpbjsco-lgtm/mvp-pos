@@ -14,7 +14,7 @@ Khai báo món (F&B) hoặc hàng hóa (bán lẻ): tên, giá, giá vốn, nhó
 ## 2. Khái niệm
 | Thuật ngữ | Ý nghĩa |
 |---|---|
-| Loại thực đơn (`menu_type`) | `food` (Đồ ăn), `drink` (Đồ uống), `service` (Dịch vụ), khác. **Chỉ `drink`** có mức đường/đá. Món cũ chưa khai báo: dựa vào nhóm "Đồ uống" (`isDrinkProduct`) |
+| Loại thực đơn (`menu_type`) | `food` (Đồ ăn), `drink` (Đồ uống), `service` (Dịch vụ), khác. Loại `drink` được điền sẵn nhóm Đường và Đá khi tạo món (nhóm tùy chọn xem F030, sửa/xóa được từng món). Món cũ chưa khai báo: dựa vào nhóm "Đồ uống" (`isDrinkProduct`) |
 | Loại món (`dish_kind`) | `prepared` (chế biến, có công thức), `regular` (thường, hàng nhập sẵn) |
 | Topping | Một `Product` có `is_topping = 1`; `topping_kind` = `prepared` / `regular` / `made` (sản xuất); `topping_for` = danh sách id món được gắn |
 | Size | Danh sách `{name, price}`; size đầu tiên là mặc định và là `price` gốc |

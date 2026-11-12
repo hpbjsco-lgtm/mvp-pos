@@ -10,7 +10,7 @@ import {
   LayoutGrid, UtensilsCrossed, Landmark, ShoppingCart, ArrowRight,
   ArrowLeft, MoreVertical, Users, Timer, CalendarClock, Link2, History
 } from 'lucide-react';
-import { BankAccount, InventoryTransaction, InventoryTransactionType, PaymentPart, Product, DiningTable, Zone, KitchenItem, Order, PaymentMethod, TableStatus, KitchenStatus, InventoryBatch, Customer, SalesChannel, StockPick } from '../types';
+import { SelectedOption, BankAccount, InventoryTransaction, InventoryTransactionType, PaymentPart, Product, DiningTable, Zone, KitchenItem, Order, PaymentMethod, TableStatus, KitchenStatus, InventoryBatch, Customer, SalesChannel, StockPick } from '../types';
 import TableMap from './TableMap';
 import TableBoard from './TableBoard';
 import KiotTableGrid from './KiotTableGrid';
@@ -36,7 +36,7 @@ import { categoryPlaceholderColor } from '../utils/categoryColor';
 import { useMediaQuery } from '../utils/useMediaQuery';
 import { changeTopping, lineUnitPrice, toppingsFor, toppingsText } from '../utils/toppings';
 import { defaultSize, hasSizes, priceLabel } from '../utils/sizes';
-import { isDrinkProduct } from '../utils/recipes';
+import { clearGroup, defaultSelections, optionsText, toggleSelection } from '../utils/productOptions';
 import { lineUnitCost, orderCost } from '../utils/costing';
 import { clampLineDiscount, commissionOf } from '../utils/saleAdjustments';
 import { sortByBestSeller } from '../utils/salesRanking';
@@ -50,18 +50,14 @@ export interface CartLine {
   quantity: number;
   note: string;
   size?: string;
-  sugarLevel?: string;
-  iceLevel?: string;
+  /** Options picked on the line (sugar, ice, quick notes...), from the option groups of the dish. */
+  options?: SelectedOption[];
   /** Số lượng đã báo bếp; lần báo bếp sau chỉ gửi phần chênh lệch (quantity - sentQuantity). */
   sentQuantity?: number;
   /** Topping chọn kèm món (mỗi phần món có cùng tập topping). */
   toppings?: { productId: string; quantity: number }[];
 }
 
-const SUGAR_OPTIONS = ['0%', '30%', '50%', '70%', '100%'];
-const ICE_OPTIONS = ['0%', '30%', '50%', '70%', '100%'];
-const DEFAULT_SUGAR = '100%';
-const DEFAULT_ICE = '100%';
 
 interface POSScreenProps {
   simStoreType: 'fnb' | 'retail';
@@ -286,12 +282,11 @@ export default function POSScreen({
       return;
     }
 
-    // Đồ uống mặc định có size/đường/đá -> nhân viên chỉnh lại trực tiếp trên dòng giỏ hàng
-    const isDrink = simStoreType === 'fnb' && isDrinkProduct(product);
-    // Món có size tùy chỉnh: mặc định size đầu tiên; đồ uống có thêm mức đường / đá
+    // Món có size tùy chỉnh: mặc định size đầu tiên; các nhóm tùy chọn của món (đường, đá...) lấy lựa chọn mặc định
+    const defaultOptions = simStoreType === 'fnb' ? defaultSelections(product) : [];
     const mods = {
       ...(simStoreType === 'fnb' && hasSizes(product) ? { size: defaultSize(product) } : {}),
-      ...(isDrink ? { sugarLevel: DEFAULT_SUGAR, iceLevel: DEFAULT_ICE } : {})
+      ...(defaultOptions.length > 0 ? { options: defaultOptions } : {})
     };
 
     // Bàn đã có khách đặt trước & đây là món đầu tiên của đơn -> yêu cầu nhân viên xác nhận
@@ -543,8 +538,8 @@ export default function POSScreen({
     playBeep(true);
   };
 
-  /** Shows a size / sugar / ice / note edit of a line already sent to the kitchen on the kitchen screen too. */
-  const updateKitchenForLineEdit = (line: CartLine, field: KitchenEditableField, value: string) => {
+  /** Shows a size / options / note edit of a line already sent to the kitchen on the kitchen screen too. */
+  const updateKitchenForLineEdit = <F extends KitchenEditableField>(line: CartLine, field: F, value: KitchenItem[F]) => {
     if (simStoreType !== 'fnb' || (line.sentQuantity || 0) <= 0) return;
     changeKitchenItems(items => applyLineEditToKitchen(items, kitchenTicketBelongsToLine(line), field, value));
   };
@@ -564,14 +559,76 @@ export default function POSScreen({
     playBeep(true);
   };
 
-  // Cập nhật size / mức đường / mức đá của 1 dòng đồ uống trong giỏ
-  const handleUpdateModifier = (item: CartLine, field: 'size' | 'sugarLevel' | 'iceLevel', value: string) => {
+  // Cập nhật size của 1 dòng món trong giỏ
+  const handleUpdateModifier = (item: CartLine, field: 'size', value: string) => {
     updateKitchenForLineEdit(item, field, value);
     setSimCarts(prev => {
       const prevCart = prev[currentCartId] || [];
       const targetKey = lineKey(item);
       const nextCart = prevCart.map(i => (lineKey(i) === targetKey ? { ...i, [field]: value } : i));
       return { ...prev, [currentCartId]: nextCart };
+    });
+  };
+
+  /**
+   * Replaces the options of one cart line (also on its open kitchen tickets).
+   *
+   * @param item The line before the change.
+   * @param options The new options, or undefined for none.
+   */
+  const handleUpdateOptions = (item: CartLine, options: SelectedOption[] | undefined) => {
+    updateKitchenForLineEdit(item, 'options', options);
+    setSimCarts(prev => {
+      const prevCart = prev[currentCartId] || [];
+      const targetKey = lineKey(item);
+      const nextCart = prevCart.map(i => (lineKey(i) === targetKey ? { ...i, options } : i));
+      return { ...prev, [currentCartId]: nextCart };
+    });
+    playBeep(true);
+  };
+
+  /**
+   * Option groups of a dish on a cart line: a drop-down for a single-choice group, buttons for a multiple-choice group.
+   * Nothing is shown outside F&B or when the dish has no groups.
+   *
+   * @param item The cart line.
+   * @returns The controls, or null.
+   */
+  const renderOptionPickers = (item: CartLine) => {
+    const prod = simProducts.find(p => p.id === item.productId);
+    if (simStoreType !== 'fnb' || !prod?.optionGroups?.length) return null;
+    return prod.optionGroups.map(group => {
+      const picked = (item.options ?? []).filter(selection => selection.group === group.name).map(selection => selection.choice);
+      if (group.allowMultiple) {
+        return (
+          <div key={group.id} className="inline-flex flex-wrap items-center gap-1" title={group.name}>
+            {group.choices.map(choice => (
+              <button
+                key={choice.id}
+                type="button"
+                onClick={() => handleUpdateOptions(item, toggleSelection(item.options, group, choice.label))}
+                className={`min-h-8 px-2.5 rounded-lg text-sm font-bold border cursor-pointer transition-colors ${
+                  picked.includes(choice.label) ? 'bg-primary text-on-primary border-primary' : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant hover:bg-surface-container-high'
+                }`}
+              >
+                {choice.label}
+              </button>
+            ))}
+          </div>
+        );
+      }
+      return (
+        <select
+          key={group.id}
+          value={picked[0] ?? ''}
+          onChange={(e) => handleUpdateOptions(item, e.target.value === '' ? clearGroup(item.options, group.name) : toggleSelection(clearGroup(item.options, group.name), group, e.target.value))}
+          className="min-h-8 px-2 rounded-lg text-sm font-bold border border-outline-variant bg-surface-container-lowest text-on-surface-variant"
+          aria-label={group.name}
+        >
+          <option value="">{group.name}: không chọn</option>
+          {group.choices.map(choice => <option key={choice.id} value={choice.label}>{group.name} {choice.label}</option>)}
+        </select>
+      );
     });
   };
 
@@ -709,8 +766,7 @@ export default function POSScreen({
         }),
         note: line.note || undefined,
         size: line.size,
-        sugarLevel: line.sugarLevel,
-        iceLevel: line.iceLevel
+        options: line.options
       };
     });
     setProvisionalOrder({
@@ -753,6 +809,18 @@ export default function POSScreen({
     }
     // Máy tính: đơn hiện bên phải; chỉ tự mở thực đơn khi bật ô "Mở thực đơn khi chọn bàn"
     if (openMenuOnSelect) setFnbLeftTab('menu');
+  };
+
+  /**
+   * Double click on a table: selects it and opens the menu to add dishes (mobile: the menu step; desktop: the menu tab).
+   * The two clicks of a double click have already selected the table, so no beep is played here.
+   *
+   * @param id Table id, or the id of the takeaway / delivery cart.
+   */
+  const handleOpenTableMenu = (id: string) => {
+    setSimSelectedTableId(id);
+    if (isDesktop) setFnbLeftTab('menu');
+    else setMobileStep('menu');
   };
 
   // Barcode Scanner Simulator
@@ -895,8 +963,7 @@ export default function POSScreen({
         status: KitchenStatus.PENDING,
         note: item.note || "",
         size: item.size,
-        sugarLevel: item.sugarLevel,
-        iceLevel: item.iceLevel,
+        options: item.options,
         toppings: toppingsText(item, simProducts) || undefined,
         // Phiếu ghi số phần đã trừ kho và các lô đã trừ, để hoàn lại khi món bị hủy
         ...(deduction ? { stockPortions: delta, stockPicks: deduction.picksPerLine[index] } : {}),
@@ -977,8 +1044,7 @@ export default function POSScreen({
           batchCode: activeBatch?.batchCode,
           note: cartItem.note || undefined,
           size: cartItem.size,
-          sugarLevel: cartItem.sugarLevel,
-          iceLevel: cartItem.iceLevel
+          options: cartItem.options
         };
       });
 
@@ -1239,7 +1305,7 @@ export default function POSScreen({
             const prod = simProducts.find(p => p.id === item.productId);
             if (!prod) return null;
 
-            const isDrink = simStoreType === 'fnb' && isDrinkProduct(prod);
+            const hasOptions = simStoreType === 'fnb' && (prod.optionGroups?.length ?? 0) > 0;
 
             return (
               <div key={`${item.productId}-${idx}`} className="p-3 bg-surface-container rounded-2xl space-y-2">
@@ -1262,28 +1328,11 @@ export default function POSScreen({
 
                 {renderToppingChips(item)}
 
-                {/* Tuỳ chọn size / đường / đá cho đồ uống */}
-                {(isDrink || hasSizes(prod)) && (
+                {/* Tuỳ chọn size và các nhóm tùy chọn của món (đường, đá, ghi chú nhanh...) */}
+                {(hasOptions || hasSizes(prod)) && (
                   <div className="flex flex-wrap items-center gap-1.5">
                     {renderSizePicker(item)}
-                    {isDrink && (
-                      <>
-                    <select
-                      value={item.sugarLevel || DEFAULT_SUGAR}
-                      onChange={(e) => handleUpdateModifier(item, 'sugarLevel', e.target.value)}
-                      className="min-h-8 px-2 rounded-lg text-sm font-bold border border-outline-variant bg-surface-container-lowest text-on-surface-variant"
-                    >
-                      {SUGAR_OPTIONS.map(opt => <option key={opt} value={opt}>Đường {opt}</option>)}
-                    </select>
-                    <select
-                      value={item.iceLevel || DEFAULT_ICE}
-                      onChange={(e) => handleUpdateModifier(item, 'iceLevel', e.target.value)}
-                      className="min-h-8 px-2 rounded-lg text-sm font-bold border border-outline-variant bg-surface-container-lowest text-on-surface-variant"
-                    >
-                      {ICE_OPTIONS.map(opt => <option key={opt} value={opt}>Đá {opt}</option>)}
-                    </select>
-                      </>
-                    )}
+                    {renderOptionPickers(item)}
                   </div>
                 )}
 
@@ -1550,6 +1599,7 @@ export default function POSScreen({
               products={simProducts}
               selectedId={simSelectedTableId}
               onSelect={handleSelectTable}
+              onOpenMenu={handleOpenTableMenu}
             />
           </div>
         )}
@@ -1759,6 +1809,7 @@ export default function POSScreen({
                   products={simProducts}
                   selectedId={simSelectedTableId}
                   onSelect={handleSelectTable}
+              onOpenMenu={handleOpenTableMenu}
                 />
               </div>
               <label className="shrink-0 px-4 py-2.5 border-t border-outline-variant flex items-center gap-2 text-base text-on-surface cursor-pointer select-none">
@@ -1907,7 +1958,6 @@ export default function POSScreen({
               currentCart.map((item, idx) => {
                 const prod = simProducts.find(p => p.id === item.productId);
                 if (!prod) return null;
-                const isDrink = isDrinkProduct(prod);
                 return (
                   <div key={`${item.productId}-${idx}`} className="py-2.5 border-b border-outline-variant/60">
                     <div className="grid grid-cols-[minmax(0,1fr)_auto_5rem_5.5rem] items-center gap-3">
@@ -1928,16 +1978,7 @@ export default function POSScreen({
                     <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                       {renderToppingChips(item)}
                       {renderSizePicker(item)}
-                      {isDrink && (
-                        <>
-                          <select value={item.sugarLevel || DEFAULT_SUGAR} onChange={(e) => handleUpdateModifier(item, 'sugarLevel', e.target.value)} className="min-h-8 px-2 rounded-lg text-sm font-bold border border-outline-variant bg-surface-container-lowest">
-                            {SUGAR_OPTIONS.map(o => <option key={o} value={o}>Đường {o}</option>)}
-                          </select>
-                          <select value={item.iceLevel || DEFAULT_ICE} onChange={(e) => handleUpdateModifier(item, 'iceLevel', e.target.value)} className="min-h-8 px-2 rounded-lg text-sm font-bold border border-outline-variant bg-surface-container-lowest">
-                            {ICE_OPTIONS.map(o => <option key={o} value={o}>Đá {o}</option>)}
-                          </select>
-                        </>
-                      )}
+                      {renderOptionPickers(item)}
                       <button onClick={() => handleUpdateItemNote(item)} className="min-h-8 px-2 text-sm font-semibold text-on-surface-variant hover:text-primary flex items-center gap-1 cursor-pointer">
                         <Edit3 className="w-3.5 h-3.5" /> {item.note ? item.note : 'Ghi chú'}
                       </button>
@@ -2007,7 +2048,7 @@ export default function POSScreen({
             dateText={new Date().toLocaleString('vi-VN')}
             lines={currentCart.map(line => {
               const prod = simProducts.find(p => p.id === line.productId);
-              const options = [line.size, line.sugarLevel && `${line.sugarLevel} đường`, line.iceLevel && `${line.iceLevel} đá`].filter(Boolean).join(', ');
+              const options = [line.size, optionsText(line.options)].filter(Boolean).join(', ');
               const tops = (line.toppings || []).map(t => `+ ${t.quantity} ${simProducts.find(p => p.id === t.productId)?.name || 'Topping'}`).join(', ');
               return {
                 name: prod?.name || 'Món',
@@ -2121,6 +2162,7 @@ export default function POSScreen({
                 products={simProducts}
                 selectedId={simSelectedTableId}
                 onSelect={handleSelectTable}
+              onOpenMenu={handleOpenTableMenu}
               />
             </div>
           ) : (

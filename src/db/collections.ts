@@ -11,6 +11,8 @@
 
 import { buildHardDelete, buildSoftDelete, buildUpsert, nowIso, query, type Row } from './index';
 import type { SqlStatement } from './driver';
+import type { SelectedOption } from '../types';
+import { parseOptions, serializeOptions } from '../utils/productOptions';
 
 export type CollectionKey =
   | 'products'
@@ -44,16 +46,19 @@ interface CollectionSpec {
   toRow: (item: any, storeId: string) => Row;
   /** Dòng DB -> UI object. */
   fromRow: (row: Row) => any;
-  /** Bảng con (chi tiết đơn / chi tiết phiếu kho). */
-  children?: {
-    table: string;
-    /** Sinh các dòng con từ object cha. */
-    toRows: (item: any, storeId: string) => Row[];
-    /** Nạp danh sách con cho object cha. */
-    attach: (parents: any[], rowsByParent: Map<string, Row[]>) => void;
-    /** Cột khoá ngoại trỏ về cha. */
-    parentColumn: string;
-  };
+  /** Child tables (order lines, stock voucher lines, option groups and choices). They are attached in list order. */
+  children?: ChildSpec[];
+}
+
+/** A table whose rows belong to a row of the collection and are saved, loaded and replaced together with it. */
+interface ChildSpec {
+  table: string;
+  /** Sinh các dòng con từ object cha. */
+  toRows: (item: any, storeId: string) => Row[];
+  /** Nạp danh sách con cho object cha. */
+  attach: (parents: any[], rowsByParent: Map<string, Row[]>) => void;
+  /** Cột khoá ngoại trỏ về cha. */
+  parentColumn: string;
 }
 
 const bool = (v: any): number => (v ? 1 : 0);
@@ -140,6 +145,55 @@ function productSpec(kind: 'product' | 'ingredient'): CollectionSpec {
       toppingFor: parseJson(r.topping_for),
       createdAt: r.created_at,
     }),
+    children: [
+      {
+        table: 'product_option_groups',
+        parentColumn: 'product_id',
+        toRows: (p, storeId) =>
+          (p.optionGroups ?? []).map((group: any, idx: number) => ({
+            id: group.id,
+            store_id: storeId,
+            product_id: p.id,
+            name: str(group.name),
+            allow_multiple: bool(group.allowMultiple),
+            line_no: idx,
+            created_at: str(p.createdAt, nowIso()),
+          })),
+        attach: (parents, rowsByParent) => {
+          for (const p of parents) {
+            const rows = rowsByParent.get(p.id) ?? [];
+            p.optionGroups = rows.length > 0
+              ? rows.map((r) => ({ id: r.id, name: r.name, allowMultiple: !!r.allow_multiple, choices: [] as any[] }))
+              : undefined;
+          }
+        },
+      },
+      {
+        // Attached after the groups (list order), so each choice is put into the group it belongs to.
+        table: 'product_option_choices',
+        parentColumn: 'product_id',
+        toRows: (p, storeId) =>
+          (p.optionGroups ?? []).flatMap((group: any) =>
+            (group.choices ?? []).map((choice: any, idx: number) => ({
+              id: choice.id,
+              store_id: storeId,
+              product_id: p.id,
+              group_id: group.id,
+              label: str(choice.label),
+              is_default: bool(choice.isDefault),
+              line_no: idx,
+              created_at: str(p.createdAt, nowIso()),
+            }))),
+        attach: (parents, rowsByParent) => {
+          for (const p of parents) {
+            for (const r of rowsByParent.get(p.id) ?? []) {
+              const group = (p.optionGroups ?? []).find((g: any) => g.id === r.group_id);
+              if (group) group.choices.push({ id: r.id, label: r.label, isDefault: !!r.is_default });
+            }
+          }
+        },
+      },
+    ],
   };
 }
 
@@ -223,7 +277,7 @@ function transactionSpec(kind: 'product' | 'ingredient'): CollectionSpec {
       createdAt: r.created_at,
       items: [] as any[],
     }),
-    children: {
+    children: [{
       table: 'inventory_transaction_items',
       parentColumn: 'transaction_id',
       toRows: (t, storeId) =>
@@ -257,7 +311,7 @@ function transactionSpec(kind: 'product' | 'ingredient'): CollectionSpec {
           }));
         }
       },
-    },
+    }],
   };
 }
 
@@ -344,8 +398,7 @@ export const COLLECTIONS: Record<CollectionKey, CollectionSpec> = {
       status: str(k.status, 'pending'),
       note: str(k.note),
       size: str(k.size),
-      sugar_level: str(k.sugarLevel),
-      ice_level: str(k.iceLevel),
+      options: serializeOptions(k.options),
       toppings: str(k.toppings),
       staff_name: str(k.staffName),
       cancelled_at: k.cancelledAt ?? null,
@@ -366,8 +419,7 @@ export const COLLECTIONS: Record<CollectionKey, CollectionSpec> = {
       status: r.status,
       note: r.note,
       size: r.size || undefined,
-      sugarLevel: r.sugar_level || undefined,
-      iceLevel: r.ice_level || undefined,
+      options: parseOptions(r.options),
       toppings: r.toppings || undefined,
       staffName: r.staff_name || undefined,
       cancelledAt: r.cancelled_at || undefined,
@@ -455,7 +507,7 @@ export const COLLECTIONS: Record<CollectionKey, CollectionSpec> = {
       createdAt: r.created_at,
       items: [] as any[],
     }),
-    children: {
+    children: [{
       table: 'order_items',
       parentColumn: 'order_id',
       toRows: (o, storeId) =>
@@ -473,8 +525,7 @@ export const COLLECTIONS: Record<CollectionKey, CollectionSpec> = {
           batch_code: str(it.batchCode),
           note: str(it.note),
           size: str(it.size),
-          sugar_level: str(it.sugarLevel),
-          ice_level: str(it.iceLevel),
+          options: serializeOptions(it.options),
           toppings: it.toppings && it.toppings.length > 0 ? JSON.stringify(it.toppings) : '',
           line_no: idx,
           created_at: str(o.createdAt, nowIso()),
@@ -492,13 +543,12 @@ export const COLLECTIONS: Record<CollectionKey, CollectionSpec> = {
             batchCode: r.batch_code || undefined,
             note: r.note || undefined,
             size: r.size || undefined,
-            sugarLevel: r.sugar_level || undefined,
-            iceLevel: r.ice_level || undefined,
+            options: parseOptions(r.options),
             toppings: parseJson(r.toppings),
           }));
         }
       },
-    },
+    }],
   },
 
   customers: {
@@ -752,18 +802,20 @@ export async function loadCollection(key: CollectionKey, storeId: string): Promi
   const items = rows.map((r) => spec.fromRow(r));
 
   if (spec.children && items.length) {
-    const childRows = await query(
-      `SELECT * FROM ${spec.children.table} WHERE store_id = ? ORDER BY line_no ASC`,
-      [storeId],
-    );
-    const byParent = new Map<string, Row[]>();
-    for (const row of childRows) {
-      const pid = String(row[spec.children.parentColumn]);
-      const list = byParent.get(pid);
-      if (list) list.push(row);
-      else byParent.set(pid, [row]);
+    for (const child of spec.children) {
+      const childRows = await query(
+        `SELECT * FROM ${child.table} WHERE store_id = ? ORDER BY line_no ASC`,
+        [storeId],
+      );
+      const byParent = new Map<string, Row[]>();
+      for (const row of childRows) {
+        const pid = String(row[child.parentColumn]);
+        const list = byParent.get(pid);
+        if (list) list.push(row);
+        else byParent.set(pid, [row]);
+      }
+      child.attach(items, byParent);
     }
-    spec.children.attach(items, byParent);
   }
   return items;
 }
@@ -806,23 +858,23 @@ export function diffStatements(
     nextIds.add(id);
     const before = prevMap.get(id);
     const row = spec.toRow(item, storeId);
-    const childRows = spec.children ? spec.children.toRows(item, storeId) : [];
+    const childRows = (spec.children ?? []).map((child) => child.toRows(item, storeId));
 
     if (before) {
       const beforeRow = spec.toRow(before, storeId);
-      const beforeChildren = spec.children ? spec.children.toRows(before, storeId) : [];
+      const beforeChildren = (spec.children ?? []).map((child) => child.toRows(before, storeId));
       const sameRow = shallowEqual(beforeRow, row);
       const sameChildren = JSON.stringify(beforeChildren) === JSON.stringify(childRows);
       if (sameRow && sameChildren) continue;
     }
 
     statements.push(...buildUpsert(spec.table, row));
-    if (spec.children) {
+    (spec.children ?? []).forEach((child, index) => {
       statements.push(
-        buildHardDelete(spec.children.table, `${spec.children.parentColumn} = ?`, [id]),
-        ...childRows.map((cr) => buildUpsert(spec.children!.table, cr)[0]),
+        buildHardDelete(child.table, `${child.parentColumn} = ?`, [id]),
+        ...childRows[index].map((cr) => buildUpsert(child.table, cr)[0]),
       );
-    }
+    });
   }
 
   for (const [id] of prevMap) {
@@ -854,15 +906,14 @@ export type CartMap = Record<string, Array<{
   quantity: number;
   note: string;
   size?: string;
-  sugarLevel?: string;
-  iceLevel?: string;
+  options?: SelectedOption[];
   sentQuantity?: number;
   toppings?: { productId: string; quantity: number }[];
 }>>;
 
 export async function loadCarts(storeId: string): Promise<CartMap> {
   const rows = await query(
-    `SELECT cart_key, product_id, quantity, note, size, sugar_level, ice_level, sent_quantity, toppings FROM cart_items
+    `SELECT cart_key, product_id, quantity, note, size, options, sent_quantity, toppings FROM cart_items
      WHERE store_id = ? ORDER BY cart_key ASC, line_no ASC`,
     [storeId],
   );
@@ -875,8 +926,7 @@ export async function loadCarts(storeId: string): Promise<CartMap> {
       quantity: num(r.quantity, 1),
       note: str(r.note),
       size: r.size || undefined,
-      sugarLevel: r.sugar_level || undefined,
-      iceLevel: r.ice_level || undefined,
+      options: parseOptions(r.options),
       sentQuantity: num(r.sent_quantity, 0) || undefined,
       toppings: parseJson(r.toppings),
     });
@@ -923,8 +973,7 @@ export function diffCartStatements(prev: CartMap, next: CartMap, storeId: string
           quantity: num(item.quantity, 1),
           note: str(item.note),
           size: str(item.size),
-          sugar_level: str(item.sugarLevel),
-          ice_level: str(item.iceLevel),
+          options: serializeOptions(item.options),
           sent_quantity: num(item.sentQuantity, 0),
           toppings: item.toppings && item.toppings.length > 0 ? JSON.stringify(item.toppings) : '',
           line_no: idx,

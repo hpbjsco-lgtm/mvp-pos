@@ -22,6 +22,8 @@ interface KiotTableGridProps {
   products: Product[];
   selectedId: string;
   onSelect: (id: string) => void;
+  /** Called on a double click on a table or a virtual cart: the screen shows the menu for it. */
+  onOpenMenu: (id: string) => void;
 }
 
 const money = (n: number) => n.toLocaleString('vi-VN');
@@ -30,7 +32,7 @@ const money = (n: number) => n.toLocaleString('vi-VN');
  * Danh sách phòng bàn theo bố cục màn hình bán hàng KiotViet (PC): thẻ bàn vẽ dạng mặt bàn + ghế,
  * thông tin (tiền, thời gian, số món, số khách) nằm trong mặt bàn, tên bàn ở dưới.
  */
-export default function KiotTableGrid({ tables, zones, carts, products, selectedId, onSelect }: KiotTableGridProps) {
+export default function KiotTableGrid({ tables, zones, carts, products, selectedId, onSelect, onOpenMenu }: KiotTableGridProps) {
   const [zoneId, setZoneId] = useState('all');
   const [filter, setFilter] = useState<StatusFilter>('all');
   const [query, setQuery] = useState('');
@@ -73,6 +75,7 @@ export default function KiotTableGrid({ tables, zones, carts, products, selected
       <button
         key={id}
         onClick={() => onSelect(id)}
+        onDoubleClick={() => onOpenMenu(id)}
         className={`rounded-xl p-2 flex flex-col items-center justify-start gap-1 cursor-pointer transition-colors ${
           selected ? 'bg-primary text-on-primary' : lines.length > 0 ? 'bg-primary-container text-on-primary-container' : 'hover:bg-surface-container text-on-surface-variant'
         }`}
@@ -148,6 +151,7 @@ export default function KiotTableGrid({ tables, zones, carts, products, selected
               <button
                 key={table.id}
                 onClick={() => onSelect(table.id)}
+                onDoubleClick={() => onOpenMenu(table.id)}
                 className={`relative rounded-xl p-2 pb-2.5 flex flex-col items-center gap-1.5 cursor-pointer transition-colors active:scale-[0.98] ${tone}`}
               >
                 <span className="relative block w-full aspect-[10/7]">
